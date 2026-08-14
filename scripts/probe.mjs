@@ -1,26 +1,22 @@
 /**
  * Live probes for the Gemini Interactions API.
  *
- * Two of the four unknowns this project started with were settled from the
- * installed SDK types and need no call:
+ * All four unknowns are settled. Results, probed against gemini-3.7-flash:
  *
- *   - `generation_config.thinking_level` is snake_case, values
- *     minimal | low | medium | high.   (@google/genai 2.17.1)
- *   - `response_format` is
- *     { type: 'text', mime_type: 'application/json', schema }.
+ *   A. BOTH `models/gemini-3.7-flash` and the bare `gemini-3.7-flash` work.
+ *   B. `thinking_level` is read and is snake_case, confirmed on the wire:
+ *      48 thought tokens at `low` versus 153 at `high` for "17 * 23", reported
+ *      under `usage.total_thought_tokens` and billed at the output rate.
+ *      BUT: `minimal` is REJECTED by this model with a 400 -- allowed values
+ *      are high, low, medium. The SDK type lists `minimal` because that union
+ *      spans ALL models, not this one. Reading a per-model constraint off a
+ *      cross-model type was the mistake; only the wire settles it.
+ *   C. `response_format: { type, mime_type, schema }` works as typed.
+ *   D. CORS ALLOWS browser-origin calls. A page on http://localhost read a 400
+ *      body straight from the endpoint, so no dev proxy and no relay is needed.
+ *      Not covered by this script -- it runs in Node. See README.
  *
- * The two that remain genuinely need the wire:
- *
- *   A. Which model id form works: `models/gemini-3.7-flash` or bare.
- *   B. Whether thinking_level actually moves thought-token usage, which is the
- *      only way to prove the field is being read rather than ignored the way
- *      `temperature` is.
- *
- *   C. Structured output round-trips.
- *   D. Browser CORS -- not covered here. Run the dev server and call from the
- *      page; this script runs in Node and proves nothing about the browser.
- *
- * Usage: GEMINI_API_KEY=... bun run probe
+ * Usage: put GEMINI_API_KEY in .env (Bun loads it), then `bun run probe`.
  */
 
 import { GoogleGenAI } from '@google/genai';
@@ -56,7 +52,7 @@ function thoughtTokens(interaction) {
 let model = null;
 for (const candidate of ['models/gemini-3.7-flash', 'gemini-3.7-flash']) {
   try {
-    const r = await call(candidate, { thinking_level: 'minimal', max_output_tokens: 256 });
+    const r = await call(candidate, { thinking_level: 'low', max_output_tokens: 256 });
     console.log(`A. model "${candidate}" -> status ${r.status}, output ${JSON.stringify(r.output_text)}`);
     model = model ?? candidate;
   } catch (error) {
@@ -70,17 +66,28 @@ if (!model) {
 console.log(`A. using "${model}"\n`);
 
 // --- B: is thinking_level actually read? -----------------------------------
-const minimal = await call(model, { thinking_level: 'minimal', max_output_tokens: 512 });
+const minimal = await call(model, { thinking_level: 'low', max_output_tokens: 512 });
 const high = await call(model, { thinking_level: 'high', max_output_tokens: 2048 });
 const lo = thoughtTokens(minimal);
 const hi = thoughtTokens(high);
-console.log(`B. thought tokens: minimal=${lo} high=${hi}`);
+console.log(`B. thought tokens: low=${lo} high=${hi}`);
 console.log(`B. usage keys: ${Object.keys(minimal.usage ?? {}).join(', ')}`);
 console.log(
   lo != null && hi != null && hi > lo
     ? 'B. VERDICT: thinking_level is read (snake_case confirmed on the wire).\n'
     : 'B. VERDICT: inconclusive -- inspect the usage keys above.\n',
 );
+
+// --- B2: which thinking levels does this model accept? ---------------------
+for (const level of ['minimal', 'low', 'medium', 'high']) {
+  try {
+    await call(model, { thinking_level: level, max_output_tokens: 256 });
+    console.log(`B2. thinking_level "${level}" -> accepted`);
+  } catch (error) {
+    console.log(`B2. thinking_level "${level}" -> REJECTED: ${String(error?.message ?? error).slice(0, 120)}`);
+  }
+}
+console.log('');
 
 // --- C: structured output ---------------------------------------------------
 try {
@@ -89,7 +96,7 @@ try {
     input: [{ type: 'text', text: 'Give me a shot with a camera motion.' }],
     store: false,
     system_instruction: 'Return JSON only.',
-    generation_config: { thinking_level: 'minimal', max_output_tokens: 512 },
+    generation_config: { thinking_level: 'low', max_output_tokens: 512 },
     response_format: {
       type: 'text',
       mime_type: 'application/json',
@@ -110,7 +117,7 @@ try {
 // --- temperature: confirm it is ignored rather than rejected ---------------
 try {
   const withTemp = await call(model, {
-    thinking_level: 'minimal',
+    thinking_level: 'low',
     max_output_tokens: 256,
     temperature: 1.9,
   });

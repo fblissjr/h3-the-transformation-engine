@@ -35,7 +35,7 @@ H3 conditions on descriptive quality, and a canned camera clause bolted onto a s
 src/core/        pure TypeScript, no React, no DOM, no network (enforced by a test)
   ir/            document types, zod schemas, path addressing, the closed vocabularies
   normalize/     duration, label assignment, mode inference, budgets
-  validate/      ~51 rules, every one with a fixture that makes it go red
+  validate/      53 rules, every one with a fixture that makes it go red
   serialize/     source-mapped emitter, both output contracts
   patch/         path-scoped patch application
 src/provider/    Gemini Interactions client and the planner/patch prompts
@@ -71,6 +71,8 @@ Verified against `@google/genai` 2.17.1 types or probed live, not read from docs
 
 - `temperature` is accepted and silently ignored. Never sent; there is no temperature control.
 - Thinking runs by default and bills at the output rate, so an unset `thinking_level` is the expensive path. Every call states one: `medium` to plan, `low` to patch.
+- **`minimal` is not a valid thinking level for gemini-3.7-flash** (400; allowed are `high`, `low`, `medium`). The SDK type lists it because that union spans every model. `low` is the floor here, and `ThinkingLevel` is narrowed so the rejected value is unrepresentable.
+- Browser-origin calls to `https://generativelanguage.googleapis.com/v1beta/interactions` are **allowed by CORS** — probed from a page, which read a 400 body directly. No dev proxy, no production relay.
 - `system_instruction` and `generation_config` are interaction-scoped. Omitting them on a follow-up runs with neither, so both go on every call.
 - `interactions.delete` returns 501, so a stored interaction cannot be purged. `store` is hard-wired `false`, which also rules out `previous_interaction_id` chaining — every call is standalone and carries the document as its context.
 - `status: "incomplete"` means truncated at `max_output_tokens`. Terminal, distinct from failure, and the likeliest failure mode for a JSON planner. It raises a typed error carrying the partial text.
@@ -89,16 +91,16 @@ Neither protects against script running in the page.
 ```
 bun install
 bun run dev         # http://localhost:5173
-bun test            # 161 tests
+bun test            # 165 tests
 bun run typecheck
 bun run build
-GEMINI_API_KEY=... bun run probe    # live API probes
+bun run probe       # live API probes (reads GEMINI_API_KEY from .env)
 ```
 
 ## Verification
 
 - Five golden fixtures reproduce the worked examples from both official guides **byte for byte**, and all five validate with zero errors.
-- Every one of the ~51 diagnostic codes has a control fixture that makes it fire, plus the standing evidence that the unbroken examples produce none of them.
+- Every one of the 53 diagnostic codes has a control fixture that makes it fire, plus the standing evidence that the unbroken examples produce none of them.
 - A meta-test scans the rule sources and fails if any emitted code has no control, so a new rule cannot ship without one. That meta-test has itself been shown to go red.
 - A purity test fails if `src/core` imports React, the SDK, the DB layer, the DOM, or `fetch`.
 

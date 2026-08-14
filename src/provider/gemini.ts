@@ -9,10 +9,12 @@
  *
  * Load-bearing findings encoded here:
  *
- *  - `temperature` is in the type and is silently ignored. It is never sent, and
- *    there is no temperature control in the UI.
+ *  - `temperature` is in the type and is silently ignored (accepted with a
+ *    `completed` status and no effect). It is never sent, and there is no
+ *    temperature control in the UI.
  *  - Thinking runs by DEFAULT and bills at the output rate. An unset
- *    `thinking_level` is the EXPENSIVE path, so every call states one.
+ *    `thinking_level` is the EXPENSIVE path, so every call states one. The SDK's
+ *    level union is broader than any one model accepts -- see ThinkingLevel.
  *  - `system_instruction` and `generation_config` are interaction-scoped. A
  *    follow-up that omits them silently runs with neither, so both are sent on
  *    every call without exception.
@@ -27,9 +29,24 @@
 
 import { GoogleGenAI } from '@google/genai';
 
-/** Verified against the installed SDK: snake_case, four levels. */
-export type ThinkingLevel = 'minimal' | 'low' | 'medium' | 'high';
+/**
+ * Thinking levels this model accepts.
+ *
+ * The SDK type is `minimal | low | medium | high` -- that is the union across
+ * ALL models, not a per-model list. Probed live against gemini-3.7-flash:
+ *
+ *   minimal -> 400 "'minimal' is not a supported thinking level for this model.
+ *                   Allowed values are: high, low, medium."
+ *   low, medium, high -> accepted
+ *
+ * So `low` is the floor here, not `minimal`, and the type is narrowed to make
+ * the rejected value unrepresentable. Widen it only alongside a model that
+ * accepts it -- gemini-bridge defaults to `minimal`, but that was calibrated
+ * against 3.6-flash.
+ */
+export type ThinkingLevel = 'low' | 'medium' | 'high';
 
+/** Both `models/gemini-3.7-flash` and the bare id work; probed. */
 export const DEFAULT_MODEL = 'models/gemini-3.7-flash';
 
 /**
@@ -37,12 +54,16 @@ export const DEFAULT_MODEL = 'models/gemini-3.7-flash';
  *
  * Planning is the only stage that genuinely benefits from deliberation. Patches
  * are narrow rewrites of a named field, and vision descriptions are close to
- * transcription, so both stay cheap.
+ * transcription, so both sit at the floor.
+ *
+ * Thinking is not free even at the floor: probed at 48 thought tokens for
+ * "17 * 23" at `low` versus 153 at `high`, billed at the output rate and
+ * reported under `usage.total_thought_tokens`.
  */
 export const THINKING: Record<'planner' | 'patch' | 'vision', ThinkingLevel> = {
   planner: 'medium',
   patch: 'low',
-  vision: 'minimal',
+  vision: 'low',
 };
 
 const TERMINAL_OK = 'completed';
