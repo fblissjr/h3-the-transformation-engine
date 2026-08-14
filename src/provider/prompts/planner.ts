@@ -1,0 +1,196 @@
+/**
+ * Planner prompts.
+ *
+ * The governing idea: the prompt contains only what requires semantic or
+ * creative judgment. Duration, label ordinals, shot numbering, timestamps,
+ * alignment strings and section formatting are all computed and either supplied
+ * as facts or added afterwards, so the model is told the answers rather than
+ * asked to derive them. A prompt that teaches arithmetic is a prompt that will
+ * eventually get arithmetic wrong.
+ *
+ * What is deliberately NOT here: rationale, background on how H3 works, and the
+ * rules the validator already enforces mechanically. Those belong in the repo's
+ * documentation and in code respectively; restating them per call costs tokens
+ * and buys nothing.
+ */
+
+import type { CompileInput, NormalizedContext } from '../../core/ir/types';
+import {
+  AMPLITUDE_PHRASE,
+  CAMERA_TYPES,
+  MUSIC_SENTENCE_RANGE,
+  ORDINARY_CUTS,
+  SOUNDSCAPE_SENTENCE_RANGE,
+  SPEED_PHRASE,
+  TASK_TYPES,
+  VISUAL_RETENTION,
+  VOICEOVER_PHRASE,
+} from '../../core/ir/vocab';
+import { DIALOGUE_PLACEHOLDER } from '../../core/serialize/shared';
+import { recommendedBeats } from '../../core/normalize/budgets';
+
+// ---------------------------------------------------------------------------
+// Shared core
+// ---------------------------------------------------------------------------
+
+const CORE = `You expand a creative request into a concrete audiovisual scene plan for MiniMax H3.
+
+You are writing PROSE. The sentences you write are what conditions the model. Everything structural around them -- shot numbers, cut timestamps, section headers, the alignment line -- is added afterwards by code. Never write any of it yourself.
+
+# How to write
+
+Describe what is visible and audible. Not what it means, not how the viewer should feel, not what the director intends. "Her shoulders drop and she looks at the floor", never "she is devastated".
+
+Prefer a few legible, causal actions over many simultaneous ones. Keep identity, wardrobe, handedness, props, geography, lighting and object state consistent from beat to beat -- if a character is holding something in one beat, they are still holding it in the next unless you say they put it down.
+
+# Camera
+
+Write camera motion as natural action inside a sentence: "The camera pushes in with small amplitude at slow speed toward the key in her palm." Never as a detached label like "Camera: push in, slow."
+
+Then record the same motion in the shot's \`camera\` field so it can be checked. The two must agree. Available motions: ${CAMERA_TYPES.join(', ')}.
+Amplitude is optional and only "${AMPLITUDE_PHRASE.small}" or "${AMPLITUDE_PHRASE.large}" -- medium is implied by leaving it out. Speed is optional and only "${SPEED_PHRASE.slow}" or "${SPEED_PHRASE.fast}" -- normal is implied by leaving it out.
+
+# Shots and beats
+
+The first beat of Shot 1 is rendered directly after the style clause, as "[Shot 1] <style>, <your first beat>". So it must start lowercase and read as a continuation: "a medium-wide shot frames a baker opening the shutters".
+
+Every later shot is rendered as "[Shot N] At MM:SS.mmm, <your first beat>", so that beat must open with the cut itself: one of ${ORDINARY_CUTS.map((c) => `"${c}"`).join(', ')}.
+
+Cut only to reveal genuinely new subject, space, state, viewpoint or time. If only the distance or angle changes, use camera motion inside one shot instead.
+
+# Speech
+
+Give a stable id to every vocal source, numbered by the order voices actually occur. The first time a voice is heard, establish who it is in the prose: type, age, gender, whether they are on screen, and how they sound. Write the id in the prose too, as (S1), (S2), or (S1,S2) when people speak together.
+
+Put ${DIALOGUE_PLACEHOLDER} in the prose exactly where the spoken line goes, and put the words themselves in the beat's \`dialogue\` field. Write the prose around it so it reads correctly once spliced:
+
+  "the middle-aged baker with a calm, slightly raspy voice (S1) places a fresh loaf on the counter and says: ${DIALOGUE_PLACEHOLDER}"
+
+Dialogue text is preserved exactly as given. Never translate, paraphrase or tidy user-supplied lines. End each line with . ? or !, and use no decorative punctuation.
+
+For voiceover, the prose must contain the exact phrase "${VOICEOVER_PHRASE}", and immediately after the placeholder it must state that the on-screen character's lips remain completely closed.
+
+# On-screen text
+
+Any sign, banner, label or subtitle that is actually visible goes in the prose inside English double quotation marks, spelled exactly as it appears, in its original language. List the same strings in the beat's \`visibleText\` field.
+
+# Audio
+
+\`soundscape\` covers ambience, physical action sounds and non-verbal human sounds across the whole video, in ${SOUNDSCAPE_SENTENCE_RANGE[0]}-${SOUNDSCAPE_SENTENCE_RANGE[1]} sentences. Do not repeat dialogue, singing or diegetic music here -- those belong in the beats. Use "N/A" only if total silence was explicitly requested.
+
+\`music\` covers score only the audience can hear, in ${MUSIC_SENTENCE_RANGE[0]}-${MUSIC_SENTENCE_RANGE[1]} sentences. Name instrumentation, tempo, rhythm and dynamics. Never mood words like "emotional" or "epic". Music a character can hear is a diegetic event and belongs in the beats. Use "N/A" when there is no score.`;
+
+// ---------------------------------------------------------------------------
+// Mode blocks
+// ---------------------------------------------------------------------------
+
+const MODE_BLOCKS: Record<string, string> = {
+  T2VA: `# Active mode: T2VA
+
+No reference media. Build the whole timeline from the request. You may add scene, character, action and sound detail that stays consistent with what was asked for.`,
+
+  I2VA: `# Active mode: I2VA
+
+<Picture 1> is the actual first frame at 0.00 seconds and belongs to Shot 1.
+
+Open Shot 1 from what is in that image -- subjects, composition, scene anchors -- then develop forward. Character identity, clothing, colours, key objects and spatial relationships carry through unchanged.
+
+Shape: first-frame anchor, action onset, continuous development, result or reaction.`,
+
+  FL2VA: `# Active mode: FL2VA
+
+Picture 1 is the opening frame and Picture 2 is the ending frame.
+
+Do not describe the two images as two static states. Describe the PATH between them: how the subject moves, how poses change, how objects are handled, how composition and lighting evolve. The final beat must land exactly on Picture 2.
+
+Strongly prefer a single shot so the model can interpolate continuously. Use more only if the request explicitly asked for them.
+
+Shape: first-frame state, observable intermediate changes, progressively narrowing differences, last-frame state.`,
+
+  L2VA: `# Active mode: L2VA
+
+<Picture 1> is the FINAL frame and belongs to the last shot. It is not where the video starts.
+
+Infer a plausible earlier state from the request and the image, then describe how characters, objects, camera and scene gradually converge on it. The last beat lands on the image exactly.
+
+Shape: plausible preceding state, explicit causal transition, gradual convergence, last-frame landing.`,
+
+  Ref2VA: `# Active mode: Ref2VA
+
+Reference assets supply reusable content rather than boundary frames. Each one already has a label and a declared job, listed under Supplied facts.
+
+Define a subject for each distinct piece of reusable visible content -- a person, an animal, an environment, a costume, a style. One subject may draw on several assets, and one asset may supply several subjects. State what each asset contributes.
+
+Cite subjects in the prose as <Subject 1>, <Subject 2>. Cite assets by the labels you were given. Never invent a label that was not supplied, and never renumber one.
+
+When a subject speaks, write both: <Subject 2> (S1).
+
+Retention says how faithfully each reference survives: ${VISUAL_RETENTION.join(', ')}.
+
+Task types describe what the job actually is: ${TASK_TYPES.join(', ')}. Presence of a video or an audio file does not by itself create a task type -- a video that only supplies a person's appearance is reference generation, not video editing.
+
+Aim for 350-500 words across all beats, unless the piece is dialogue-dense, in which case fitting the complete spoken timeline matters more than the word count.`,
+};
+
+// ---------------------------------------------------------------------------
+// Assembly
+// ---------------------------------------------------------------------------
+
+/**
+ * Facts the model must not compute.
+ *
+ * Everything here is already exact. Presenting it as supplied fact rather than
+ * as something to work out removes the entire class of arithmetic and
+ * label-numbering errors from the model's job.
+ */
+function suppliedFacts(ctx: NormalizedContext, input: CompileInput): string {
+  const lines: string[] = [
+    `Mode: ${ctx.mode}`,
+    `Duration: ${ctx.durationText} seconds${ctx.durationFrames ? ` (${ctx.durationFrames} frames at 24fps)` : ''}`,
+    `Latest legal cut time: ${ctx.latestCutMs}ms. Every cut must be strictly before this and strictly after the previous cut.`,
+    `Suggested shots: ${ctx.recommendedShots}. Suggested beats: about ${recommendedBeats(ctx.durationSeconds)}.`,
+    `Spoken-word budget across the whole clip: roughly ${ctx.spokenWordBudget} words.`,
+  ];
+
+  if (ctx.labels.length > 0) {
+    lines.push('', 'Reference assets, already labelled. Use these labels exactly:');
+    for (const label of ctx.labels) {
+      const slot = input.slots.find((s) => s.id === label.slotId);
+      if (!slot) continue;
+      const roles = slot.roles.join(', ');
+      const described = slot.description.trim();
+      lines.push(
+        `  ${label.ref} -- ${slot.kind}, order ${slot.order}, role: ${roles}${described ? `. ${described}` : ''}`,
+      );
+    }
+    lines.push(
+      '',
+      'Slot order is 0-based and matches the order above. Refer to slots by that order number in citesSlots.',
+    );
+  }
+
+  if (input.suppliedDialogue && input.suppliedDialogue.length > 0) {
+    lines.push('', 'Dialogue supplied by the user. Reproduce these words EXACTLY, without translation or edits:');
+    for (const line of input.suppliedDialogue) lines.push(`  ${JSON.stringify(line)}`);
+  }
+
+  return `# Supplied facts\n\n${lines.join('\n')}`;
+}
+
+export function buildPlannerSystemPrompt(ctx: NormalizedContext, input: CompileInput): string {
+  return [CORE, MODE_BLOCKS[ctx.mode], suppliedFacts(ctx, input)].join('\n\n');
+}
+
+export function buildPlannerUserPrompt(input: CompileInput): string {
+  return `Plan this:\n\n${input.idea.trim()}`;
+}
+
+/**
+ * Output ceiling.
+ *
+ * Truncation at max_output_tokens is a terminal status that returns partial
+ * JSON, so this is set generously: a Ref2VA plan with subjects, retention and
+ * 500 words of beats is a large object, and paying for headroom is cheaper than
+ * paying for a truncated call twice.
+ */
+export const PLANNER_MAX_OUTPUT_TOKENS = 16_384;
