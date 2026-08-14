@@ -9,6 +9,7 @@
 
 import { useState } from 'react';
 import { useEngine } from './useEngine';
+import { KeyPanel } from './KeyPanel';
 import { SlotManager } from './SlotManager/SlotManager';
 import { DocumentEditor } from './DocumentEditor/DocumentEditor';
 import { PromptView } from './PromptView/PromptView';
@@ -23,7 +24,6 @@ const FRAME_CHOICES = gridFramesUpTo(24 * 15);
 export function App() {
   const e = useEngine();
   const [instruction, setInstruction] = useState('');
-  const [keyDraft, setKeyDraft] = useState('');
   const [tab, setTab] = useState<'problems' | 'history'>('problems');
 
   const errorCount = e.view?.validation.errors.length ?? 0;
@@ -37,25 +37,13 @@ export function App() {
           prompts as data &middot; MiniMax H3
         </span>
         <div className="flex-1" />
-        {!e.apiKey && (
-          <div className="flex items-center gap-1">
-            <input
-              type="password"
-              value={keyDraft}
-              onChange={(ev) => setKeyDraft(ev.target.value)}
-              placeholder="Gemini API key"
-              className="w-56 rounded border border-[var(--color-edge)] bg-black/30 px-2 py-1 text-xs"
-            />
-            <button
-              type="button"
-              onClick={() => void e.saveApiKey(keyDraft)}
-              className="rounded border border-[var(--color-edge)] px-2 py-1 text-xs hover:bg-white/5"
-            >
-              Save
-            </button>
-          </div>
-        )}
-        {e.apiKey && <span className="text-[10px] text-[var(--color-muted)]">key stored locally</span>}
+        <KeyPanel
+          apiKey={e.apiKey}
+          storedKeyMode={e.storedKeyMode}
+          onSave={e.saveApiKey}
+          onUnlock={e.unlockApiKey}
+          onForget={e.forgetApiKey}
+        />
       </header>
 
       {(e.error || e.notice) && (

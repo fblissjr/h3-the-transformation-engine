@@ -320,6 +320,80 @@ export const refLabelsDefined: Rule = (doc, ctx) => {
   return out;
 };
 
+/**
+ * Naming a vocal act without supplying its words is an instruction to vocalise.
+ *
+ * Observed failure: a summary saying the subject "speaks to the camera", with
+ * the actual line only in detailed_description, produced a character who
+ * babbled until she reached the scripted words. H3 obeyed the summary and
+ * improvised to fill it.
+ *
+ * Deliberately narrow. The guide's own worked summary describes actions, shot
+ * count and the ending ("shows", "enters", "lunges", "ends with a canned
+ * audience laugh") -- all fine. It contains no speech-act verb, and that is the
+ * boundary being enforced, not a general ban on summarising.
+ */
+const SPEECH_ACT_VERBS =
+  /\b(?:says?|speaks?|speaking|talks?|talking|rants?|argues?|converses?|narrates?|replies|shouts?|whispers?|sings?|singing|asks?|answers?|exclaims?|chants?)\b/i;
+const SPEECH_ACT_PHRASES = /\b(?:delivers a speech|has a conversation|speaks to camera)\b/i;
+
+export const summaryHasNoVocalDirective: Rule = (doc) => {
+  if (doc.mode !== 'Ref2VA' || !doc.summary) return [];
+  const match = SPEECH_ACT_VERBS.exec(doc.summary) ?? SPEECH_ACT_PHRASES.exec(doc.summary);
+  if (!match) return [];
+  return [
+    error(
+      'SUMMARY_VOCAL_DIRECTIVE',
+      'summary',
+      `Summary names a vocal act ("${match[0]}") without supplying words. That reads as an instruction to speak and produces invented speech before the scripted line. Keep summary verbs physical.`,
+    ),
+  ];
+};
+
+/**
+ * A frame anchor controls exactly one moment.
+ *
+ * A first frame governs 0.00 seconds and a last frame governs the end. A
+ * retention note that says an opening composition is "restored for the closing
+ * wide shot" silently turns an opening-only anchor into an ending requirement.
+ *
+ * Scoped to slots carrying exactly one frame-anchor role, so a picture
+ * legitimately serving as both endpoints is exempt.
+ */
+const RECURRENCE_AFTER_FIRST = /\b(?:returns?|restored?|restores|again|reprise|closes on|closing|final frame|at the end)\b/i;
+const RECURRENCE_BEFORE_LAST = /\b(?:opening|first frame|begins?|0\.00)\b/i;
+
+export const frameAnchorNotExtended: Rule = (doc, ctx) => {
+  if (doc.mode !== 'Ref2VA') return [];
+  const out: Diagnostic[] = [];
+
+  (doc.retention ?? []).forEach((entry, i) => {
+    const target = entry.target;
+    if (target.type !== 'slot') return;
+    const slot = doc.slots.find((s) => s.id === target.slotId);
+    if (!slot) return;
+
+    const anchors = slot.roles.filter((r) => r === 'first_frame' || r === 'last_frame');
+    if (anchors.length !== 1) return;
+
+    const text = `${entry.context} ${entry.note}`;
+    const pattern = anchors[0] === 'first_frame' ? RECURRENCE_AFTER_FIRST : RECURRENCE_BEFORE_LAST;
+    const match = pattern.exec(text);
+    if (!match) return;
+
+    const label = ctx.labels.find((l) => l.slotId === slot.id)?.ref ?? slot.kind;
+    out.push(
+      error(
+        'REF_FRAME_ROLE_EXTENDED',
+        `retention[${i}].note`,
+        `${label} is a ${anchors[0]} anchor, but its retention note says "${match[0]}", extending it to the other end of the clip. A frame anchor controls one moment only.`,
+      ),
+    );
+  });
+
+  return out;
+};
+
 /** detailed_description has a soft word target for generation tasks. */
 export const refDetailLength: Rule = (doc) => {
   if (doc.mode !== 'Ref2VA') return [];
@@ -365,5 +439,7 @@ export const sectionRules: Rule[] = [
   refRetentionMarkerClass,
   refNoSpeakerInRetention,
   refLabelsDefined,
+  summaryHasNoVocalDirective,
+  frameAnchorNotExtended,
   refDetailLength,
 ];

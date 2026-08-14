@@ -195,7 +195,10 @@ const PlannedSubjectSchema = z.object({
       }),
     )
     .min(1),
-  traits: z.string().min(1),
+  traits: z
+    .string()
+    .min(1)
+    .describe('Only traits visible in the supplied asset or stated in its description. Never inferred.'),
   appearsInShots: z.array(z.number().int().min(1)).describe('1-based shot numbers this subject appears in.'),
   retention: z.enum(VISUAL_RETENTION),
   retentionNote: z.string(),
@@ -219,13 +222,18 @@ const PlannedSpeakerSchema = z.object({
 });
 
 export const PlannerOutputSchema = z.object({
-  style: z.string().min(1).describe('Visual style and medium, e.g. "Live-action, cinematic".'),
+  style: z.string().min(1).describe('Medium and finish, written as an opening clause. e.g. "Stop-motion felt puppetry, shallow depth of field".'),
   shots: z.array(PlannedShotSchema).min(1),
   speakers: z.array(PlannedSpeakerSchema),
   subjects: z.array(PlannedSubjectSchema).describe('Ref2VA only. Empty array for the base contract.'),
   soundscape: z.string().min(1).describe('overall_soundscape: 1-4 sentences, or "N/A" for requested silence.'),
   music: z.string().min(1).describe('non_diegetic_music: 1-3 sentences, or "N/A" when absent.'),
-  summary: z.string().nullable().describe('Ref2VA only. One short paragraph; the task-type prefix is added for you.'),
+  summary: z
+    .string()
+    .nullable()
+    .describe(
+      'Ref2VA only. One or two sentences, physical verbs only, no speech acts. The task-type prefix is added for you.',
+    ),
   taskTypes: z.array(z.enum(TASK_TYPES)).nullable().describe('Ref2VA only.'),
   audioRetention: z
     .array(

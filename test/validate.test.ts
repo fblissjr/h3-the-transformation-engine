@@ -259,6 +259,26 @@ const CONTROLS: Control[] = [
     mutate: (d) => void (d.shots[0].beats[0].prose += ' <Subject 9> waves.'),
   },
   {
+    // Reproduces the observed failure: a summary that announces speech makes
+    // the model improvise until it reaches the scripted line.
+    code: 'SUMMARY_VOCAL_DIRECTIVE',
+    base: ref2vaCoffeeShop,
+    mutate: (d) => void (d.summary += ' <Subject 3> argues with <Subject 4>.'),
+  },
+  {
+    code: 'REF_FRAME_ROLE_EXTENDED',
+    base: ref2vaCoffeeShop,
+    mutate: (d) => {
+      d.slots[0].roles = ['first_frame'];
+      d.retention!.push({
+        target: { type: 'slot', slotId: d.slots[0].id },
+        context: '[Shot 1] first frame',
+        marker: 'fully_preserved',
+        note: 'the composition is restored for the closing wide shot.',
+      });
+    },
+  },
+  {
     code: 'REF_DETAIL_WORD_COUNT',
     base: ref2vaCoffeeShop,
     // Strip dialogue so the dialogue-dense exemption does not apply, then cut

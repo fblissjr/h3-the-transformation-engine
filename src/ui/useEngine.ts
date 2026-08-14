@@ -17,7 +17,14 @@ import { contextFor, framesToSeconds } from '../core/normalize';
 import { inferMode } from '../core/normalize/mode';
 import { compile, edit, editDirect, inspect } from '../pipeline';
 import { GeminiClient } from '../provider/gemini';
-import { API_KEY_NAME, getSecret, hasSecret, setSecret } from '../crypto/secureStore';
+import {
+  API_KEY_NAME,
+  getSecret,
+  removeSecret,
+  secretMode,
+  setSecret,
+  type KeyMode,
+} from '../crypto/secureStore';
 import { buildTree, flattenTree, listVersions, recordVersion } from '../db/versions';
 import { loadDocument, saveDocument, type StoredVersion } from '../db/db';
 
@@ -41,6 +48,8 @@ export interface EngineState {
 
 export function useEngine() {
   const [apiKey, setApiKey] = useState<string | null>(null);
+  /** What is on disk, independent of whether it has been unlocked this session. */
+  const [storedKeyMode, setStoredKeyMode] = useState<KeyMode | null>(null);
   const [idea, setIdea] = useState('');
   const [modeOverride, setModeOverride] = useState<H3Mode | null>(null);
   const [durationFrames, setDurationFrames] = useState<number | null>(192);
@@ -57,7 +66,14 @@ export function useEngine() {
   // --- persistence -------------------------------------------------------
   useEffect(() => {
     void (async () => {
-      if (hasSecret(API_KEY_NAME)) setApiKey(await getSecret(API_KEY_NAME));
+      // A passphrase-mode secret cannot be read without the passphrase, so the
+      // UI has to distinguish "no key yet" from "key present but locked".
+      // Treating both as absent would silently ask the user to paste their key
+      // again and overwrite a perfectly good stored one.
+      const mode = secretMode(API_KEY_NAME);
+      setStoredKeyMode(mode);
+      if (mode === 'device') setApiKey(await getSecret(API_KEY_NAME));
+
       const stored = await loadDocument(DOC_ID);
       if (stored) {
         setDoc(stored.doc);
@@ -71,9 +87,43 @@ export function useEngine() {
     })();
   }, []);
 
-  const saveApiKey = useCallback(async (value: string) => {
-    await setSecret(API_KEY_NAME, value.trim());
-    setApiKey(value.trim());
+  /**
+   * Store the key.
+   *
+   * With a passphrase it is genuinely confidential at rest; without one it is
+   * obfuscated against a casual look at localStorage and nothing more. The UI
+   * says which, because a user who thinks the weaker mode is encryption may
+   * make a worse decision about whose machine they run this on.
+   */
+  const saveApiKey = useCallback(async (value: string, passphrase?: string) => {
+    const trimmed = value.trim();
+    if (trimmed === '') {
+      setError('Paste a key before saving.');
+      return;
+    }
+    const mode: KeyMode = passphrase ? 'passphrase' : 'device';
+    await setSecret(API_KEY_NAME, trimmed, { mode, ...(passphrase ? { passphrase } : {}) });
+    setApiKey(trimmed);
+    setStoredKeyMode(mode);
+    setError(null);
+  }, []);
+
+  /** Unlock a passphrase-mode key that was stored in an earlier session. */
+  const unlockApiKey = useCallback(async (passphrase: string) => {
+    const value = await getSecret(API_KEY_NAME, passphrase);
+    if (value == null) {
+      setError('That passphrase does not unlock the stored key.');
+      return false;
+    }
+    setApiKey(value);
+    setError(null);
+    return true;
+  }, []);
+
+  const forgetApiKey = useCallback(() => {
+    removeSecret(API_KEY_NAME);
+    setApiKey(null);
+    setStoredKeyMode(null);
   }, []);
 
   // --- derived -----------------------------------------------------------
@@ -220,7 +270,10 @@ export function useEngine() {
 
   return {
     apiKey,
+    storedKeyMode,
     saveApiKey,
+    unlockApiKey,
+    forgetApiKey,
     idea,
     setIdea,
     mode,

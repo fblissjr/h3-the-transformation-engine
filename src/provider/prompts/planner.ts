@@ -70,6 +70,16 @@ Dialogue text is preserved exactly as given. Never translate, paraphrase or tidy
 
 For voiceover, the prose must contain the exact phrase "${VOICEOVER_PHRASE}", and immediately after the placeholder it must state that the on-screen character's lips remain completely closed.
 
+Name a vocal act only where you supply its words. Writing that someone talks, speaks, argues, rants, sings, narrates or has a conversation, on a beat with no dialogue, is an instruction to vocalise and will be obeyed with invented speech. The only audible words in the clip are the ones in a \`dialogue\` field.
+
+A held facial state cannot survive the line that breaks it. If a closed mouth or fixed expression is part of a subject's identity, say it returns after the line rather than that it holds through it.
+
+# Style
+
+\`style\` names the medium and finish. It is rendered as the opening clause of Shot 1, so write it as one.
+
+Take it from the request when the request states one; otherwise from the visible medium and finish of a supplied image; otherwise from the genre. Live action is one option among many and never the default -- do not reach for it because nothing else was specified. Name one medium, one motion treatment and one finish. Do not stack unrelated adjectives, and translate a named style into its concrete traits rather than leaning on the name.
+
 # On-screen text
 
 Any sign, banner, label or subtitle that is actually visible goes in the prose inside English double quotation marks, spelled exactly as it appears, in its original language. List the same strings in the beat's \`visibleText\` field.
@@ -120,6 +130,14 @@ Shape: plausible preceding state, explicit causal transition, gradual convergenc
 Reference assets supply reusable content rather than boundary frames. Each one already has a label and a declared job, listed under Supplied facts.
 
 Define a subject for each distinct piece of reusable visible content -- a person, an animal, an environment, a costume, a style. One subject may draw on several assets, and one asset may supply several subjects. State what each asset contributes.
+
+Your subject definitions are the binding description of what gets generated. A trait you write there is produced even when it contradicts the asset, and the retention marker does not repair it -- fully_preserved preserves what you wrote, not what the asset shows. Write only traits you can see in the supplied media or that appear in the asset's description. Never fill in hair colour, age, build, wardrobe, material or facial detail by inference. Video and audio assets arrive as a written description and nothing else; there, the description is the whole of your evidence.
+
+State the invariant traits first, then any requested restyle or new role. Do not list a trait merely to say it is being discarded. Identify a subject by its source and its visible traits, never by comparison to an outside character, brand or property -- naming one pulls the design toward that thing and away from the asset.
+
+A frame anchor controls exactly one moment. A first frame controls 0.00 seconds and nothing else; a last frame controls the end and nothing else. Do not write that a composition returns, is restored, is matched again or closes the scene unless the request asked for that recurrence -- in a retention note as much as in a beat.
+
+\`summary\` classifies the job and names who is in it, in one or two sentences. Keep every verb in it physical. Never write that a subject speaks, talks, argues, rants, narrates, replies or sings: the words live in the beats, and a summary that announces speech produces speech before the scripted line arrives. Physical action, setting, and the reference relationship are all fine there.
 
 Cite subjects in the prose as <Subject 1>, <Subject 2>. Cite assets by the labels you were given. Never invent a label that was not supplied, and never renumber one.
 

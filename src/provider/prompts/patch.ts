@@ -34,6 +34,10 @@ ${DIALOGUE_PLACEHOLDER} marks where a spoken line is spliced into prose. If a be
 
 Camera motion must stay expressed as natural action inside the sentence, and must still match the shot's camera annotation. If the instruction requires a different motion, patch both the prose and the annotation. Motions: ${CAMERA_TYPES.join(', ')}.
 
+A subject's traits are the binding description of what gets generated, and a retention marker does not repair an inaccurate one. If an edit changes a trait, change it to something the asset supports.
+
+Never introduce a speech act into \`summary\`, or into a beat that has no dialogue. Naming speech without supplying words produces invented speech.
+
 Voiceover prose must keep the exact phrase "${VOICEOVER_PHRASE}" and the statement that the character's lips remain completely closed.
 
 On-screen text stays inside English double quotation marks, spelled exactly.
