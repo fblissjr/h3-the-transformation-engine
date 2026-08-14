@@ -16,13 +16,12 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "exactOptionalPropertyTypes": false,
-    "baseUrl": ".",
     "paths": {
-      "@core/*": ["src/core/*"],
-      "@provider/*": ["src/provider/*"],
-      "@db/*": ["src/db/*"],
-      "@ui/*": ["src/ui/*"],
-      "@lib/*": ["src/lib/*"]
+      "@core/*": ["./src/core/*"],
+      "@provider/*": ["./src/provider/*"],
+      "@db/*": ["./src/db/*"],
+      "@ui/*": ["./src/ui/*"],
+      "@lib/*": ["./src/lib/*"]
     }
   },
   "include": ["src", "test", "scripts"]

@@ -3,6 +3,37 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      Content-Security-Policy.
+
+      This page holds a user-supplied API key in localStorage, so the thing that
+      matters most is `connect-src`: script running here can only reach the
+      Gemini endpoint and this origin. A compromised dependency cannot POST the
+      key to an attacker's server, because the browser refuses the connection.
+
+      `style-src` allows inline because Tailwind injects a <style> element.
+      `script-src` does not, so an injected <script> or inline handler is
+      refused outright.
+
+      ws:/wss: are present for the Vite dev server's hot-reload socket. They are
+      harmless in a production build, where nothing opens one.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="
+        default-src 'self';
+        script-src 'self';
+        style-src 'self' 'unsafe-inline';
+        img-src 'self' data: blob:;
+        media-src 'self' data: blob:;
+        font-src 'self' data:;
+        connect-src 'self' https://generativelanguage.googleapis.com ws: wss:;
+        object-src 'none';
+        base-uri 'none';
+        form-action 'none';
+        frame-ancestors 'none';
+      "
+    />
     <title>H3 Transformation Engine</title>
   </head>
   <body>

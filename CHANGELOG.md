@@ -2,6 +2,33 @@
 
 All notable changes to this project are documented here. Semantic versioning.
 
+## [0.3.0]
+
+Prepared for open source.
+
+### Added
+
+- **MIT license.**
+- **Content-Security-Policy** in `index.html`. `connect-src` is limited to this origin and the Gemini endpoint, so a compromised dependency cannot exfiltrate the user's API key; `script-src 'self'` blocks injected inline script. Verified in a browser: a fetch to an unrelated origin is refused while the Gemini endpoint stays reachable.
+- **`test/provider.test.ts`** — asserts the privacy-critical request properties the README promises: `store: false` (and that it cannot be overridden), no `temperature`, an explicit `thinking_level`, images inline rather than uploaded. `buildRequest` was extracted as a pure function so these need no key and no network.
+- **`CLAUDE.md`** — the invariants and hard rules that govern changes.
+
+### Changed
+
+- **All dependencies to latest stable**, including three major bumps: TypeScript 5.8 → 7, Vite 6 → 8, Vitest 3 → 4, plus `@vitejs/plugin-react` 5 → 6. TS 7 removed `baseUrl` and requires relative `paths`; it also needs a `vite/client` reference for CSS side-effect imports. Build is faster and ~45 kB smaller.
+- **Removed three unused dev dependencies**: `jsdom` and `fake-indexeddb` (tests run in the node environment) and `autoprefixer` (Tailwind v4 prefixes itself). Fewer dependencies is also a smaller supply-chain surface.
+- README leads with security and privacy, and states plainly what the default key storage does *not* protect against.
+
+### Verified before publishing
+
+No secrets in the tree or in full git history, no `.env` ever committed, zero absolute paths or usernames in tracked files, no untracked files that `git add -A` would sweep in, no `console.*` in `src/`, and the API key travels in a header rather than a URL.
+
+## [0.2.1]
+
+### Changed
+
+- **Validator is hard errors only; 53 rules → 36.** Seventeen checks were removed after firing on legitimate output: nine warnings and eight prose heuristics, including a 350-word target that flagged a 90-word description and a camera prose-echo check that flagged a static shot with no camera sentence — wrong by construction, since a static shot is the absence of motion. The warning severity is gone from `Diagnostic` entirely. None of the guidance was lost; it was already in the planner prompt, where being wrong costs nothing instead of training you to ignore the panel.
+
 ## [0.2.0]
 
 ### Added

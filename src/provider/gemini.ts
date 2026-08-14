@@ -138,6 +138,52 @@ export interface GeminiClientConfig {
   model?: string;
 }
 
+/**
+ * Assemble the request body.
+ *
+ * Extracted as a pure function so the privacy-critical parts can be asserted
+ * without a network call or a key. `store: false` in particular is a guarantee,
+ * not a preference -- `interactions.delete` returns 501, so anything stored is
+ * retained for the full project window and can never be purged. There is no
+ * option to change it, and test/provider.test.ts fails the build if it is ever
+ * anything but false.
+ */
+export function buildRequest(options: CallOptions, defaultModel: string): Record<string, unknown> {
+  // Media first, then the question: the prompt then reads as instructions
+  // about material already presented.
+  const input: Record<string, unknown>[] = [];
+  for (const image of options.images ?? []) {
+    input.push({ type: 'image', data: image.base64, mime_type: image.mimeType });
+  }
+  input.push({ type: 'text', text: options.prompt });
+
+  const request: Record<string, unknown> = {
+    model: options.model ?? defaultModel,
+    input,
+    // Not configurable. See above.
+    store: false,
+    // Interaction-scoped: omitting it on any call runs with no system prompt.
+    system_instruction: options.systemInstruction,
+    generation_config: {
+      // Always stated. Unset bills thinking at the output rate.
+      thinking_level: options.thinkingLevel,
+      ...(options.maxOutputTokens != null ? { max_output_tokens: options.maxOutputTokens } : {}),
+      ...(options.seed != null ? { seed: options.seed } : {}),
+      // temperature is deliberately absent -- accepted and silently ignored.
+    },
+  };
+
+  if (options.schema) {
+    request.response_format = {
+      type: 'text',
+      mime_type: 'application/json',
+      schema: options.schema,
+    };
+  }
+
+  return request;
+}
+
 export class GeminiClient {
   private readonly ai: GoogleGenAI;
   private readonly defaultModel: string;
@@ -150,39 +196,7 @@ export class GeminiClient {
 
   async call<T = unknown>(options: CallOptions): Promise<CallResult<T>> {
     const started = Date.now();
-
-    // Media first, then the question: the prompt then reads as instructions
-    // about material already presented.
-    const input: Record<string, unknown>[] = [];
-    for (const image of options.images ?? []) {
-      input.push({ type: 'image', data: image.base64, mime_type: image.mimeType });
-    }
-    input.push({ type: 'text', text: options.prompt });
-
-    const request: Record<string, unknown> = {
-      model: options.model ?? this.defaultModel,
-      input,
-      // Not configurable. See the module docstring: stored interactions cannot
-      // be deleted, so for a privacy-first app there is nothing to weigh up.
-      store: false,
-      // Interaction-scoped: omitting it on any call runs with no system prompt.
-      system_instruction: options.systemInstruction,
-      generation_config: {
-        // Always stated. Unset means "high", billed at the output rate.
-        thinking_level: options.thinkingLevel,
-        ...(options.maxOutputTokens != null ? { max_output_tokens: options.maxOutputTokens } : {}),
-        ...(options.seed != null ? { seed: options.seed } : {}),
-        // temperature is deliberately absent -- accepted and silently ignored.
-      },
-    };
-
-    if (options.schema) {
-      request.response_format = {
-        type: 'text',
-        mime_type: 'application/json',
-        schema: options.schema,
-      };
-    }
+    const request = buildRequest(options, this.defaultModel);
 
     const interaction = await this.ai.interactions.create(
       request as never,
