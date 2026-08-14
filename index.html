@@ -8,15 +8,21 @@
 
       This page holds a user-supplied API key in localStorage, so the thing that
       matters most is `connect-src`: script running here can only reach the
-      Gemini endpoint and this origin. A compromised dependency cannot POST the
-      key to an attacker's server, because the browser refuses the connection.
+      Gemini endpoint and this origin.
 
       `style-src` allows inline because Tailwind injects a <style> element.
       `script-src` does not, so an injected <script> or inline handler is
       refused outright.
 
-      ws:/wss: are present for the Vite dev server's hot-reload socket. They are
-      harmless in a production build, where nothing opens one.
+      Do NOT add bare `ws:`/`wss:` here. They are scheme-wide sources matching
+      ANY host, so they hand a compromised dependency a socket to an arbitrary
+      server -- the exfiltration route the rest of this policy exists to close.
+      Probed: with them present, a fetch to an unrelated origin is refused while
+      a WebSocket to that same origin is allowed. `'self'` already covers the
+      Vite dev server's hot-reload socket, which is same-origin.
+
+      `frame-ancestors` is deliberately absent: it is ignored in a <meta> tag.
+      Framing protection has to come from a response header instead.
     -->
     <meta
       http-equiv="Content-Security-Policy"
@@ -27,11 +33,10 @@
         img-src 'self' data: blob:;
         media-src 'self' data: blob:;
         font-src 'self' data:;
-        connect-src 'self' https://generativelanguage.googleapis.com ws: wss:;
+        connect-src 'self' https://generativelanguage.googleapis.com;
         object-src 'none';
         base-uri 'none';
         form-action 'none';
-        frame-ancestors 'none';
       "
     />
     <title>H3 Transformation Engine</title>

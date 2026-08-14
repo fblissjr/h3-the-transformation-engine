@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented here. Semantic versioning.
 
+## [Unreleased]
+
+### Fixed
+
+- **`connect-src` no longer lists bare `ws:`/`wss:`.** Those are scheme-wide sources matching any host, so they left a compromised dependency a socket to anywhere — the exfiltration route the rest of the policy exists to close. They were there for the Vite hot-reload socket, which `'self'` already covers. Probed both ways against the real policy: before, a `fetch` to an unrelated origin was refused while a `WebSocket` to that same origin went through; after, both are refused, the Gemini endpoint stays reachable, and dev HMR still connects.
+- **`frame-ancestors` removed from the `<meta>` CSP.** The directive is ignored there, so it was never doing anything. Noted in the README as needing a response header.
+
+### Changed
+
+- **Security section rewritten.** It is now a short statement of what is stored, where, and what leaves the machine, and says plainly that this is a personal-tool posture and wrong for anything shared. Detail moved to a new **Under the hood** section at the end, which states the sample size of its own checks: one browser, one machine, by hand.
+- **Claims cut back to what the evidence supports.** "Interactions are never stored server-side" conflated `store: false` with Google-side retention generally; the flag opts out of Interactions conversation-state storage and nothing more, while abuse-monitoring logging and free-tier product-improvement terms apply regardless. Dependencies are now described as trusted rather than audited.
+- **Layout section said the database has five stores.** It has three: `documents`, `versions`, `settings`.
+
 ## [0.3.0]
 
 Prepared for open source.
