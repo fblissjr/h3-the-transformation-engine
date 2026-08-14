@@ -7,28 +7,13 @@
  */
 
 import type { Diagnostic, Rule } from '../types';
-import { error, warn } from '../types';
-import { CAMERA_PROSE_HINTS, CAMERA_TYPES, FRAME_ANCHOR_ROLES } from '../../ir/vocab';
-import { comfortableLatestCutMs } from '../../normalize/budgets';
-import { isOnFrameGrid, nearestGridFrames } from '../../normalize/duration';
+import { error } from '../types';
+import { CAMERA_TYPES, FRAME_ANCHOR_ROLES } from '../../ir/vocab';
 
 /** The document must have something to render. */
 export const shotsPresent: Rule = (doc) => {
   if (doc.shots.length === 0) {
     return [error('NO_SHOTS', 'shots', 'The document has no shots; there is nothing to render.')];
-  }
-  return [];
-};
-
-export const stylePresent: Rule = (doc) => {
-  if (doc.style.trim() === '') {
-    return [
-      warn(
-        'EMPTY_STYLE',
-        'style',
-        'No style stated. Shot 1 should open with the medium and look, e.g. "Live-action, cinematic".',
-      ),
-    ];
   }
   return [];
 };
@@ -40,24 +25,6 @@ export const durationPositive: Rule = (doc) => {
     ];
   }
   return [];
-};
-
-/**
- * The 17k+5 frame grid is a workflow fact, so missing it is advisory. The prompt
- * stays valid; it just describes a duration the workflow will not render.
- */
-export const frameGrid: Rule = (doc) => {
-  if (doc.durationFrames == null) return [];
-  if (isOnFrameGrid(doc.durationFrames)) return [];
-  return [
-    warn(
-      'FRAME_GRID_OFF',
-      'durationFrames',
-      `${doc.durationFrames} frames is not on the 17k+5 grid; the workflow will snap to ${nearestGridFrames(
-        doc.durationFrames,
-      )}.`,
-    ),
-  ];
 };
 
 /** Shot indices must be 1..n in order, because [Shot N] and the alignment line depend on it. */
@@ -96,7 +63,6 @@ export const shotTimestamps: Rule = (doc) => {
 /** Cut times strictly increase and stay inside the video. */
 export const cutTimes: Rule = (doc, ctx) => {
   const out: Diagnostic[] = [];
-  const comfortable = comfortableLatestCutMs(ctx.durationSeconds);
   let previous = -1;
 
   doc.shots.forEach((shot, i) => {
@@ -120,14 +86,6 @@ export const cutTimes: Rule = (doc, ctx) => {
           `Cut at ${shot.cutAtMs}ms falls at or past the ${ctx.durationText}s end of the video.`,
         ),
       );
-    } else if (shot.cutAtMs > comfortable) {
-      out.push(
-        warn(
-          'CUT_TOO_LATE',
-          path,
-          `Cut at ${shot.cutAtMs}ms leaves under 1.5s of video after it.`,
-        ),
-      );
     }
     previous = shot.cutAtMs;
   });
@@ -143,22 +101,6 @@ export const shotsHaveBeats: Rule = (doc) => {
     }
   });
   return out;
-};
-
-/**
- * FL2VA interpolates between two boundary frames and the guide asks for a single
- * shot unless multiple were explicitly requested. Advisory, since "explicitly
- * requested" is a user intent the document cannot record.
- */
-export const fl2vaSingleShot: Rule = (doc) => {
-  if (doc.mode !== 'FL2VA' || doc.shots.length <= 1) return [];
-  return [
-    warn(
-      'FL2VA_MULTISHOT',
-      'shots',
-      `FL2VA usually favours a single shot so the model can interpolate continuously; this has ${doc.shots.length}.`,
-    ),
-  ];
 };
 
 /** The mode and the attached slots have to describe the same job. */
@@ -201,59 +143,20 @@ export const modeMatchesSlots: Rule = (doc) => {
   return out;
 };
 
-/**
- * A camera annotation must be visible in the prose.
- *
- * This is the rule that enforces the project's central design decision: prose is
- * authoritative and enums annotate it. If the annotation says "Push In" and no
- * beat in the shot says the camera pushes in, one of the two is a lie, and the
- * model only ever sees the prose.
- */
-export const cameraProseAgreement: Rule = (doc) => {
+/** A camera annotation must name a documented motion. */
+export const cameraTypeValid: Rule = (doc) => {
   const out: Diagnostic[] = [];
   doc.shots.forEach((shot, i) => {
     if (!shot.camera) return;
-    const path = `shots[${i}].camera.type`;
-
     if (!(CAMERA_TYPES as readonly string[]).includes(shot.camera.type)) {
-      out.push(error('CAMERA_TYPE_INVALID', path, `"${shot.camera.type}" is not a documented camera motion.`));
-      return;
-    }
-
-    const prose = shot.beats.map((b) => b.prose).join(' ').toLowerCase();
-    const hints = CAMERA_PROSE_HINTS[shot.camera.type];
-    if (!hints.some((h) => prose.includes(h.toLowerCase()))) {
       out.push(
         error(
-          'CAMERA_PROSE_MISSING',
-          path,
-          `Shot ${i + 1} is annotated "${shot.camera.type}" but no beat expresses it. Expected wording like "${hints[0]}".`,
+          'CAMERA_TYPE_INVALID',
+          `shots[${i}].camera.type`,
+          `"${shot.camera.type}" is not a documented camera motion.`,
         ),
       );
     }
-  });
-  return out;
-};
-
-/**
- * Camera direction must read as prose, not as a trailing label stack. The guide
- * calls this out explicitly and gives "Camera: push in, slow, small amplitude."
- * as the thing to avoid.
- */
-export const noCameraLabelStack: Rule = (doc) => {
-  const out: Diagnostic[] = [];
-  doc.shots.forEach((shot, i) => {
-    shot.beats.forEach((beat, j) => {
-      if (/\b(camera|shot)\s*:/i.test(beat.prose)) {
-        out.push(
-          error(
-            'CAMERA_LABEL_STACK',
-            `shots[${i}].beats[${j}].prose`,
-            'Camera direction is written as a detached label. Express it as natural action inside the sentence.',
-          ),
-        );
-      }
-    });
   });
   return out;
 };
@@ -279,16 +182,12 @@ export const frameRolesOnImages: Rule = (doc) => {
 
 export const timelineRules: Rule[] = [
   shotsPresent,
-  stylePresent,
   durationPositive,
-  frameGrid,
   shotIndices,
   shotTimestamps,
   cutTimes,
   shotsHaveBeats,
-  fl2vaSingleShot,
   modeMatchesSlots,
-  cameraProseAgreement,
-  noCameraLabelStack,
+  cameraTypeValid,
   frameRolesOnImages,
 ];

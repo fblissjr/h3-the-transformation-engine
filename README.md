@@ -35,7 +35,7 @@ H3 conditions on descriptive quality, and a canned camera clause bolted onto a s
 src/core/        pure TypeScript, no React, no DOM, no network (enforced by a test)
   ir/            document types, zod schemas, path addressing, the closed vocabularies
   normalize/     duration, label assignment, mode inference, budgets
-  validate/      53 rules, every one with a fixture that makes it go red
+  validate/      36 rules, all hard errors, each with a fixture that makes it go red
   serialize/     source-mapped emitter, both output contracts
   patch/         path-scoped patch application
 src/provider/    Gemini Interactions client and the planner/patch prompts
@@ -91,7 +91,7 @@ Neither protects against script running in the page.
 ```
 bun install
 bun run dev         # http://localhost:5173
-bun test            # 165 tests
+bun test            # 131 tests
 bun run typecheck
 bun run build
 bun run probe       # live API probes (reads GEMINI_API_KEY from .env)
@@ -100,9 +100,11 @@ bun run probe       # live API probes (reads GEMINI_API_KEY from .env)
 ## Verification
 
 - Five golden fixtures reproduce the worked examples from both official guides **byte for byte**, and all five validate with zero errors.
-- Every one of the 53 diagnostic codes has a control fixture that makes it fire, plus the standing evidence that the unbroken examples produce none of them.
+- Every one of the 36 diagnostic codes has a control fixture that makes it fire, plus the standing evidence that the unbroken examples produce none of them.
 - A meta-test scans the rule sources and fails if any emitted code has no control, so a new rule cannot ship without one. That meta-test has itself been shown to go red.
 - A purity test fails if `src/core` imports React, the SDK, the DB layer, the DOM, or `fetch`.
+
+**Errors only — there is no warning severity.** A diagnostic means the document is provably malformed: a cut outside the video, an undeclared speaker, a retention marker from the wrong vocabulary. Checks that pattern-matched prose for a preference — sentence counts, word targets, whether a camera annotation was echoed in the wording — were removed, because they fired on legitimate output. A check that cries wolf trains you to ignore the ones that matter. That guidance lives in the planner prompt instead, where being wrong costs nothing.
 
 ## Not built yet
 

@@ -1,103 +1,16 @@
 /**
- * Audio sections, slot hygiene, and the full-reference contract.
+ * Slot hygiene and the full-reference contract.
  *
- * The Ref2VA rules are the bulk of this file because that contract carries four
- * things the base contract does not: a label registry, a task-type prefix, a
- * retention table with two different marker vocabularies, and a word target.
+ * The Ref2VA rules are the bulk of this file because that contract carries
+ * three things the base contract does not: a label registry, a task-type
+ * prefix, and a retention table with two different marker vocabularies. All
+ * three are decidable from structure.
  */
 
 import type { Diagnostic, Rule } from '../types';
-import { error, warn } from '../types';
-import {
-  AUDIO_RETENTION,
-  MUSIC_SENTENCE_RANGE,
-  NOT_APPLICABLE,
-  REF_DETAIL_WORD_RANGE,
-  SOUNDSCAPE_SENTENCE_RANGE,
-  VISUAL_RETENTION,
-} from '../../ir/vocab';
-import { countSentences, countWords } from '../../normalize/budgets';
+import { error } from '../types';
+import { AUDIO_RETENTION, VISUAL_RETENTION } from '../../ir/vocab';
 import { ceilingViolations } from '../../normalize/labels';
-
-// ---------------------------------------------------------------------------
-// Audio sections
-// ---------------------------------------------------------------------------
-
-export const soundscapeLength: Rule = (doc) => {
-  const text = doc.soundscape.trim();
-  if (text === NOT_APPLICABLE) return [];
-  const n = countSentences(text);
-  const [min, max] = SOUNDSCAPE_SENTENCE_RANGE;
-  if (n < min || n > max) {
-    return [
-      error(
-        'SOUNDSCAPE_SENTENCE_COUNT',
-        'soundscape',
-        `overall_soundscape must be ${min}-${max} sentences; this has ${n}.`,
-      ),
-    ];
-  }
-  return [];
-};
-
-export const musicLength: Rule = (doc) => {
-  const text = doc.music.trim();
-  if (text === NOT_APPLICABLE) return [];
-  const n = countSentences(text);
-  const [min, max] = MUSIC_SENTENCE_RANGE;
-  if (n < min || n > max) {
-    return [
-      error('MUSIC_SENTENCE_COUNT', 'music', `non_diegetic_music must be ${min}-${max} sentences; this has ${n}.`),
-    ];
-  }
-  return [];
-};
-
-/**
- * Dialogue, singing and diegetic music belong in the description, not repeated
- * in the soundscape. Catches the common failure of restating a spoken line.
- */
-export const soundscapeSeparation: Rule = (doc) => {
-  const out: Diagnostic[] = [];
-  const lines = doc.shots
-    .flatMap((s) => s.beats)
-    .map((b) => b.dialogue?.text.trim())
-    .filter((t): t is string => !!t && t.length > 8);
-
-  const soundscape = doc.soundscape.toLowerCase();
-  lines.forEach((line) => {
-    if (soundscape.includes(line.toLowerCase().replace(/[.?!]$/, ''))) {
-      out.push(
-        error(
-          'SOUNDSCAPE_CONTAINS_DIALOGUE',
-          'soundscape',
-          'overall_soundscape repeats spoken dialogue. Dialogue belongs only in the description.',
-        ),
-      );
-    }
-  });
-  return out;
-};
-
-/**
- * The guide asks for instrumentation, tempo, rhythm and dynamics, and warns off
- * abstract mood words. Advisory, since a phrase can be both.
- */
-export const musicConcreteness: Rule = (doc) => {
-  const text = doc.music.trim();
-  if (text === NOT_APPLICABLE || text === '') return [];
-  const abstract = /\b(emotional|moody|epic|dramatic|uplifting|sad|happy|tense|atmospheric)\b/i;
-  if (abstract.test(text) && !/\b(piano|strings?|cello|guitar|synth|drum|bass|tempo|bpm|violin|horn|pad)\b/i.test(text)) {
-    return [
-      warn(
-        'MUSIC_ABSTRACT',
-        'music',
-        'non_diegetic_music reads as mood rather than sound. Name instrumentation, tempo, and dynamics.',
-      ),
-    ];
-  }
-  return [];
-};
 
 // ---------------------------------------------------------------------------
 // Slots
@@ -136,27 +49,6 @@ export const slotOrdering: Rule = (doc) => {
     }
   });
   return out.slice(0, 1);
-};
-
-/** An attached asset nothing cites is conditioning the model on nothing. */
-export const slotsUsed: Rule = (doc, ctx) => {
-  if (doc.mode !== 'Ref2VA') return [];
-  const out: Diagnostic[] = [];
-  const citedInBeats = new Set(doc.shots.flatMap((s) => s.beats).flatMap((b) => b.citesSlots));
-  const citedInSubjects = new Set(doc.subjects.flatMap((s) => s.sources.map((src) => src.slotId)));
-
-  doc.slots.forEach((slot, i) => {
-    if (citedInBeats.has(slot.id) || citedInSubjects.has(slot.id)) return;
-    const label = ctx.labels.find((l) => l.slotId === slot.id);
-    out.push(
-      warn(
-        'SLOT_UNUSED',
-        `slots[${i}]`,
-        `${label?.ref ?? slot.kind} is attached but never cited in a subject or a shot.`,
-      ),
-    );
-  });
-  return out;
 };
 
 // ---------------------------------------------------------------------------
@@ -320,126 +212,14 @@ export const refLabelsDefined: Rule = (doc, ctx) => {
   return out;
 };
 
-/**
- * Naming a vocal act without supplying its words is an instruction to vocalise.
- *
- * Observed failure: a summary saying the subject "speaks to the camera", with
- * the actual line only in detailed_description, produced a character who
- * babbled until she reached the scripted words. H3 obeyed the summary and
- * improvised to fill it.
- *
- * Deliberately narrow. The guide's own worked summary describes actions, shot
- * count and the ending ("shows", "enters", "lunges", "ends with a canned
- * audience laugh") -- all fine. It contains no speech-act verb, and that is the
- * boundary being enforced, not a general ban on summarising.
- */
-const SPEECH_ACT_VERBS =
-  /\b(?:says?|speaks?|speaking|talks?|talking|rants?|argues?|converses?|narrates?|replies|shouts?|whispers?|sings?|singing|asks?|answers?|exclaims?|chants?)\b/i;
-const SPEECH_ACT_PHRASES = /\b(?:delivers a speech|has a conversation|speaks to camera)\b/i;
-
-export const summaryHasNoVocalDirective: Rule = (doc) => {
-  if (doc.mode !== 'Ref2VA' || !doc.summary) return [];
-  const match = SPEECH_ACT_VERBS.exec(doc.summary) ?? SPEECH_ACT_PHRASES.exec(doc.summary);
-  if (!match) return [];
-  return [
-    error(
-      'SUMMARY_VOCAL_DIRECTIVE',
-      'summary',
-      `Summary names a vocal act ("${match[0]}") without supplying words. That reads as an instruction to speak and produces invented speech before the scripted line. Keep summary verbs physical.`,
-    ),
-  ];
-};
-
-/**
- * A frame anchor controls exactly one moment.
- *
- * A first frame governs 0.00 seconds and a last frame governs the end. A
- * retention note that says an opening composition is "restored for the closing
- * wide shot" silently turns an opening-only anchor into an ending requirement.
- *
- * Scoped to slots carrying exactly one frame-anchor role, so a picture
- * legitimately serving as both endpoints is exempt.
- */
-const RECURRENCE_AFTER_FIRST = /\b(?:returns?|restored?|restores|again|reprise|closes on|closing|final frame|at the end)\b/i;
-const RECURRENCE_BEFORE_LAST = /\b(?:opening|first frame|begins?|0\.00)\b/i;
-
-export const frameAnchorNotExtended: Rule = (doc, ctx) => {
-  if (doc.mode !== 'Ref2VA') return [];
-  const out: Diagnostic[] = [];
-
-  (doc.retention ?? []).forEach((entry, i) => {
-    const target = entry.target;
-    if (target.type !== 'slot') return;
-    const slot = doc.slots.find((s) => s.id === target.slotId);
-    if (!slot) return;
-
-    const anchors = slot.roles.filter((r) => r === 'first_frame' || r === 'last_frame');
-    if (anchors.length !== 1) return;
-
-    const text = `${entry.context} ${entry.note}`;
-    const pattern = anchors[0] === 'first_frame' ? RECURRENCE_AFTER_FIRST : RECURRENCE_BEFORE_LAST;
-    const match = pattern.exec(text);
-    if (!match) return;
-
-    const label = ctx.labels.find((l) => l.slotId === slot.id)?.ref ?? slot.kind;
-    out.push(
-      error(
-        'REF_FRAME_ROLE_EXTENDED',
-        `retention[${i}].note`,
-        `${label} is a ${anchors[0]} anchor, but its retention note says "${match[0]}", extending it to the other end of the clip. A frame anchor controls one moment only.`,
-      ),
-    );
-  });
-
-  return out;
-};
-
-/** detailed_description has a soft word target for generation tasks. */
-export const refDetailLength: Rule = (doc) => {
-  if (doc.mode !== 'Ref2VA') return [];
-  // Editing descriptions scale with the source video and are exempt.
-  if (doc.taskTypes?.includes('video editing')) return [];
-
-  // Dialogue-dense content is exempt too: the guide says such pieces prioritize
-  // fitting the complete spoken timeline over mechanically reaching a word
-  // count, and its own worked example sits under 350 words for exactly that
-  // reason. A rule that flags the reference implementation is miscalibrated.
-  const shotsWithDialogue = doc.shots.filter((s) => s.beats.some((b) => b.dialogue)).length;
-  if (shotsWithDialogue >= 2) return [];
-
-  const words = doc.shots
-    .flatMap((s) => s.beats)
-    .reduce((sum, b) => sum + countWords(b.prose), 0);
-  const [min, max] = REF_DETAIL_WORD_RANGE;
-  if (words < min) {
-    return [
-      warn('REF_DETAIL_WORD_COUNT', 'shots', `detailed_description is ${words} words; generation tasks target ${min}-${max}.`),
-    ];
-  }
-  if (words > max * 1.3) {
-    return [
-      warn('REF_DETAIL_WORD_COUNT', 'shots', `detailed_description is ${words} words, well past the ${min}-${max} target.`),
-    ];
-  }
-  return [];
-};
-
 export const sectionRules: Rule[] = [
-  soundscapeLength,
-  musicLength,
-  soundscapeSeparation,
-  musicConcreteness,
   slotCeilings,
   slotRoles,
   slotOrdering,
-  slotsUsed,
   refSummary,
   refSummaryLabels,
   refRetentionCoverage,
   refRetentionMarkerClass,
   refNoSpeakerInRetention,
   refLabelsDefined,
-  summaryHasNoVocalDirective,
-  frameAnchorNotExtended,
-  refDetailLength,
 ];

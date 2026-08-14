@@ -22,9 +22,8 @@ export * from './types';
 export const ALL_RULES: Rule[] = [...timelineRules, ...speechRules, ...sectionRules];
 
 export interface ValidationResult {
+  /** Errors only; there is no warning severity. See ./types.ts for why. */
   diagnostics: Diagnostic[];
-  errors: Diagnostic[];
-  warnings: Diagnostic[];
   ok: boolean;
 }
 
@@ -41,7 +40,6 @@ export function validate(
     } catch (cause) {
       diagnostics.push({
         code: 'RULE_THREW',
-        severity: 'error',
         path: '',
         message: `Validation rule "${rule.name || 'anonymous'}" threw: ${
           cause instanceof Error ? cause.message : String(cause)
@@ -50,10 +48,7 @@ export function validate(
     }
   }
 
-  const errors = diagnostics.filter((d) => d.severity === 'error');
-  const warnings = diagnostics.filter((d) => d.severity === 'warning');
-
-  return { diagnostics, errors, warnings, ok: errors.length === 0 };
+  return { diagnostics, ok: diagnostics.length === 0 };
 }
 
 /** Diagnostics grouped by the path they attach to, for the editor's inline markers. */

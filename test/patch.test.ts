@@ -155,6 +155,6 @@ describe('direct edits go through the same gates', () => {
 
   it('surfaces a validation error introduced by the edit instead of hiding it', () => {
     const result = editDirect(t2vaBaker, 'shots[1].cutAtMs', 99_000);
-    expect(result.validation.errors.map((d) => d.code)).toContain('CUT_OUTSIDE_DURATION');
+    expect(result.validation.diagnostics.map((d) => d.code)).toContain('CUT_OUTSIDE_DURATION');
   });
 });

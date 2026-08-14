@@ -26,8 +26,7 @@ export function App() {
   const [instruction, setInstruction] = useState('');
   const [tab, setTab] = useState<'problems' | 'history'>('problems');
 
-  const errorCount = e.view?.validation.errors.length ?? 0;
-  const warnCount = e.view?.validation.warnings.length ?? 0;
+  const problemCount = e.view?.validation.diagnostics.length ?? 0;
 
   return (
     <div className="flex h-full flex-col">
@@ -171,7 +170,7 @@ export function App() {
               onClick={() => setTab('problems')}
               className={tab === 'problems' ? 'text-[var(--color-accent)]' : 'text-[var(--color-muted)]'}
             >
-              {errorCount} errors, {warnCount} warnings
+              {problemCount === 0 ? 'no problems' : `${problemCount} problem${problemCount > 1 ? 's' : ''}`}
             </button>
             <button
               type="button"

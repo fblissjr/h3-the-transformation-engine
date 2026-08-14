@@ -1,22 +1,15 @@
 /**
  * Speakers, dialogue, and visible text.
  *
- * The densest cluster of exact-string requirements in the format, and the one
- * where a near-miss is most expensive: a voiceover missing its lips-closed
- * clause produces a character whose mouth moves under narration, and altered
- * dialogue produces a video saying something the user did not write.
+ * The densest cluster of exact-string requirements in the format. Only the
+ * decidable ones are checked here: a declared speaker id that never appears in
+ * the prose, a dialogue placeholder with nothing to splice, an unpaired
+ * <scenetrans>. Phrasing preferences are the planner prompt's job.
  */
 
 import type { Diagnostic, Rule } from '../types';
-import { error, warn } from '../types';
-import {
-  CONTINUITY_PHRASES,
-  LIPS_CLOSED_PHRASES,
-  SCENETRANS_TAG,
-  CUTOFF_TAG,
-  VOICEOVER_PHRASE,
-} from '../../ir/vocab';
-import { countWords } from '../../normalize/budgets';
+import { error } from '../types';
+import { SCENETRANS_TAG, CUTOFF_TAG, VOICEOVER_PHRASE } from '../../ir/vocab';
 import { DIALOGUE_PLACEHOLDER } from '../../serialize/shared';
 
 /** Every beat in document order, with its path. */
@@ -224,15 +217,6 @@ export const voiceover: Rule = (doc) => {
         ),
       );
     }
-    if (!LIPS_CLOSED_PHRASES.some((p) => prose.includes(p))) {
-      out.push(
-        error(
-          'VOICEOVER_LIPS_MISSING',
-          `${path}.prose`,
-          'Every voiceover must be followed by a statement that the on-screen character\'s lips remain completely closed.',
-        ),
-      );
-    }
   });
   return out;
 };
@@ -263,16 +247,6 @@ export const crossCutDialogue: Rule = (doc) => {
         error('SCENETRANS_UNPAIRED', `${path}.prose`, `Dialogue crosses a cut but the prose has no ${SCENETRANS_TAG}.`),
       );
     }
-    const prose = beat.prose.toLowerCase();
-    if (!CONTINUITY_PHRASES.some((p) => prose.includes(p))) {
-      out.push(
-        warn(
-          'CONTINUITY_PHRASE_MISSING',
-          `${path}.prose`,
-          `State the continuity explicitly, e.g. "${CONTINUITY_PHRASES[0]}".`,
-        ),
-      );
-    }
   });
 
   return out;
@@ -295,20 +269,6 @@ export const cutoffPlacement: Rule = (doc) => {
     }
   });
   return out;
-};
-
-export const dialogueBudget: Rule = (doc, ctx) => {
-  const total = doc.shots
-    .flatMap((s) => s.beats)
-    .reduce((sum, b) => sum + (b.dialogue ? countWords(b.dialogue.text) : 0), 0);
-  if (total <= ctx.spokenWordBudget) return [];
-  return [
-    warn(
-      'DIALOGUE_OVER_BUDGET',
-      'shots',
-      `${total} spoken words across ${ctx.durationText}s; roughly ${ctx.spokenWordBudget} fits comfortably.`,
-    ),
-  ];
 };
 
 /** Text visible on screen must actually appear, in double quotes, in the prose. */
@@ -341,6 +301,5 @@ export const speechRules: Rule[] = [
   voiceover,
   crossCutDialogue,
   cutoffPlacement,
-  dialogueBudget,
   visibleTextQuoted,
 ];

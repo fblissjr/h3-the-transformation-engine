@@ -63,14 +63,7 @@ interface Props {
 export function PromptView({ text, map, diagnostics, selectedPaths, onSelect }: Props) {
   const segments = useMemo(() => segment(text, map), [text, map]);
 
-  const severityByPath = useMemo(() => {
-    const out = new Map<string, 'error' | 'warning'>();
-    for (const d of diagnostics) {
-      // An error on a path outranks a warning on the same path.
-      if (d.severity === 'error' || !out.has(d.path)) out.set(d.path, d.severity);
-    }
-    return out;
-  }, [diagnostics]);
+  const failingPaths = useMemo(() => new Set(diagnostics.map((d) => d.path)), [diagnostics]);
 
   const selected = useMemo(() => new Set(selectedPaths), [selectedPaths]);
 
@@ -84,11 +77,10 @@ export function PromptView({ text, map, diagnostics, selectedPaths, onSelect }: 
             </span>
           );
         }
-        const severity = severityByPath.get(seg.path);
         const classes = [
           'cursor-pointer',
           selected.has(seg.path) ? 'span-hit' : '',
-          severity === 'error' ? 'span-error' : severity === 'warning' ? 'span-warn' : '',
+          failingPaths.has(seg.path) ? 'span-error' : '',
         ]
           .filter(Boolean)
           .join(' ');

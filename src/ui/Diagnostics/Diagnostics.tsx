@@ -16,14 +16,12 @@ export function Diagnostics({ diagnostics, onSelect }: Props) {
   if (diagnostics.length === 0) {
     return (
       <div className="p-3 text-xs text-[var(--color-muted)]">
-        No problems. Every documented rule the format states is checked here.
+        No problems. Only hard contract violations are reported here.
       </div>
     );
   }
 
-  const ordered = [...diagnostics].sort((a, b) =>
-    a.severity === b.severity ? a.path.localeCompare(b.path) : a.severity === 'error' ? -1 : 1,
-  );
+  const ordered = [...diagnostics].sort((a, b) => a.path.localeCompare(b.path));
 
   return (
     <ul className="divide-y divide-[var(--color-edge)]">
@@ -34,18 +32,7 @@ export function Diagnostics({ diagnostics, onSelect }: Props) {
             onClick={() => onSelect(d.path)}
             className="w-full px-3 py-2 text-left hover:bg-white/5"
           >
-            <div className="flex items-baseline gap-2">
-              <span
-                className={
-                  d.severity === 'error'
-                    ? 'text-[10px] font-semibold uppercase text-[var(--color-danger)]'
-                    : 'text-[10px] font-semibold uppercase text-[var(--color-warn)]'
-                }
-              >
-                {d.severity}
-              </span>
-              <code className="text-[10px] text-[var(--color-muted)]">{d.code}</code>
-            </div>
+            <code className="text-[10px] text-[var(--color-danger)]">{d.code}</code>
             <div className="mt-0.5 text-xs leading-snug">{d.message}</div>
             {d.path && <code className="text-[10px] text-[var(--color-muted)]">{d.path}</code>}
           </button>

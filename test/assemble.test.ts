@@ -102,7 +102,7 @@ describe('assemble', () => {
   });
 
   it('produces a document that validates and renders', () => {
-    expect(validate(doc, contextFor(doc)).errors).toEqual([]);
+    expect(validate(doc, contextFor(doc)).diagnostics).toEqual([]);
     expect(serialize(doc, contextFor(doc)).text).toContain(
       '<d>[English] First batch of the morning.</d>',
     );

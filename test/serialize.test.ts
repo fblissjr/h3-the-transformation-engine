@@ -43,7 +43,7 @@ describe('official examples validate clean', () => {
   for (const { name, doc } of cases) {
     it(`${name} has no errors`, () => {
       const result = validate(doc, contextFor(doc));
-      expect(result.errors).toEqual([]);
+      expect(result.diagnostics).toEqual([]);
     });
   }
 });
