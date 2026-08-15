@@ -21,6 +21,21 @@ interface Props {
   onForget: () => void;
 }
 
+/** Named for what the mode provides, not for how it is implemented. */
+const MODE_LABEL: Record<KeyMode, string> = {
+  origin: 'this browser only',
+  passphrase: 'passphrase',
+  device: 'legacy',
+};
+
+const MODE_DETAIL: Record<KeyMode, string> = {
+  origin:
+    'Encrypted with a key the browser holds for this site and will not hand out. It cannot be decrypted from another browser or profile, but anyone using this one can.',
+  passphrase: 'Encrypted with your passphrase. Not readable without it.',
+  device:
+    'Stored by an older version using a key derived from your browser and locale, which is not secret. Save the key again to upgrade it.',
+};
+
 export function KeyPanel({ apiKey, storedKeyMode, onSave, onUnlock, onForget }: Props) {
   const [editing, setEditing] = useState(false);
   const [keyDraft, setKeyDraft] = useState('');
@@ -40,8 +55,8 @@ export function KeyPanel({ apiKey, storedKeyMode, onSave, onUnlock, onForget }: 
       <div className="flex items-center gap-2 text-[10px] text-[var(--color-muted)]">
         <span>
           key ····{apiKey.slice(-4)}
-          <span className="ml-1">
-            {storedKeyMode === 'passphrase' ? '(passphrase)' : '(this device only)'}
+          <span className="ml-1" title={storedKeyMode ? MODE_DETAIL[storedKeyMode] : undefined}>
+            ({storedKeyMode ? MODE_LABEL[storedKeyMode] : 'unsaved'})
           </span>
         </span>
         <button type="button" onClick={() => setEditing(true)} className="underline">
@@ -112,7 +127,7 @@ export function KeyPanel({ apiKey, storedKeyMode, onSave, onUnlock, onForget }: 
 
       <label
         className="flex items-center gap-1 text-[10px] text-[var(--color-muted)]"
-        title="Without a passphrase the key is only obfuscated in localStorage -- anyone with the same browser and locale can read it."
+        title="Without a passphrase the key is readable by anyone using this browser profile. With one, it is not readable without the passphrase."
       >
         <input
           type="checkbox"

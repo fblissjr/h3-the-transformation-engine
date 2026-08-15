@@ -4,17 +4,20 @@ A prompt compiler and structured editor for MiniMax H3. It turns prompts into da
 
 Prompt-only. Nothing here generates video.
 
+This is one person tinkering. It is not a product, there is no roadmap, no support, and quite possibly no users — it is public because the code may as well be. Nothing here has been reviewed by anyone else. Treat it accordingly, and see [Security](#security) before you point it at anything you care about.
+
 ## Security
 
-Everything runs in your browser. There is no account, no backend, and no server owned by this project. Here is all of it — what gets stored, where, and what leaves the machine:
+Everything runs in your browser. There is no account, no backend, and no server owned by this project.
 
-- **Your API key** sits in `localStorage`, encrypted with AES-GCM. By default the encryption key is derived from your user agent and locale, which is obfuscation, not secrecy — anyone with the same browser and locale can undo it. There is a passphrase mode. Use it.
-- **Your documents and their version history** sit in IndexedDB, unencrypted. Nothing clears them but you.
+- **Your API key** sits in `localStorage`, encrypted with AES-GCM. By default the encryption key is one the browser generates and will not hand back, so the stored blob cannot be opened on another browser or machine. It does not stop anyone using *this* browser profile, since the app has to be able to decrypt it. Passphrase mode covers that case.
+- **Your documents and their version history** sit in IndexedDB, unencrypted. Browser storage is scoped to one origin in one browser profile on this machine, and there is no server, so what can read it is whatever can use this browser profile or run script on this origin.
 - **Your prompts** go to Google's Gemini endpoint, and what Google keeps is governed by the terms attached to your key rather than by anything in this code. Free-tier terms permit Google to use prompts and responses to improve its products.
+- **Erasing it** is the `local data` button in the header. Two scopes: documents and history, or that plus the stored key. It reports counts re-read from storage afterwards.
 
-That shape is fine for a personal tool on a machine you control. It is the wrong shape for anything shared, multi-user, or public. And if the contents of your prompts actually matter, you should harden it even for yourself — passphrase mode, a paid-tier key, and a read of the CSP notes below.
+That shape suits a personal tool on a machine you control. It is the wrong shape for anything shared, multi-user, or public. If the contents of your prompts matter, use passphrase mode and a paid-tier key.
 
-If you want the specifics — storage keys, what `store: false` does and does not buy you, what the CSP covers — see [Under the hood](#under-the-hood). If not, that is the whole story.
+Specifics — storage keys, what `store: false` does and does not buy you, what the CSP covers — are in [Under the hood](#under-the-hood).
 
 ## Why it is shaped like a compiler
 
@@ -51,8 +54,9 @@ src/core/        pure TypeScript, no React, no DOM, no network (enforced by a te
   serialize/     source-mapped emitter, both output contracts
   patch/         path-scoped patch application
 src/provider/    Gemini Interactions client and the planner/patch prompts
-src/db/          IndexedDB, three stores, immutable version tree
-src/ui/          slot manager, document editor, prompt view, diagnostics, history
+src/crypto/      at-rest storage for the API key, three modes
+src/db/          IndexedDB, three stores, immutable version tree, erase-and-verify
+src/ui/          slot manager, document editor, prompt view, diagnostics, history, local data
 ```
 
 `src/core` is runnable with no browser and no API key. That is what makes the grammar assertions cheap to run and lets the compiler move to a CLI or a ComfyUI-adjacent script later.
@@ -93,7 +97,7 @@ Verified against `@google/genai` types or probed live, not read from docs:
 ```
 bun install
 bun run dev         # http://localhost:5173
-bun test            # 142 tests
+bun run test        # 176 tests
 bun run typecheck
 bun run build
 bun run probe       # live API probes (reads GEMINI_API_KEY from .env)
@@ -108,6 +112,11 @@ bun run probe       # live API probes (reads GEMINI_API_KEY from .env)
 - A meta-test scans the rule sources and fails if any emitted code has no control, so a new rule cannot ship without one. That meta-test has itself been shown to go red.
 - A purity test fails if `src/core` imports React, the SDK, the DB layer, the DOM, or `fetch`.
 - The request properties described in [Under the hood](#under-the-hood) — `store: false`, no `temperature`, an explicit `thinking_level` — are asserted in `test/provider.test.ts`.
+- The storage claims are tested against `fake-indexeddb` rather than a mock, so rows are really written and databases really deleted. `test/wipe.test.ts` pairs every "it is gone" with a case where it is not, and `test/secureStore.test.ts` checks that the wrapping key refuses to export and that destroying it leaves the ciphertext in place but unreadable.
+- The unexportable-key behaviour was then checked in Chrome directly: a `CryptoKey` generated with `extractable: false`, put through IndexedDB and read back, is a genuine structured clone rather than the same object, keeps `extractable: false`, still decrypts, and rejects `exportKey('raw')`, `exportKey('jwk')` and `wrapKey` with `InvalidAccessError`. **One browser, one machine.** Firefox and Safari are unverified.
+- The schema repair was checked in Chrome against a hand-wedged database: version 1, `settings` store absent, both indexes absent, one document and three versions present. Loading the app bumped it to version 2, created the missing store and indexes, and left every row intact including the embedded reference image, with both index queries working afterwards. The key vault's repair was verified the same way, on a vault genuinely broken by a stray `indexedDB.open` during testing.
+
+Two bugs in this area passed the whole unit suite and broke the running app anyway — a caller still requesting the retired key mode, and a key vault wedged at version 1 with no object store. Both were found by opening the app and clicking the button. Treat the tests as necessary and not sufficient.
 
 **Errors only — there is no warning severity.** A diagnostic means the document is provably malformed: a cut outside the video, an undeclared speaker, a retention marker from the wrong vocabulary. Checks that pattern-matched prose for a preference — sentence counts, word targets, whether a camera annotation was echoed in the wording — were removed, because they fired on legitimate output. A check that cries wolf trains you to ignore the ones that matter. That guidance lives in the planner prompt instead, where being wrong costs nothing.
 
@@ -119,10 +128,14 @@ bun run probe       # live API probes (reads GEMINI_API_KEY from .env)
 
 ## Under the hood
 
-Tried to follow best practices via:
+What the code does:
 
-- **Key at rest** — AES-GCM-256 in `localStorage` under `h3-secure:gemini-api-key`, key derived with PBKDF2-HMAC-SHA256 at 310,000 iterations. `passphrase` mode is real encryption. The default `device` mode derives from `navigator.userAgent + navigator.language`, which is not a secret, so it is obfuscation only.
+- **Key at rest** — AES-GCM-256 in `localStorage` under `h3-secure:gemini-api-key`. Three modes, in `src/crypto/secureStore.ts`:
+  - `origin`, the default. A random AES-GCM-256 key generated with `extractable: false`, kept as a `CryptoKey` in IndexedDB `H3KeyVault`. `exportKey` on it rejects, so its bytes never exist in JavaScript and the ciphertext can only be opened from this origin in this browser profile. The key is generated on your machine at first use; no key material is in this repo.
+  - `passphrase`, PBKDF2-HMAC-SHA256 at 310,000 iterations over what you type. The only mode that does not depend on the machine.
+  - `device`, legacy and decrypt-only. Derived from `navigator.userAgent + navigator.language`, which is not a secret; it was the old default. Existing values still open so nobody loses a stored key, writing it now throws, and the next save upgrades to `origin`.
 - **Key in transit** — sent as an `x-goog-api-key` header, not in a URL, on every call this app makes. `generativelanguage.googleapis.com` is the only host it contacts.
+- **Erasing local data** — `local data` in the header. `src/db/wipe.ts` closes the cached connection, deletes the databases, clears every `localStorage` key under the `h3-secure:` prefix, then re-opens storage and counts what is left. The panel shows those before-and-after counts and turns red if anything remains, including when another open tab blocks the delete.
 - **No stored interactions** — `store: false` on every request, no setting to change it, enforced by `test/provider.test.ts`. Chosen because `interactions.delete` returns 501, so a stored interaction could not be removed later.
 - **CSP** — `connect-src 'self' https://generativelanguage.googleapis.com`, `script-src 'self'`. Bare `ws:`/`wss:` are deliberately absent: they match any host, which would hand a compromised dependency a socket to anywhere. `frame-ancestors` is absent because it is ignored in a `<meta>` tag — set it as a response header if you deploy this.
 - **No logging of its own** — zero `console.*` in `src/`, no analytics, telemetry, or error reporting.
@@ -130,11 +143,13 @@ Tried to follow best practices via:
 What that does not cover:
 
 - **`store: false` is not a retention guarantee.** It opts out of Interactions conversation-state storage. Google still logs prompts and responses for a period to enforce the Prohibited Use Policy, and free-tier terms permit using prompts and responses to improve its products. Zero data retention is a paid, approved-project posture. ([abuse monitoring](https://ai.google.dev/gemini-api/docs/usage-policies), [terms](https://ai.google.dev/gemini-api/terms), [ZDR](https://ai.google.dev/gemini-api/docs/zdr)) Which tier issued your key matters more here than anything in this repo.
-- **Documents are not encrypted.** IndexedDB `H3TransformationEngine`, stores `documents`, `versions`, `settings`, all in the clear.
-- **Nothing stops script running on this origin.** Once decrypted, the key is in memory.
+- **Nothing stops script running on this origin.** This is the ceiling, and no storage scheme moves it. Script on this origin can call `getSecret` exactly as the app does, or read the key out of memory once it is unlocked. `origin` mode makes a stolen `localStorage` dump useless on another machine; it does nothing about an attacker already executing here.
+- **Documents are not encrypted.** IndexedDB `H3TransformationEngine`, stores `documents`, `versions`, `settings`, all in the clear. Anything with access to the browser profile can read them.
+- **Give it its own origin if you host it.** Browser storage is partitioned by origin, not by path, so a deploy that shares a hostname with other pages shares this app's storage with them.
+- **Erasing is local only.** It clears what this app wrote. Browser history, the disk cache, OS-level backups, and anything already sent to Google are all outside it.
 - **Dependencies are trusted, not audited.** Five packages reach the bundle: `react`, `react-dom`, `zod`, `idb`, `@google/genai`. Nothing in the build points at a third-party host, but that describes the versions pinned in `bun.lock`, not a property anyone enforces.
 
-**Test it yourself.** The above was checked by hand, in one browser, on one machine — a small sample, not a security audit. The CSP claims in particular take a few minutes to reproduce: serve a page carrying the same policy, listen for `securitypolicyviolation`, and try a `fetch` and a `WebSocket` at some host that is not on the list. Both should be refused, and the fetch case is what tells you the probe can go red at all.
+**Test it yourself.** The above was checked by hand, in one browser, on one machine, by one person — a small sample, not a security audit. The CSP claims in particular take a few minutes to reproduce: serve a page carrying the same policy, listen for `securitypolicyviolation`, and try a `fetch` and a `WebSocket` at some host that is not on the list. Both should be refused, and the fetch case is what tells you the probe can go red at all. For the storage claims, open devtools, watch `localStorage` and both IndexedDB databases, and press the erase button.
 
 ## License
 
