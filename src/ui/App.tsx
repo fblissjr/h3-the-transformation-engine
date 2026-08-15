@@ -10,6 +10,7 @@
 import { useState } from 'react';
 import { useEngine } from './useEngine';
 import { KeyPanel } from './KeyPanel';
+import { DataPanel } from './DataPanel/DataPanel';
 import { SlotManager } from './SlotManager/SlotManager';
 import { DocumentEditor } from './DocumentEditor/DocumentEditor';
 import { PromptView } from './PromptView/PromptView';
@@ -43,6 +44,7 @@ export function App() {
           onUnlock={e.unlockApiKey}
           onForget={e.forgetApiKey}
         />
+        <DataPanel onErased={e.resetAfterErase} />
       </header>
 
       {(e.error || e.notice) && (

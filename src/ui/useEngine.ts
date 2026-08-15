@@ -19,14 +19,17 @@ import { compile, edit, editDirect, inspect } from '../pipeline';
 import { GeminiClient } from '../provider/gemini';
 import {
   API_KEY_NAME,
+  DEFAULT_KEY_MODE,
   getSecret,
   removeSecret,
   secretMode,
   setSecret,
   type KeyMode,
+  type WritableKeyMode,
 } from '../crypto/secureStore';
 import { buildTree, flattenTree, listVersions, recordVersion } from '../db/versions';
 import { loadDocument, saveDocument, type StoredVersion } from '../db/db';
+import type { EraseScope } from '../db/wipe';
 
 const DOC_ID = 'workspace';
 
@@ -72,7 +75,20 @@ export function useEngine() {
       // again and overwrite a perfectly good stored one.
       const mode = secretMode(API_KEY_NAME);
       setStoredKeyMode(mode);
-      if (mode === 'device') setApiKey(await getSecret(API_KEY_NAME));
+
+      if (mode === 'origin' || mode === 'device') {
+        const value = await getSecret(API_KEY_NAME);
+        if (value != null) setApiKey(value);
+        else {
+          // Neither mode can be retried: `origin` fails only when the wrapping
+          // key is gone, `device` when the browser fingerprint moved. Keeping
+          // the dead blob would leave the UI insisting a key exists that can
+          // never open, so it goes and the user is told why.
+          removeSecret(API_KEY_NAME);
+          setStoredKeyMode(null);
+          setNotice('The stored API key could not be decrypted on this browser. Paste it again.');
+        }
+      }
 
       const stored = await loadDocument(DOC_ID);
       if (stored) {
@@ -101,8 +117,18 @@ export function useEngine() {
       setError('Paste a key before saving.');
       return;
     }
-    const mode: KeyMode = passphrase ? 'passphrase' : 'device';
-    await setSecret(API_KEY_NAME, trimmed, { mode, ...(passphrase ? { passphrase } : {}) });
+    const mode: WritableKeyMode = passphrase ? 'passphrase' : DEFAULT_KEY_MODE;
+    try {
+      await setSecret(API_KEY_NAME, trimmed, { mode, ...(passphrase ? { passphrase } : {}) });
+    } catch (cause) {
+      // Storing the key can fail for real -- a browser with IndexedDB disabled
+      // has nowhere to put the wrapping key. Letting that reject unhandled left
+      // the form looking like it had saved when it had not.
+      setError(
+        `Could not store the key: ${cause instanceof Error ? cause.message : String(cause)}`,
+      );
+      return;
+    }
     setApiKey(trimmed);
     setStoredKeyMode(mode);
     setError(null);
@@ -124,6 +150,32 @@ export function useEngine() {
     removeSecret(API_KEY_NAME);
     setApiKey(null);
     setStoredKeyMode(null);
+  }, []);
+
+  /**
+   * Drop the in-memory mirror of whatever was just erased.
+   *
+   * Without this the document stays on screen beside a report saying the
+   * database is empty, and the next edit writes it straight back -- which would
+   * make the erase both untrustworthy and untrue.
+   */
+  const resetAfterErase = useCallback((scope: EraseScope) => {
+    setDoc(null);
+    setVersions([]);
+    setHeadVersionId(null);
+    setSelectedPaths([]);
+    setSlots([]);
+    setModeOverride(null);
+    if (scope === 'everything') {
+      setApiKey(null);
+      setStoredKeyMode(null);
+    }
+    setError(null);
+    setNotice(
+      scope === 'everything'
+        ? 'Erased the workspace, its history, and the stored key.'
+        : 'Erased the workspace and its history. Your API key is still stored.',
+    );
   }, []);
 
   // --- derived -----------------------------------------------------------
@@ -274,6 +326,7 @@ export function useEngine() {
     saveApiKey,
     unlockApiKey,
     forgetApiKey,
+    resetAfterErase,
     idea,
     setIdea,
     mode,
