@@ -13,6 +13,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CompileInput, H3Document, ReferenceSlot } from '../core/ir/types';
 import type { H3Mode } from '../core/ir/vocab';
+import type { CreativeMode, StyleInjection } from '../core/creative/types';
+import { resolve } from '../core/creative';
 import { contextFor, framesToSeconds } from '../core/normalize';
 import { inferMode } from '../core/normalize/mode';
 import { compile, edit, editDirect, inspect } from '../pipeline';
@@ -65,6 +67,8 @@ export function useEngine() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [creativeMode, setCreativeMode] = useState<CreativeMode | null>(null);
+  const [activeStyle, setActiveStyle] = useState<StyleInjection | null>(null);
 
   // --- persistence -------------------------------------------------------
   useEffect(() => {
@@ -98,6 +102,13 @@ export function useEngine() {
         setDurationFrames(stored.doc.durationFrames);
         setDurationSeconds(stored.doc.durationSeconds);
         setModeOverride(stored.doc.modeLocked ? stored.doc.mode : null);
+        if (stored.doc.creativeMode) {
+          setCreativeMode(stored.doc.creativeMode.mode);
+          setActiveStyle(resolve(stored.doc.creativeMode.selection, stored.doc.creativeMode.mode));
+        } else {
+          setCreativeMode(null);
+          setActiveStyle(null);
+        }
       }
       setVersions(await listVersions(DOC_ID));
     })();
@@ -166,6 +177,8 @@ export function useEngine() {
     setSelectedPaths([]);
     setSlots([]);
     setModeOverride(null);
+    setCreativeMode(null);
+    setActiveStyle(null);
     if (scope === 'everything') {
       setApiKey(null);
       setStoredKeyMode(null);
@@ -190,8 +203,9 @@ export function useEngine() {
       mode,
       ...(durationFrames != null ? { durationFrames } : { durationSeconds }),
       slots,
+      ...(activeStyle ? { style: activeStyle } : {}),
     }),
-    [idea, mode, durationFrames, durationSeconds, slots],
+    [idea, mode, durationFrames, durationSeconds, slots, activeStyle],
   );
 
   const client = useMemo(() => (apiKey ? new GeminiClient({ apiKey }) : null), [apiKey]);
@@ -233,7 +247,7 @@ export function useEngine() {
     setNotice(null);
     try {
       const result = await compile(client, input, { id: DOC_ID });
-      await commit(result.doc, 'Generated');
+      await commit(result.doc, activeStyle ? `Generated (${activeStyle.description})` : 'Generated');
       setSelectedPaths([]);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
@@ -293,6 +307,13 @@ export function useEngine() {
     setDoc(version.doc);
     setHeadVersionId(version.id);
     setSlots(version.doc.slots);
+    if (version.doc.creativeMode) {
+      setCreativeMode(version.doc.creativeMode.mode);
+      setActiveStyle(resolve(version.doc.creativeMode.selection, version.doc.creativeMode.mode));
+    } else {
+      setCreativeMode(null);
+      setActiveStyle(null);
+    }
     await saveDocument({
       id: DOC_ID,
       title: version.label,
@@ -356,6 +377,10 @@ export function useEngine() {
     applyDirect,
     applyAssisted,
     checkout,
+    creativeMode,
+    setCreativeMode,
+    activeStyle,
+    setActiveStyle,
   };
 }
 

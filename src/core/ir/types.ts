@@ -27,6 +27,7 @@ import type {
   TaskType,
   VisualRetention,
 } from './vocab';
+import type { CreativeModeRecord, StyleInjection } from '../creative/types';
 
 // ---------------------------------------------------------------------------
 // Reference slots
@@ -265,6 +266,9 @@ export interface H3Document {
   taskTypes?: TaskType[];
   /** One entry per reference label. */
   retention?: RetentionEntry[];
+
+  /** Which creative mode produced this document, if any. Metadata only -- the serializer ignores it. */
+  creativeMode?: CreativeModeRecord;
 }
 
 // ---------------------------------------------------------------------------
@@ -280,6 +284,8 @@ export interface CompileInput {
   slots: ReferenceSlot[];
   /** Dialogue the user wants preserved word for word. */
   suppliedDialogue?: string[];
+  /** Creative mode style injection. Affects the planner prompt, not the serialized output. */
+  style?: StyleInjection;
 }
 
 /** Everything the normalizer can work out without asking a model. */

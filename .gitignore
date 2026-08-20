@@ -8,3 +8,5 @@ coverage
 # The template carries no secret and documents where the real one goes.
 !.env.example
 scratch/
+internal/
+coderef/

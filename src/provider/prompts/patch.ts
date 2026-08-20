@@ -61,8 +61,9 @@ function editableSection(doc: H3Document, paths: string[]): string {
   return `# Editable paths\n\n${lines.join('\n\n')}`;
 }
 
-export function buildPatchSystemPrompt(): string {
-  return CORE;
+export function buildPatchSystemPrompt(style?: { styleDirective: string }): string {
+  if (!style) return CORE;
+  return CORE + '\n\n# Active style\n\nThe document was generated under a specific style direction. Preserve it in any prose you rewrite:\n\n' + style.styleDirective;
 }
 
 export function buildPatchUserPrompt(doc: H3Document, paths: string[], instruction: string): string {

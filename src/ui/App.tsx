@@ -16,6 +16,7 @@ import { DocumentEditor } from './DocumentEditor/DocumentEditor';
 import { PromptView } from './PromptView/PromptView';
 import { Diagnostics } from './Diagnostics/Diagnostics';
 import { VersionTree } from './VersionTree/VersionTree';
+import { CreativePanel } from './CreativePanel/CreativePanel';
 import { MODES } from '../core/ir/vocab';
 import { gridFramesUpTo } from '../core/normalize/duration';
 import { modeRequirements } from '../core/normalize/mode';
@@ -132,6 +133,13 @@ export function App() {
           </div>
 
           <SlotManager slots={e.slots} onChange={e.setSlots} />
+
+          <CreativePanel
+            mode={e.creativeMode}
+            onModeChange={e.setCreativeMode}
+            style={e.activeStyle}
+            onStyleChange={e.setActiveStyle}
+          />
 
           <button
             type="button"
