@@ -108,7 +108,7 @@ Verified against `@google/genai` types or probed live, not read from docs:
 ```
 bun install
 bun run dev         # http://localhost:5173
-bun run test        # 227 tests
+bun run test        # 235 tests
 bun run typecheck
 bun run build
 bun run probe       # live API probes (reads GEMINI_API_KEY from .env)
@@ -123,7 +123,7 @@ bun run probe       # live API probes (reads GEMINI_API_KEY from .env)
 - A meta-test scans the rule sources and fails if any emitted code has no control, so a new rule cannot ship without one. That meta-test has itself been shown to go red.
 - A purity test fails if `src/core` imports React, the SDK, the DB layer, the DOM, or `fetch`.
 - The request properties described in [Under the hood](#under-the-hood) — `store: false`, no `temperature`, an explicit `thinking_level` — are asserted in `test/provider.test.ts`.
-- The creative modes are checked at both ends: the derivations in `test/creative.test.ts`, and the wiring in `test/creative-integration.test.ts` — that both the planner and the patch prompt derive the same directive from the same record, that a creative mode survives a patch, that it changes nothing in the serialized prompt, and that a selection round-trips through the stored-document schema to the same prompt text. Seven deliberate breakages were used to confirm those go red for the right reason.
+- The creative modes are checked at both ends: the derivations in `test/creative.test.ts`, and the wiring in `test/creative-integration.test.ts` — that both the planner and the patch prompt derive the same directive from the same record, that a creative mode survives a patch, that it changes nothing in the serialized prompt, and that a selection round-trips through the stored-document schema to the same prompt text. Ten deliberate breakages were used to confirm those go red for the right reason.
 - The stored-document schema is checked on load and reports rather than gates. It is exercised against all five golden fixtures, so a drift between the schema and the type shows up as a failing test rather than as a document that will not open.
 - The storage claims are tested against `fake-indexeddb` rather than a mock, so rows are really written and databases really deleted. `test/wipe.test.ts` pairs every "it is gone" with a case where it is not, and `test/secureStore.test.ts` checks that the wrapping key refuses to export and that destroying it leaves the ciphertext in place but unreadable.
 - The unexportable-key behaviour was then checked in Chrome directly: a `CryptoKey` generated with `extractable: false`, put through IndexedDB and read back, is a genuine structured clone rather than the same object, keeps `extractable: false`, still decrypts, and rejects `exportKey('raw')`, `exportKey('jwk')` and `wrapKey` with `InvalidAccessError`. **One browser, one machine.** Firefox and Safari are unverified.
