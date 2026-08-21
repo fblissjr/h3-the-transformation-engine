@@ -98,6 +98,27 @@ export function hasStyle(selection: StoredSelection): boolean {
   return entries(selection).length > 0;
 }
 
+/**
+ * Drop ids nothing resolves, so what is held matches what is shown.
+ *
+ * A selection restored from a document written by an older build can name a
+ * pack this build does not have. The derivations already skip it, but left in
+ * the selection it renders as a blank dropdown and rides along through every
+ * later edit, invisible. This is applied where a stored record enters the UI.
+ */
+export function pruneSelection(selection: StoredSelection): CreativeSelection {
+  const kept: CreativeSelection = { strength: selection.strength };
+  for (const { id, lookup, field } of [
+    { id: selection.visual, lookup: getVisual, field: 'visual' },
+    { id: selection.motion, lookup: getMotionPack, field: 'motion' },
+    { id: selection.finish, lookup: getFinishPack, field: 'finish' },
+    { id: selection.audio, lookup: getAudioPack, field: 'audio' },
+  ] as const) {
+    if (id && lookup(id)) kept[field] = id as never;
+  }
+  return kept;
+}
+
 /** Human-readable label for the UI badge and the version history entry. */
 export function describeSelection(selection: StoredSelection): string {
   return entries(selection).map((e) => e.name).join(' + ');

@@ -14,7 +14,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CompileInput, H3Document, ReferenceSlot } from '../core/ir/types';
 import type { H3Mode } from '../core/ir/vocab';
 import type { CreativeModeRecord } from '../core/creative';
-import { describeSelection, hasStyle } from '../core/creative';
+import { describeSelection, hasStyle, pruneSelection } from '../core/creative';
 import { contextFor, framesToSeconds } from '../core/normalize';
 import { inferMode } from '../core/normalize/mode';
 import { compile, edit, editDirect, inspect } from '../pipeline';
@@ -49,6 +49,17 @@ export interface EngineState {
   busy: string | null;
   error: string | null;
   notice: string | null;
+}
+
+/**
+ * A stored creative mode, with any pack this build no longer has dropped.
+ *
+ * The picker shows exactly what it holds, so an id that cannot render as a
+ * selected option must not stay in the selection either.
+ */
+function restoreCreative(stored: CreativeModeRecord | undefined): CreativeModeRecord | null {
+  if (!stored) return null;
+  return { mode: stored.mode, selection: pruneSelection(stored.selection) };
 }
 
 export function useEngine() {
@@ -109,7 +120,7 @@ export function useEngine() {
         setDurationFrames(record.doc.durationFrames);
         setDurationSeconds(record.doc.durationSeconds);
         setModeOverride(record.doc.modeLocked ? record.doc.mode : null);
-        setCreative(record.doc.creativeMode ?? null);
+        setCreative(restoreCreative(record.doc.creativeMode));
         if (schemaError) {
           setNotice(
             `The stored document does not match this build's schema (${schemaError}). ` +
@@ -317,7 +328,7 @@ export function useEngine() {
     setDoc(version.doc);
     setHeadVersionId(version.id);
     setSlots(version.doc.slots);
-    setCreative(version.doc.creativeMode ?? null);
+    setCreative(restoreCreative(version.doc.creativeMode));
     await saveDocument({
       id: DOC_ID,
       title: version.label,

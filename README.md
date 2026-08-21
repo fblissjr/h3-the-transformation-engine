@@ -108,7 +108,7 @@ Verified against `@google/genai` types or probed live, not read from docs:
 ```
 bun install
 bun run dev         # http://localhost:5173
-bun run test        # 225 tests
+bun run test        # 227 tests
 bun run typecheck
 bun run build
 bun run probe       # live API probes (reads GEMINI_API_KEY from .env)
@@ -123,11 +123,14 @@ bun run probe       # live API probes (reads GEMINI_API_KEY from .env)
 - A meta-test scans the rule sources and fails if any emitted code has no control, so a new rule cannot ship without one. That meta-test has itself been shown to go red.
 - A purity test fails if `src/core` imports React, the SDK, the DB layer, the DOM, or `fetch`.
 - The request properties described in [Under the hood](#under-the-hood) — `store: false`, no `temperature`, an explicit `thinking_level` — are asserted in `test/provider.test.ts`.
+- The creative modes are checked at both ends: the derivations in `test/creative.test.ts`, and the wiring in `test/creative-integration.test.ts` — that both the planner and the patch prompt derive the same directive from the same record, that a creative mode survives a patch, that it changes nothing in the serialized prompt, and that a selection round-trips through the stored-document schema to the same prompt text. Seven deliberate breakages were used to confirm those go red for the right reason.
+- The stored-document schema is checked on load and reports rather than gates. It is exercised against all five golden fixtures, so a drift between the schema and the type shows up as a failing test rather than as a document that will not open.
 - The storage claims are tested against `fake-indexeddb` rather than a mock, so rows are really written and databases really deleted. `test/wipe.test.ts` pairs every "it is gone" with a case where it is not, and `test/secureStore.test.ts` checks that the wrapping key refuses to export and that destroying it leaves the ciphertext in place but unreadable.
 - The unexportable-key behaviour was then checked in Chrome directly: a `CryptoKey` generated with `extractable: false`, put through IndexedDB and read back, is a genuine structured clone rather than the same object, keeps `extractable: false`, still decrypts, and rejects `exportKey('raw')`, `exportKey('jwk')` and `wrapKey` with `InvalidAccessError`. **One browser, one machine.** Firefox and Safari are unverified.
+- The creative picker was checked in Chrome against a seeded document: the four dropdowns come back carrying the stored selection, changing one preserves the other three, a reference anchor resolves through the same path as a medium pack, and a hand-damaged document opens with its defect named rather than being refused, and a selection naming a pack this build no longer has comes back with that one field cleared and the rest intact. **One browser, one machine.**
 - The schema repair was checked in Chrome against a hand-wedged database: version 1, `settings` store absent, both indexes absent, one document and three versions present. Loading the app bumped it to version 2, created the missing store and indexes, and left every row intact including the embedded reference image, with both index queries working afterwards. The key vault's repair was verified the same way, on a vault genuinely broken by a stray `indexedDB.open` during testing.
 
-Two bugs in this area passed the whole unit suite and broke the running app anyway — a caller still requesting the retired key mode, and a key vault wedged at version 1 with no object store. Both were found by opening the app and clicking the button. Treat the tests as necessary and not sufficient.
+Three bugs so far passed the whole unit suite and broke the running app anyway — a caller still requesting the retired key mode, a key vault wedged at version 1 with no object store, and a creative picker that showed a restored style in its badge but not in its controls, then destroyed it on the first change. All three were found by opening the app and clicking the thing. Treat the tests as necessary and not sufficient.
 
 **Errors only — there is no warning severity.** A diagnostic means the document is provably malformed: a cut outside the video, an undeclared speaker, a retention marker from the wrong vocabulary. Checks that pattern-matched prose for a preference — sentence counts, word targets, whether a camera annotation was echoed in the wording — were removed, because they fired on legitimate output. A check that cries wolf trains you to ignore the ones that matter. That guidance lives in the planner prompt instead, where being wrong costs nothing.
 

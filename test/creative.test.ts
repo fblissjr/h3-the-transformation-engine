@@ -25,10 +25,10 @@ import {
   getVisual,
   hasStyle,
   isStressTestViable,
+  pruneSelection,
   randomWild,
   scoreStrength,
   styleDirective,
-  wildPresets,
 } from '../src/core/creative';
 
 describe('styleDirective', () => {
@@ -214,6 +214,31 @@ describe('randomWild', () => {
   });
 });
 
+describe('pruneSelection', () => {
+  it('keeps everything that resolves', () => {
+    const full = { visual: 'V06', motion: 'M04', finish: 'F02', audio: 'A02', strength: 'full' } as const;
+    expect(pruneSelection(full)).toEqual(full);
+  });
+
+  /**
+   * The reason this exists: an id nothing resolves renders as a blank
+   * dropdown, and left in the selection it rides along through every later
+   * edit without ever being visible.
+   */
+  it('drops ids nothing resolves, keeping the rest and the strength', () => {
+    expect(pruneSelection({ visual: 'V99', motion: 'M04', strength: 'subtle' })).toEqual({
+      motion: 'M04',
+      strength: 'subtle',
+    });
+  });
+
+  it('leaves a selection that resolves to nothing at all as just its strength', () => {
+    expect(pruneSelection({ visual: 'V99', audio: 'A99', strength: 'full' })).toEqual({
+      strength: 'full',
+    });
+  });
+});
+
 describe('presets', () => {
   it('have unique ids', () => {
     const ids = PRESETS.map((p) => p.id);
@@ -232,11 +257,5 @@ describe('presets', () => {
       if (preset.selection.strength !== 'stress-test') continue;
       expect(isStressTestViable(scoreStrength(preset.selection)), preset.id).toBe(true);
     }
-  });
-
-  it('wildPresets returns only stress-test presets', () => {
-    const wild = wildPresets();
-    expect(wild.length).toBeGreaterThan(0);
-    for (const preset of wild) expect(preset.selection.strength).toBe('stress-test');
   });
 });

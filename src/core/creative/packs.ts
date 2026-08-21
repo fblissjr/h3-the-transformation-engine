@@ -371,16 +371,12 @@ export type AudioPackId = (typeof AUDIO_PACKS)[number]['id'];
 
 // Each takes a bare string: the argument can come from a stored document
 // written by an older build, so an unknown id has to be a miss at runtime
-// rather than a type error nobody is there to see.
+// rather than a type error nobody is there to see. Visual ids are looked up
+// through `getVisual` instead, because packs and anchors share one id space.
 
-const visualMap: ReadonlyMap<string, PackDef> = new Map(VISUAL_PACKS.map((p) => [p.id, p]));
 const motionMap: ReadonlyMap<string, PackDef> = new Map(MOTION_PACKS.map((p) => [p.id, p]));
 const finishMap: ReadonlyMap<string, PackDef> = new Map(FINISH_PACKS.map((p) => [p.id, p]));
 const audioMap: ReadonlyMap<string, PackDef> = new Map(AUDIO_PACKS.map((p) => [p.id, p]));
-
-export function getVisualPack(id: string): PackDef | undefined {
-  return visualMap.get(id);
-}
 
 export function getMotionPack(id: string): PackDef | undefined {
   return motionMap.get(id);

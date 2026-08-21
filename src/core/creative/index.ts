@@ -26,10 +26,9 @@ export type {
 } from './types';
 
 export { VISUAL_PACKS, MOTION_PACKS, FINISH_PACKS, AUDIO_PACKS } from './packs';
-export { getMotionPack, getFinishPack, getAudioPack } from './packs';
 export { STYLE_ANCHORS } from './anchors';
 export { VISUAL_SOURCES, getVisual } from './visual';
-export { scoreStrength, activeAxes, isStressTestViable } from './strength';
-export { styleDirective, describeSelection, hasStyle, randomWild } from './resolver';
-export { PRESETS, getPreset, wildPresets } from './presets';
+export { scoreStrength, isStressTestViable } from './strength';
+export { styleDirective, describeSelection, hasStyle, pruneSelection, randomWild } from './resolver';
+export { PRESETS } from './presets';
 export type { CreativePreset } from './presets';

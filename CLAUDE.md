@@ -46,7 +46,7 @@ If a proposed rule would turn a golden fixture red, the rule is wrong.
 ## Testing
 
 ```
-bun run test        # 225 tests (vitest)
+bun run test        # 227 tests (vitest)
 bun run typecheck
 bun run build
 bun run probe       # live API probes; reads GEMINI_API_KEY from .env
@@ -54,7 +54,7 @@ bun run probe       # live API probes; reads GEMINI_API_KEY from .env
 
 A check is unverified until it has been shown to go red for the right reason *and* green for the right reason. Write the control that makes it fail, run it, then trust it.
 
-Storage and crypto tests run against `fake-indexeddb` (a devDependency, not in the bundle) with a `localStorage` stub, so deletes and round-trips are real rather than mocked. What that cannot cover is the browser: **click the thing.** Both bugs that mattered in the storage work — a caller still passing the retired `device` mode, and a vault database wedged at version 1 — passed every unit test and broke the running app.
+Storage and crypto tests run against `fake-indexeddb` (a devDependency, not in the bundle) with a `localStorage` stub, so deletes and round-trips are real rather than mocked. What that cannot cover is the browser: **click the thing.** Both bugs that mattered in the storage work — a caller still passing the retired `device` mode, and a vault database wedged at version 1 — passed every unit test and broke the running app. So did the third: a creative picker holding its own copy of the selection, which showed a restored style in its badge but not in its controls and then destroyed it on the first change.
 
 ## Conventions
 

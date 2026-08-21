@@ -93,16 +93,3 @@ export const PRESETS: readonly CreativePreset[] = [
   },
 ] as const satisfies readonly CreativePreset[];
 
-const presetMap = new Map(PRESETS.map((p) => [p.id, p]));
-
-export function getPreset(id: string): CreativePreset | undefined {
-  return presetMap.get(id);
-}
-
-/**
- * Presets suitable for wild mode -- those with stress-test strength and
- * enough G/S/P/M/T leverage to avoid collapsing to H3's default.
- */
-export function wildPresets(): readonly CreativePreset[] {
-  return PRESETS.filter((p) => p.selection.strength === 'stress-test');
-}

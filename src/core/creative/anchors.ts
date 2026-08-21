@@ -201,13 +201,3 @@ export const STYLE_ANCHORS = [
 
 /** Derived from the table above, the same way the pack ids are. */
 export type AnchorId = (typeof STYLE_ANCHORS)[number]['id'];
-
-// ---------------------------------------------------------------------------
-// Lookup
-// ---------------------------------------------------------------------------
-
-const anchorMap: ReadonlyMap<string, PackDef> = new Map(STYLE_ANCHORS.map((a) => [a.id, a]));
-
-export function getAnchor(id: string): PackDef | undefined {
-  return anchorMap.get(id);
-}

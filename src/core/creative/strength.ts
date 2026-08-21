@@ -35,7 +35,7 @@ export function scoreStrength(
 }
 
 /** Count how many of the 5 axes are active. */
-export function activeAxes(score: StrengthScore): number {
+function activeAxes(score: StrengthScore): number {
   return [score.G, score.S, score.P, score.M, score.T].filter(Boolean).length;
 }
 
