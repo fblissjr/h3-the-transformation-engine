@@ -61,7 +61,8 @@ export type CreativeMode = 'directed' | 'exploratory' | 'wild';
  * instead of a cast at every call site that has to deal with storage.
  */
 export interface StoredSelection {
-  visual?: string;
+  /** A number is the form reference anchors took before they had string ids. */
+  visual?: string | number;
   motion?: string;
   finish?: string;
   audio?: string;

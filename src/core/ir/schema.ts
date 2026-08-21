@@ -127,11 +127,16 @@ export const RetentionEntrySchema = z.object({
  * the right response to that is the style quietly resolving to nothing -- which
  * `styleDirective` already does -- not the whole document failing to parse and
  * the user losing their work.
+ *
+ * `visual` also accepts a number, which is what reference anchors were before
+ * they moved into the packs' id space. Narrowing this to a string is what the
+ * rule above exists to prevent: it made every document written with an anchor
+ * selected fail to parse and lose its style. `getVisual` understands both.
  */
 const CreativeModeSchema = z.object({
   mode: z.enum(['directed', 'exploratory', 'wild']),
   selection: z.object({
-    visual: z.string().optional(),
+    visual: z.union([z.string(), z.number()]).optional(),
     motion: z.string().optional(),
     finish: z.string().optional(),
     audio: z.string().optional(),

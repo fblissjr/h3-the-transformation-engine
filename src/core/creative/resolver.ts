@@ -16,7 +16,7 @@ import {
   getFinishPack,
   getMotionPack,
 } from './packs';
-import { getVisual } from './visual';
+import { canonicalVisualId, getVisual } from './visual';
 import { isStressTestViable, scoreStrength } from './strength';
 import type {
   CreativeModeRecord,
@@ -35,6 +35,8 @@ import type {
  * blanket override. `subtle` that overrode the request would be contradicting
  * its own name.
  */
+export const STRENGTH_LEVELS: StrengthLevel[] = ['subtle', 'full', 'stress-test'];
+
 const STRENGTH_PREAMBLE: Record<StrengthLevel, string> = {
   subtle:
     'The direction below sets the medium and the finish. Take everything else -- ' +
@@ -55,17 +57,28 @@ const STRENGTH_PREAMBLE: Record<StrengthLevel, string> = {
 // ---------------------------------------------------------------------------
 
 interface Line {
+  field: 'visual' | 'motion' | 'finish' | 'audio';
   lead: string;
   id: string | undefined;
   lookup: (id: string) => { name: string; directive: string } | undefined;
 }
 
+/**
+ * The four families in display order, with each id resolved to the form this
+ * build uses. The legacy numeric anchor id is normalised here, the one place
+ * a selection is taken apart.
+ */
 function lines(selection: StoredSelection): Line[] {
   return [
-    { lead: 'For the visual medium, use', id: selection.visual, lookup: getVisual },
-    { lead: 'For motion behavior, use', id: selection.motion, lookup: getMotionPack },
-    { lead: 'For the finish, use', id: selection.finish, lookup: getFinishPack },
-    { lead: 'For audio treatment, use', id: selection.audio, lookup: getAudioPack },
+    {
+      field: 'visual',
+      lead: 'For the visual medium, use',
+      id: selection.visual == null ? undefined : canonicalVisualId(selection.visual),
+      lookup: getVisual,
+    },
+    { field: 'motion', lead: 'For motion behavior, use', id: selection.motion, lookup: getMotionPack },
+    { field: 'finish', lead: 'For the finish, use', id: selection.finish, lookup: getFinishPack },
+    { field: 'audio', lead: 'For audio treatment, use', id: selection.audio, lookup: getAudioPack },
   ];
 }
 
@@ -99,24 +112,31 @@ export function hasStyle(selection: StoredSelection): boolean {
 }
 
 /**
- * Drop ids nothing resolves, so what is held matches what is shown.
+ * Drop what this build cannot resolve, so what is held matches what is shown.
  *
  * A selection restored from a document written by an older build can name a
- * pack this build does not have. The derivations already skip it, but left in
- * the selection it renders as a blank dropdown and rides along through every
- * later edit, invisible. This is applied where a stored record enters the UI.
+ * pack this build does not have, or carry an anchor in its old numeric form.
+ * The derivations already cope, but left in the selection an unresolvable id
+ * renders as a blank dropdown and rides along through every later edit,
+ * invisible. Strength is checked for the same reason: a value off the union
+ * renders a badge that no strength button matches, and would otherwise be
+ * written back into the next document unchanged.
  */
 export function pruneSelection(selection: StoredSelection): CreativeSelection {
-  const kept: CreativeSelection = { strength: selection.strength };
-  for (const { id, lookup, field } of [
-    { id: selection.visual, lookup: getVisual, field: 'visual' },
-    { id: selection.motion, lookup: getMotionPack, field: 'motion' },
-    { id: selection.finish, lookup: getFinishPack, field: 'finish' },
-    { id: selection.audio, lookup: getAudioPack, field: 'audio' },
-  ] as const) {
+  const strength = STRENGTH_LEVELS.includes(selection.strength) ? selection.strength : 'full';
+  const kept: CreativeSelection = { strength };
+
+  for (const { field, id, lookup } of lines(selection)) {
     if (id && lookup(id)) kept[field] = id as never;
   }
   return kept;
+}
+
+/** Whether two selections name the same thing. */
+export function sameSelection(a: StoredSelection, b: StoredSelection): boolean {
+  const l = lines(a);
+  const r = lines(b);
+  return a.strength === b.strength && l.every((entry, i) => entry.id === r[i].id);
 }
 
 /** Human-readable label for the UI badge and the version history entry. */

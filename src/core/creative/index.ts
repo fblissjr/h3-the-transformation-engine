@@ -27,8 +27,16 @@ export type {
 
 export { VISUAL_PACKS, MOTION_PACKS, FINISH_PACKS, AUDIO_PACKS } from './packs';
 export { STYLE_ANCHORS } from './anchors';
-export { VISUAL_SOURCES, getVisual } from './visual';
+export { VISUAL_SOURCES, getVisual, canonicalVisualId } from './visual';
 export { scoreStrength, isStressTestViable } from './strength';
-export { styleDirective, describeSelection, hasStyle, pruneSelection, randomWild } from './resolver';
+export {
+  STRENGTH_LEVELS,
+  styleDirective,
+  describeSelection,
+  hasStyle,
+  pruneSelection,
+  sameSelection,
+  randomWild,
+} from './resolver';
 export { PRESETS } from './presets';
 export type { CreativePreset } from './presets';

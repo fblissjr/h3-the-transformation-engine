@@ -14,7 +14,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CompileInput, H3Document, ReferenceSlot } from '../core/ir/types';
 import type { H3Mode } from '../core/ir/vocab';
 import type { CreativeModeRecord } from '../core/creative';
-import { describeSelection, hasStyle, pruneSelection } from '../core/creative';
+import { describeSelection, hasStyle, pruneSelection, sameSelection } from '../core/creative';
 import { contextFor, framesToSeconds } from '../core/normalize';
 import { inferMode } from '../core/normalize/mode';
 import { compile, edit, editDirect, inspect } from '../pipeline';
@@ -61,6 +61,9 @@ function restoreCreative(stored: CreativeModeRecord | undefined): CreativeModeRe
   if (!stored) return null;
   return { mode: stored.mode, selection: pruneSelection(stored.selection) };
 }
+
+/** Stands in for "no style", so a comparison never has to special-case null. */
+const EMPTY_SELECTION = { strength: 'full' } as const;
 
 export function useEngine() {
   const [apiKey, setApiKey] = useState<string | null>(null);
@@ -122,10 +125,13 @@ export function useEngine() {
         setModeOverride(record.doc.modeLocked ? record.doc.mode : null);
         setCreative(restoreCreative(record.doc.creativeMode));
         if (schemaError) {
-          setNotice(
+          const schemaNotice =
             `The stored document does not match this build's schema (${schemaError}). ` +
-              'It has been opened anyway; check it before editing.',
-          );
+            'It has been opened anyway; check it before editing.';
+          // Appended, not assigned: the key notice a few lines above says the
+          // stored key is gone and has to be pasted again, which is not
+          // something to drop because a second thing also went wrong.
+          setNotice((current) => (current ? `${current} ${schemaNotice}` : schemaNotice));
         }
       }
       setVersions(await listVersions(DOC_ID));
@@ -394,6 +400,15 @@ export function useEngine() {
     checkout,
     creative,
     setCreative,
+    /**
+     * Whether the picker describes the next generation rather than the open
+     * document. An assisted edit derives its style from `doc.creativeMode`, so
+     * changing the picker without regenerating leaves the two saying different
+     * things and the UI has to admit it.
+     */
+    creativeAppliesToNextGeneration:
+      doc != null &&
+      !sameSelection(creative?.selection ?? EMPTY_SELECTION, doc.creativeMode?.selection ?? EMPTY_SELECTION),
   };
 }
 

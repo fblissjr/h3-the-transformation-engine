@@ -19,7 +19,6 @@ import type {
   FinishPackId,
   MotionPackId,
   PackDef,
-  StrengthLevel,
   VisualId,
 } from '../../core/creative';
 import {
@@ -27,13 +26,14 @@ import {
   FINISH_PACKS,
   MOTION_PACKS,
   PRESETS,
+  STRENGTH_LEVELS,
   STYLE_ANCHORS,
   VISUAL_PACKS,
   describeSelection,
   randomWild,
+  sameSelection,
 } from '../../core/creative';
 
-const STRENGTH_LEVELS: StrengthLevel[] = ['subtle', 'full', 'stress-test'];
 const MODES: (CreativeMode | null)[] = [null, 'directed', 'exploratory', 'wild'];
 
 const MODE_LABELS: Record<string, string> = {
@@ -49,9 +49,18 @@ const EMPTY: CreativeSelection = { strength: 'full' };
 interface CreativePanelProps {
   value: CreativeModeRecord | null;
   onChange: (value: CreativeModeRecord | null) => void;
+  /**
+   * True when a document is open and was written under a different style.
+   *
+   * The picker and the open document carry two different facts: what the next
+   * generation will use, and what the current prose was actually written in.
+   * An assisted edit preserves the latter, so when they disagree the badge has
+   * to say which one it is describing.
+   */
+  appliesToNextGeneration: boolean;
 }
 
-export function CreativePanel({ value, onChange }: CreativePanelProps) {
+export function CreativePanel({ value, onChange, appliesToNextGeneration }: CreativePanelProps) {
   const mode = value?.mode ?? null;
   const selection = value?.selection ?? EMPTY;
   const label = describeSelection(selection);
@@ -117,6 +126,11 @@ export function CreativePanel({ value, onChange }: CreativePanelProps) {
           <div className="mt-0.5 text-[10px] text-[var(--color-muted)]">
             {selection.strength} strength
           </div>
+          {appliesToNextGeneration && (
+            <div className="mt-1 text-[10px] text-[var(--color-muted)]">
+              Applies to the next generation. Edits keep the style the open prompt was written in.
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -276,15 +290,5 @@ function PresetCards({
         </button>
       ))}
     </div>
-  );
-}
-
-function sameSelection(a: CreativeSelection, b: CreativeSelection): boolean {
-  return (
-    a.visual === b.visual &&
-    a.motion === b.motion &&
-    a.finish === b.finish &&
-    a.audio === b.audio &&
-    a.strength === b.strength
   );
 }

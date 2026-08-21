@@ -220,6 +220,23 @@ describe('H3DocumentSchema', () => {
     expect(styleDirective({ visual: 'V99', strength: 'full' })).toBeNull();
   });
 
+  /**
+   * The regression that prompted this: narrowing `visual` to a string made
+   * every document written with an anchor selected fail to parse, show a
+   * schema notice on every load, and lose its style.
+   */
+  it('accepts the numeric anchor id an older build wrote', () => {
+    const doc = {
+      ...docWith(),
+      creativeMode: { mode: 'exploratory', selection: { visual: 28, finish: 'F04', strength: 'full' } },
+    };
+    const parsed = H3DocumentSchema.safeParse(doc);
+    expect(parsed.success, JSON.stringify(parsed.error?.issues[0])).toBe(true);
+    expect(styleDirective({ visual: 28, finish: 'F04', strength: 'full' })).toContain(
+      '1990s camcorder memory',
+    );
+  });
+
   it('round-trips a selection through storage to the same prompt text', () => {
     const stored = JSON.parse(JSON.stringify(docWith(CLAY)));
     const parsed = H3DocumentSchema.parse(stored);

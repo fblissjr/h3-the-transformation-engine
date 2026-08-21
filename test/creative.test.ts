@@ -26,6 +26,7 @@ import {
   hasStyle,
   isStressTestViable,
   pruneSelection,
+  sameSelection,
   randomWild,
   scoreStrength,
   styleDirective,
@@ -214,6 +215,49 @@ describe('randomWild', () => {
   });
 });
 
+describe('the legacy numeric anchor id', () => {
+  /**
+   * The form a document written before anchors had string ids carries. This
+   * build renamed them, and the rule is that a rename must not make an older
+   * document unopenable or silently strip its style.
+   */
+  it('resolves to the same anchor as its string id', () => {
+    expect(styleDirective({ visual: 28, strength: 'full' })).toBe(
+      styleDirective({ visual: 'R28', strength: 'full' }),
+    );
+    expect(describeSelection({ visual: 3, strength: 'full' })).toBe(
+      describeSelection({ visual: 'R03', strength: 'full' }),
+    );
+  });
+
+  it('scores the same as its string id', () => {
+    expect(scoreStrength({ visual: 3 })).toEqual(scoreStrength({ visual: 'R03' }));
+  });
+
+  it('is rewritten to the string form when a stored selection is restored', () => {
+    expect(pruneSelection({ visual: 28, strength: 'full' })).toEqual({
+      visual: 'R28',
+      strength: 'full',
+    });
+  });
+
+  it('still misses when the number names no anchor', () => {
+    expect(styleDirective({ visual: 99, strength: 'full' })).toBeNull();
+  });
+});
+
+describe('sameSelection', () => {
+  it('sees through the legacy id form', () => {
+    expect(sameSelection({ visual: 28, strength: 'full' }, { visual: 'R28', strength: 'full' })).toBe(true);
+  });
+
+  it('separates selections that differ in any field', () => {
+    expect(sameSelection({ visual: 'V04', strength: 'full' }, { visual: 'V06', strength: 'full' })).toBe(false);
+    expect(sameSelection({ visual: 'V04', strength: 'full' }, { visual: 'V04', strength: 'subtle' })).toBe(false);
+    expect(sameSelection({ strength: 'full' }, { strength: 'full' })).toBe(true);
+  });
+});
+
 describe('pruneSelection', () => {
   it('keeps everything that resolves', () => {
     const full = { visual: 'V06', motion: 'M04', finish: 'F02', audio: 'A02', strength: 'full' } as const;
@@ -229,6 +273,18 @@ describe('pruneSelection', () => {
     expect(pruneSelection({ visual: 'V99', motion: 'M04', strength: 'subtle' })).toEqual({
       motion: 'M04',
       strength: 'subtle',
+    });
+  });
+
+  /**
+   * Strength reaches the strength buttons and the directive preamble. A value
+   * off the union renders a badge no button matches and would be written back
+   * into the next document unchanged.
+   */
+  it('replaces a strength level that is off the union', () => {
+    expect(pruneSelection({ visual: 'V04', strength: 'extreme' } as never)).toEqual({
+      visual: 'V04',
+      strength: 'full',
     });
   });
 

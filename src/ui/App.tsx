@@ -134,7 +134,11 @@ export function App() {
 
           <SlotManager slots={e.slots} onChange={e.setSlots} />
 
-          <CreativePanel value={e.creative} onChange={e.setCreative} />
+          <CreativePanel
+            value={e.creative}
+            onChange={e.setCreative}
+            appliesToNextGeneration={e.creativeAppliesToNextGeneration}
+          />
 
           <button
             type="button"
