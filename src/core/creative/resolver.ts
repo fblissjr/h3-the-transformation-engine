@@ -1,105 +1,111 @@
 /**
- * Creative resolver.
+ * Selection -> prompt text, and selection -> label.
  *
- * Takes a creative selection (pack ids + strength level) and produces a
- * StyleInjection -- a text block ready to splice into the planner's system
- * prompt, plus metadata for the UI and version history.
- *
- * Pure function. No randomness here; the wild-mode randomness lives in
- * `randomWild()` which calls this with a concrete selection.
+ * Two pure functions over a `CreativeSelection`. Neither result is stored
+ * anywhere: the selection travels, the text is derived at the point of use.
+ * That is the same rule the serializer follows, for the same reason -- a
+ * derived string kept alongside its input is a string that can disagree with it.
  */
 
+import {
+  AUDIO_PACKS,
+  FINISH_PACKS,
+  MOTION_PACKS,
+  VISUAL_PACKS,
+  getAudioPack,
+  getFinishPack,
+  getMotionPack,
+} from './packs';
+import { getVisual } from './visual';
+import { isStressTestViable, scoreStrength } from './strength';
 import type {
-  AnchorId,
-  CreativeMode,
+  CreativeModeRecord,
   CreativeSelection,
-  StyleInjection,
+  StoredSelection,
   StrengthLevel,
-  VisualPackId,
+  VisualId,
 } from './types';
-import { getVisualPack, getMotionPack, getFinishPack, getAudioPack } from './packs';
-import { getAnchor } from './anchors';
 
 // ---------------------------------------------------------------------------
-// Strength preambles
+// Strength: how far the direction reaches
 // ---------------------------------------------------------------------------
 
+/**
+ * Each level states its own authority, rather than the core prompt claiming a
+ * blanket override. `subtle` that overrode the request would be contradicting
+ * its own name.
+ */
 const STRENGTH_PREAMBLE: Record<StrengthLevel, string> = {
   subtle:
-    'Lean toward the following style direction while keeping it grounded. ' +
-    'Let the style inform the medium and finish without dominating the scene.',
+    'The direction below sets the medium and the finish. Take everything else -- ' +
+    'subject, staging, and action -- from the request, and keep the treatment grounded.',
   full:
-    'Commit fully to the following style direction. ' +
+    'The direction below governs the look. Where the request describes appearance in passing, ' +
+    'the direction wins; the request still decides what happens and to whom. ' +
     'Apply it consistently across subjects, environment, lighting, and transitions.',
   'stress-test':
-    'Push the following style direction as far as it can go. ' +
-    'Apply it to every visual layer: subject, crowd, vehicles, architecture, signage, ' +
-    'pavement, reflections, atmosphere, smears, and transitions. ' +
-    'Use at least 4-6 mutually reinforcing structural descriptors rather than loose adjective clouds.',
+    'The direction below governs the look, and the request only decides what happens and to whom. ' +
+    'Apply it to every visual layer: subject, crowd, vehicles, architecture, signage, pavement, ' +
+    'reflections, atmosphere, smears, and transitions. Use at least 4-6 mutually reinforcing ' +
+    'structural descriptors rather than loose adjective clouds.',
 };
 
 // ---------------------------------------------------------------------------
-// Resolver
+// Derivations
 // ---------------------------------------------------------------------------
 
-/** Build the style directive text block for the planner system prompt. */
-export function resolve(selection: CreativeSelection, mode: CreativeMode): StyleInjection {
-  const lines: string[] = ['# Style direction', '', STRENGTH_PREAMBLE[selection.strength]];
-  const names: string[] = [];
+interface Line {
+  lead: string;
+  id: string | undefined;
+  lookup: (id: string) => { name: string; directive: string } | undefined;
+}
 
-  // Visual: either a pack or an anchor
-  if (typeof selection.visual === 'string') {
-    const pack = getVisualPack(selection.visual as VisualPackId);
-    if (pack) {
-      lines.push('', `For the visual medium, use ${pack.name.toLowerCase()}: ${pack.directive}`);
-      names.push(pack.name);
-    }
-  } else if (typeof selection.visual === 'number') {
-    const anchor = getAnchor(selection.visual as AnchorId);
-    if (anchor) {
-      lines.push('', `For the visual style, use ${anchor.name.toLowerCase()}: ${anchor.directive}`);
-      names.push(anchor.name);
-    }
-  }
+function lines(selection: StoredSelection): Line[] {
+  return [
+    { lead: 'For the visual medium, use', id: selection.visual, lookup: getVisual },
+    { lead: 'For motion behavior, use', id: selection.motion, lookup: getMotionPack },
+    { lead: 'For the finish, use', id: selection.finish, lookup: getFinishPack },
+    { lead: 'For audio treatment, use', id: selection.audio, lookup: getAudioPack },
+  ];
+}
 
-  if (selection.motion) {
-    const pack = getMotionPack(selection.motion);
-    if (pack) {
-      lines.push('', `For motion behavior, use ${pack.name.toLowerCase()}: ${pack.directive}`);
-      names.push(pack.name);
-    }
-  }
+/** Resolved entries, in display order, skipping ids nothing knows about. */
+function entries(selection: StoredSelection): { lead: string; name: string; directive: string }[] {
+  return lines(selection).flatMap(({ lead, id, lookup }) => {
+    if (!id) return [];
+    const found = lookup(id);
+    return found ? [{ lead, name: found.name, directive: found.directive }] : [];
+  });
+}
 
-  if (selection.finish) {
-    const pack = getFinishPack(selection.finish);
-    if (pack) {
-      lines.push('', `For the finish, use ${pack.name.toLowerCase()}: ${pack.directive}`);
-      names.push(pack.name);
-    }
-  }
+/**
+ * The text block spliced into a system prompt, or null when the selection
+ * resolves to nothing at all -- an empty selection, or one whose ids are all
+ * unknown because they were written by an older build.
+ */
+export function styleDirective(selection: StoredSelection): string | null {
+  const resolved = entries(selection);
+  if (resolved.length === 0) return null;
 
-  if (selection.audio) {
-    const pack = getAudioPack(selection.audio);
-    if (pack) {
-      lines.push('', `For audio treatment, use ${pack.name.toLowerCase()}: ${pack.directive}`);
-      names.push(pack.name);
-    }
-  }
+  const preamble = STRENGTH_PREAMBLE[selection.strength] ?? STRENGTH_PREAMBLE.full;
+  const body = resolved.map((e) => `${e.lead} ${e.name.toLowerCase()}: ${e.directive}`);
 
-  return {
-    styleDirective: lines.join('\n'),
-    description: names.join(' + '),
-    selection,
-    mode,
-  };
+  return ['# Style direction', '', preamble, ...body.flatMap((b) => ['', b])].join('\n');
+}
+
+/** Whether the selection resolves to anything at all. */
+export function hasStyle(selection: StoredSelection): boolean {
+  return entries(selection).length > 0;
+}
+
+/** Human-readable label for the UI badge and the version history entry. */
+export function describeSelection(selection: StoredSelection): string {
+  return entries(selection).map((e) => e.name).join(' + ');
 }
 
 // ---------------------------------------------------------------------------
 // Wild mode
 // ---------------------------------------------------------------------------
-
-import { VISUAL_PACKS, MOTION_PACKS, FINISH_PACKS, AUDIO_PACKS } from './packs';
-import { scoreStrength, isStressTestViable } from './strength';
 
 /**
  * Visual packs with high style leverage (G or S axes).
@@ -108,49 +114,32 @@ import { scoreStrength, isStressTestViable } from './strength';
  * (e.g. "jazz-age rubber-hose") that should be a deliberate choice, not a
  * random draw. Packs are purely technical and combine freely.
  */
-const HIGH_LEVERAGE_VISUALS: VisualPackId[] = VISUAL_PACKS
-  .filter((p) => {
-    const s = scoreStrength({ visual: p.id });
-    return s.G || s.S;
-  })
+const HIGH_LEVERAGE_VISUALS: VisualId[] = VISUAL_PACKS
+  .filter((p) => p.axes.some((a) => a === 'G' || a === 'S'))
   .map((p) => p.id);
 
 /**
- * Generate a random wild selection that is viable for stress-testing.
+ * A random selection with enough leverage to be worth a stress-test.
  *
- * Uses the provided random function for testability. In production, pass
- * `Math.random`. Retries internally if the first draw does not score
- * high enough (capped to avoid infinite loops).
+ * Takes the random function so a test can pin it. Retries a bounded number of
+ * times, then falls back to a combination known to score.
  */
-export function randomWild(random: () => number = Math.random): StyleInjection {
+export function randomWild(random: () => number = Math.random): CreativeModeRecord {
   const pick = <T>(arr: readonly T[]): T => arr[Math.floor(random() * arr.length)];
 
   for (let attempt = 0; attempt < 20; attempt++) {
-    const visual = pick(HIGH_LEVERAGE_VISUALS);
-    const motion = pick(MOTION_PACKS).id;
-    const finish = pick(FINISH_PACKS).id;
-    const audio = pick(AUDIO_PACKS).id;
-
-    const score = scoreStrength({ visual, motion, finish });
-    if (isStressTestViable(score)) {
-      const selection: CreativeSelection = {
-        visual,
-        motion,
-        finish,
-        audio,
-        strength: 'stress-test',
-      };
-      return resolve(selection, 'wild');
-    }
+    const selection: CreativeSelection = {
+      visual: pick(HIGH_LEVERAGE_VISUALS),
+      motion: pick(MOTION_PACKS).id,
+      finish: pick(FINISH_PACKS).id,
+      audio: pick(AUDIO_PACKS).id,
+      strength: 'stress-test',
+    };
+    if (isStressTestViable(scoreStrength(selection))) return { mode: 'wild', selection };
   }
 
-  // Fallback: guaranteed high-leverage combination
-  const selection: CreativeSelection = {
-    visual: 'V04',
-    motion: 'M07',
-    finish: 'F07',
-    audio: 'A08',
-    strength: 'stress-test',
+  return {
+    mode: 'wild',
+    selection: { visual: 'V04', motion: 'M07', finish: 'F07', audio: 'A08', strength: 'stress-test' },
   };
-  return resolve(selection, 'wild');
 }

@@ -1,169 +1,242 @@
+/**
+ * The creative mode system.
+ *
+ * Two things are worth guarding here. The first is that the derivations are
+ * total: a selection naming ids nothing recognises has to resolve to nothing
+ * rather than to a directive with holes in it, because a stored document can
+ * name a pack a later build renamed.
+ *
+ * The second is that the tables stay in step with each other. The axes now live
+ * on the pack entries, so a pack cannot exist without a score, but a pack can
+ * still be given the wrong axes -- and the preset viability check is what
+ * notices.
+ */
+
 import { describe, expect, it } from 'vitest';
-import { resolve, randomWild } from '../src/core/creative/resolver';
-import { scoreStrength, isStressTestViable } from '../src/core/creative/strength';
-import { PRESETS, wildPresets } from '../src/core/creative/presets';
+import {
+  AUDIO_PACKS,
+  FINISH_PACKS,
+  MOTION_PACKS,
+  PRESETS,
+  STYLE_ANCHORS,
+  VISUAL_PACKS,
+  VISUAL_SOURCES,
+  describeSelection,
+  getVisual,
+  hasStyle,
+  isStressTestViable,
+  randomWild,
+  scoreStrength,
+  styleDirective,
+  wildPresets,
+} from '../src/core/creative';
 
-describe('Creative Resolver', () => {
-  describe('resolve()', () => {
-    it('produces a non-empty styleDirective for a basic visual-only selection', () => {
-      const injection = resolve({ visual: 'V04', strength: 'subtle' }, 'directed');
-      expect(injection.styleDirective).toContain('For the visual medium, use');
-      expect(injection.description).toBe('Silhouette cutout');
-      expect(injection.mode).toBe('directed');
-    });
-
-    it('produces a directive containing all 4 pack names when all 4 are specified', () => {
-      const injection = resolve(
-        {
-          visual: 'V04',
-          motion: 'M07',
-          finish: 'F07',
-          audio: 'A08',
-          strength: 'stress-test',
-        },
-        'directed'
-      );
-
-      expect(injection.styleDirective).toContain('silhouette cutout');
-      expect(injection.styleDirective).toContain('graphic morphing');
-      expect(injection.styleDirective).toContain('print and collage');
-      expect(injection.styleDirective).toContain('graphic rhythm bed');
-      expect(injection.description).toBe(
-        'Silhouette cutout + Graphic morphing + Print and collage + Graphic rhythm bed'
-      );
-    });
-
-    it('returns the correct mode in the StyleInjection', () => {
-      const injection = resolve({ visual: 'V01', strength: 'full' }, 'exploratory');
-      expect(injection.mode).toBe('exploratory');
-    });
-
-    it('handles anchor IDs (number) as visual selection', () => {
-      const injection = resolve({ visual: 3, strength: 'full' }, 'directed');
-      expect(injection.styleDirective).toContain('For the visual style, use');
-    });
+describe('styleDirective', () => {
+  it('names the selected pack and carries its traits', () => {
+    const text = styleDirective({ visual: 'V04', strength: 'subtle' });
+    expect(text).toContain('# Style direction');
+    expect(text).toContain('For the visual medium, use silhouette cutout:');
+    expect(text).toContain('cutout animation');
   });
 
-  describe('randomWild()', () => {
-    it('returns a valid StyleInjection with mode "wild"', () => {
-      const injection = randomWild();
-      expect(injection.mode).toBe('wild');
-      expect(injection.selection.strength).toBe('stress-test');
+  it('includes all four families when all four are chosen', () => {
+    const text = styleDirective({
+      visual: 'V04',
+      motion: 'M07',
+      finish: 'F07',
+      audio: 'A08',
+      strength: 'stress-test',
     });
-
-    it('returns stress-test strength', () => {
-      const injection = randomWild();
-      expect(injection.selection.strength).toBe('stress-test');
-    });
-
-    it('is deterministic when given a seeded random function', () => {
-      const mockRandom1 = () => 0.5;
-      const injection1 = randomWild(mockRandom1);
-
-      const mockRandom2 = () => 0.5;
-      const injection2 = randomWild(mockRandom2);
-
-      expect(injection1.selection).toEqual(injection2.selection);
-    });
-
-    it('falls back to the guaranteed combination when the RNG always returns values that produce non-viable scores', () => {
-      // Returning 0 always selects index 0 for all packs.
-      // visual[0] is V01 (S, T), motion[0] is M01 (none), finish[0] is F01 (none).
-      // Score: S, T (2 axes). This is not stress-test viable (needs >= 3).
-      const mockRandom = () => 0;
-      const injection = randomWild(mockRandom);
-
-      expect(injection.selection).toEqual({
-        visual: 'V04',
-        motion: 'M07',
-        finish: 'F07',
-        audio: 'A08',
-        strength: 'stress-test',
-      });
-    });
-  });
-});
-
-describe('Creative Strength', () => {
-  describe('scoreStrength()', () => {
-    it('V04 (silhouette cutout) has G axis', () => {
-      const score = scoreStrength({ visual: 'V04' });
-      expect(score.G).toBe(true);
-      expect(score.S).toBe(true);
-    });
-
-    it('V19 (photoreal) has no axes', () => {
-      const score = scoreStrength({ visual: 'V19' });
-      expect(score.G).toBe(false);
-      expect(score.S).toBe(false);
-      expect(score.P).toBe(false);
-      expect(score.M).toBe(false);
-      expect(score.T).toBe(false);
-    });
-
-    it('M07 (graphic morphing) has G and M', () => {
-      const score = scoreStrength({ motion: 'M07' });
-      expect(score.G).toBe(true);
-      expect(score.M).toBe(true);
-    });
-
-    it('F07 (print collage) has T and P', () => {
-      const score = scoreStrength({ finish: 'F07' });
-      expect(score.T).toBe(true);
-      expect(score.P).toBe(true);
-    });
-
-    it('Polymorphic visual: passing a number (AnchorId 3) scores G and S', () => {
-      const score = scoreStrength({ visual: 3 });
-      expect(score.G).toBe(true);
-      expect(score.S).toBe(true);
-    });
-
-    it('Combined V04 + M07 + F07 scores >= 3 axes and is stress-test viable', () => {
-      const score = scoreStrength({ visual: 'V04', motion: 'M07', finish: 'F07' });
-      expect(score.G).toBe(true);
-      expect(score.S).toBe(true);
-      expect(score.M).toBe(true);
-      expect(score.T).toBe(true);
-      expect(score.P).toBe(true);
-      expect(isStressTestViable(score)).toBe(true);
-    });
+    expect(text).toContain('silhouette cutout');
+    expect(text).toContain('graphic morphing');
+    expect(text).toContain('print and collage');
+    expect(text).toContain('graphic rhythm bed');
   });
 
-  describe('isStressTestViable()', () => {
-    it('returns true when >= 3 axes with G or S', () => {
-      expect(isStressTestViable({ G: true, S: false, P: true, M: true, T: false })).toBe(true);
-      expect(isStressTestViable({ G: false, S: true, P: false, M: true, T: true })).toBe(true);
-    });
+  it('resolves an anchor through the same path as a pack', () => {
+    const text = styleDirective({ visual: 'R03', strength: 'full' });
+    expect(text).toContain('For the visual medium, use ornate silhouette fantasy:');
+  });
 
-    it('returns false when only T + M (no G or S anchor)', () => {
-      expect(isStressTestViable({ G: false, S: false, P: false, M: true, T: true })).toBe(false);
-      expect(isStressTestViable({ G: false, S: false, P: true, M: true, T: true })).toBe(false);
-    });
+  /**
+   * The control for the claim above: without the string ids, an anchor and a
+   * pack took different branches and only one of them was exercised.
+   */
+  it('gives an anchor and a pack the same shape of line', () => {
+    const pack = styleDirective({ visual: 'V04', strength: 'full' })?.split('\n').at(-1);
+    const anchor = styleDirective({ visual: 'R03', strength: 'full' })?.split('\n').at(-1);
+    expect(pack?.startsWith('For the visual medium, use ')).toBe(true);
+    expect(anchor?.startsWith('For the visual medium, use ')).toBe(true);
+  });
+
+  it('states the reach of the strength level it was given', () => {
+    expect(styleDirective({ visual: 'V04', strength: 'subtle' })).toContain(
+      'sets the medium and the finish',
+    );
+    expect(styleDirective({ visual: 'V04', strength: 'stress-test' })).toContain(
+      '4-6 mutually reinforcing',
+    );
+  });
+
+  it('is null for an empty selection', () => {
+    expect(styleDirective({ strength: 'full' })).toBeNull();
+    expect(hasStyle({ strength: 'full' })).toBe(false);
+  });
+
+  /**
+   * A document written by a build that had a pack this one does not. The style
+   * has to fall away quietly; anything else loses the document.
+   */
+  it('is null when every id is unknown, and drops only the unknown ones otherwise', () => {
+    expect(styleDirective({ visual: 'V99', motion: 'M99', strength: 'full' })).toBeNull();
+
+    const partial = styleDirective({ visual: 'V04', motion: 'M99', strength: 'full' });
+    expect(partial).toContain('silhouette cutout');
+    expect(partial).not.toContain('For motion behavior');
+  });
+
+  it('never emits the word undefined, even for a strength level off the union', () => {
+    const corrupt = { visual: 'V04', strength: 'extreme' } as never;
+    expect(styleDirective(corrupt)).not.toContain('undefined');
   });
 });
 
-describe('Creative Presets', () => {
-  it('All presets with stress-test strength are actually isStressTestViable when scored', () => {
-    for (const preset of PRESETS) {
-      if (preset.selection.strength === 'stress-test') {
-        const score = scoreStrength(preset.selection);
-        expect(isStressTestViable(score), `Preset ${preset.id} should be viable`).toBe(true);
-      }
+describe('describeSelection', () => {
+  it('joins the names of what resolved', () => {
+    expect(describeSelection({ visual: 'V04', motion: 'M07', strength: 'full' })).toBe(
+      'Silhouette cutout + Graphic morphing',
+    );
+  });
+
+  it('is empty when nothing resolved', () => {
+    expect(describeSelection({ strength: 'full' })).toBe('');
+    expect(describeSelection({ visual: 'V99', strength: 'full' })).toBe('');
+  });
+});
+
+describe('the pack tables', () => {
+  it('carry unique ids across the whole visual id space', () => {
+    const ids = VISUAL_SOURCES.map((v) => v.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('put packs and anchors in one id space, reachable by one lookup', () => {
+    for (const entry of [...VISUAL_PACKS, ...STYLE_ANCHORS]) {
+      expect(getVisual(entry.id)?.name).toBe(entry.name);
+    }
+    expect(getVisual('nope')).toBeUndefined();
+  });
+
+  it('give every entry a directive and a name', () => {
+    for (const entry of [...VISUAL_SOURCES, ...MOTION_PACKS, ...FINISH_PACKS, ...AUDIO_PACKS]) {
+      expect(entry.name.length, entry.id).toBeGreaterThan(0);
+      expect(entry.directive.length, entry.id).toBeGreaterThan(0);
     }
   });
 
-  it('All presets have unique ids', () => {
-    const ids = PRESETS.map((p) => p.id);
-    const uniqueIds = new Set(ids);
-    expect(uniqueIds.size).toBe(ids.length);
+  it('leave audio out of strength scoring', () => {
+    for (const pack of AUDIO_PACKS) expect(pack.axes, pack.id).toEqual([]);
+  });
+});
+
+describe('scoreStrength', () => {
+  it('reads the axes off the pack entry', () => {
+    expect(scoreStrength({ visual: 'V04' })).toMatchObject({ G: true, S: true });
+    expect(scoreStrength({ motion: 'M07' })).toMatchObject({ G: true, M: true });
+    expect(scoreStrength({ finish: 'F07' })).toMatchObject({ T: true, P: true });
   });
 
-  it('wildPresets() returns only stress-test presets', () => {
+  it('scores a photoreal pack at nothing', () => {
+    expect(scoreStrength({ visual: 'V19' })).toEqual({
+      G: false,
+      S: false,
+      P: false,
+      M: false,
+      T: false,
+    });
+  });
+
+  it('scores an anchor the same way it scores a pack', () => {
+    expect(scoreStrength({ visual: 'R03' })).toMatchObject({ G: true, S: true });
+  });
+
+  it('unions the axes of a combination', () => {
+    const score = scoreStrength({ visual: 'V04', motion: 'M07', finish: 'F07' });
+    expect(score).toEqual({ G: true, S: true, P: true, M: true, T: true });
+    expect(isStressTestViable(score)).toBe(true);
+  });
+
+  it('ignores ids it does not know', () => {
+    expect(scoreStrength({ visual: 'V99' })).toMatchObject({ G: false, S: false });
+  });
+});
+
+describe('isStressTestViable', () => {
+  it('needs three axes anchored by G or S', () => {
+    expect(isStressTestViable({ G: true, S: false, P: true, M: true, T: false })).toBe(true);
+    expect(isStressTestViable({ G: false, S: true, P: false, M: true, T: true })).toBe(true);
+  });
+
+  it('refuses texture and cadence without a geometry or shape anchor', () => {
+    expect(isStressTestViable({ G: false, S: false, P: false, M: true, T: true })).toBe(false);
+    expect(isStressTestViable({ G: false, S: false, P: true, M: true, T: true })).toBe(false);
+  });
+
+  it('refuses a G anchor that stands alone', () => {
+    expect(isStressTestViable({ G: true, S: false, P: false, M: false, T: false })).toBe(false);
+  });
+});
+
+describe('randomWild', () => {
+  it('draws a stress-test selection', () => {
+    const record = randomWild();
+    expect(record.mode).toBe('wild');
+    expect(record.selection.strength).toBe('stress-test');
+    expect(isStressTestViable(scoreStrength(record.selection))).toBe(true);
+  });
+
+  it('is a function of the random source it is given', () => {
+    expect(randomWild(() => 0.5).selection).toEqual(randomWild(() => 0.5).selection);
+  });
+
+  /**
+   * Index 0 everywhere is V01 (S, T) + M01 (none) + F01 (none): two axes, not
+   * viable. The draw can never succeed, so the fallback is the only way out.
+   */
+  it('falls back to a known combination when no draw can score', () => {
+    expect(randomWild(() => 0).selection).toEqual({
+      visual: 'V04',
+      motion: 'M07',
+      finish: 'F07',
+      audio: 'A08',
+      strength: 'stress-test',
+    });
+  });
+});
+
+describe('presets', () => {
+  it('have unique ids', () => {
+    const ids = PRESETS.map((p) => p.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('name only ids that exist', () => {
+    for (const preset of PRESETS) {
+      expect(hasStyle(preset.selection), preset.id).toBe(true);
+      expect(describeSelection(preset.selection), preset.id).not.toBe('');
+    }
+  });
+
+  it('score as viable wherever they claim stress-test strength', () => {
+    for (const preset of PRESETS) {
+      if (preset.selection.strength !== 'stress-test') continue;
+      expect(isStressTestViable(scoreStrength(preset.selection)), preset.id).toBe(true);
+    }
+  });
+
+  it('wildPresets returns only stress-test presets', () => {
     const wild = wildPresets();
     expect(wild.length).toBeGreaterThan(0);
-    for (const preset of wild) {
-      expect(preset.selection.strength).toBe('stress-test');
-    }
+    for (const preset of wild) expect(preset.selection.strength).toBe('stress-test');
   });
 });

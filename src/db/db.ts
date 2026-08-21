@@ -14,6 +14,7 @@
  */
 
 import { openDB, type DBSchema, type IDBPDatabase, type IDBPTransaction } from 'idb';
+import { H3DocumentSchema } from '../core/ir/schema';
 import type { H3Document } from '../core/ir/types';
 
 export const DB_NAME = 'H3TransformationEngine';
@@ -149,8 +150,30 @@ export async function saveDocument(record: StoredDocument): Promise<void> {
   await (await db()).put('documents', record);
 }
 
-export async function loadDocument(id: string): Promise<StoredDocument | undefined> {
-  return (await db()).get('documents', id);
+/**
+ * Read a stored document and say whether it still matches the current schema.
+ *
+ * The check reports; it does not gate. A document that fails to parse is still
+ * returned, because the alternative is a build that silently refuses to open
+ * work the previous build wrote, and there is no copy of it anywhere else. The
+ * failure is surfaced instead, so it is visible before an edit is committed on
+ * top of it.
+ */
+export async function loadDocument(
+  id: string,
+): Promise<{ record: StoredDocument; schemaError: string | null } | undefined> {
+  const record = await (await db()).get('documents', id);
+  if (!record) return undefined;
+  return { record, schemaError: describeSchemaFailure(record.doc) };
+}
+
+/** The first schema complaint about a stored document, or null if it parses. */
+export function describeSchemaFailure(doc: unknown): string | null {
+  const parsed = H3DocumentSchema.safeParse(doc);
+  if (parsed.success) return null;
+  const first = parsed.error.issues[0];
+  const where = first.path.length > 0 ? first.path.join('.') : 'the document';
+  return `${where}: ${first.message}`;
 }
 
 export async function listDocuments(): Promise<StoredDocument[]> {

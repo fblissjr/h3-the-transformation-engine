@@ -89,7 +89,7 @@ export const PRESETS: readonly CreativePreset[] = [
     id: 'retro-vhs',
     name: 'Retro VHS',
     description: '1990s camcorder aesthetic with tape artifacts and analog audio.',
-    selection: { visual: 28, finish: 'F04', audio: 'A07', strength: 'full' },
+    selection: { visual: 'R28', finish: 'F04', audio: 'A07', strength: 'full' },
   },
 ] as const satisfies readonly CreativePreset[];
 

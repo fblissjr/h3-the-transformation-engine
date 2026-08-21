@@ -53,6 +53,7 @@ src/core/        pure TypeScript, no React, no DOM, no network (enforced by a te
   validate/      36 rules, all hard errors, each with a fixture that makes it go red
   serialize/     source-mapped emitter, both output contracts
   patch/         path-scoped patch application
+  creative/      style packs, anchors, strength scoring, presets
 src/provider/    Gemini Interactions client and the planner/patch prompts
 src/crypto/      at-rest storage for the API key, three modes
 src/db/          IndexedDB, three stores, immutable version tree, erase-and-verify
@@ -60,6 +61,16 @@ src/ui/          slot manager, document editor, prompt view, diagnostics, histor
 ```
 
 `src/core` is runnable with no browser and no API key. That is what makes the grammar assertions cheap to run and lets the compiler move to a CLI or a ComfyUI-adjacent script later.
+
+## Creative modes
+
+A creative mode contributes exactly one thing to the pipeline: a selection of pack ids, which the planner prompt turns into a style direction block. Four families combine — visual medium, motion behavior, finish, audio treatment — plus a strength level that says how far the direction reaches, from setting the medium and finish alone up to governing every visual layer.
+
+The visual family covers 24 medium packs and 30 reference anchors in one id space. The anchors translate cultural and studio references into their observable traits, so what reaches the model is craft language rather than a name to imitate.
+
+Four ways in: off, directed (pick the packs), presets (twelve named combinations), and wild (a random draw restricted to combinations with enough leverage to read as a style change rather than a filter). The leverage test is five axes — geometry, shape, palette, motion, texture — and a draw needs three of them with geometry or shape among them.
+
+Two properties hold this in place. The selection is the only thing stored or passed around; the directive text and the display label are derived wherever they are needed, so no copy of them can disagree with the selection. And the serializer never sees any of it — a document with a creative mode and one without serialize identically, because the style lives in the prose the planner wrote, not in a clause the code bolted on.
 
 ## The source map
 
@@ -97,7 +108,7 @@ Verified against `@google/genai` types or probed live, not read from docs:
 ```
 bun install
 bun run dev         # http://localhost:5173
-bun run test        # 176 tests
+bun run test        # 225 tests
 bun run typecheck
 bun run build
 bun run probe       # live API probes (reads GEMINI_API_KEY from .env)

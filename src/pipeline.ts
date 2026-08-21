@@ -13,7 +13,6 @@ import { contextFor, normalize } from './core/normalize';
 import { applyPatch, type PatchResult } from './core/patch/apply';
 import { serialize, type SerializeResult } from './core/serialize';
 import { validate, type ValidationResult } from './core/validate';
-import { resolve } from './core/creative';
 import { dataUrlToAttachment, GeminiClient, THINKING, type ImageAttachment } from './provider/gemini';
 import {
   buildPlannerSystemPrompt,
@@ -72,10 +71,9 @@ export async function compile(
 
   const doc = assemble(parsed.data, input, ctx, { id: options.id, modeLocked: input.mode != null });
 
-  // Store the creative mode selection on the document for version history.
-  if (input.style) {
-    doc.creativeMode = { mode: input.style.mode, selection: input.style.selection };
-  }
+  // Carried on the document so an edit and the version history both know
+  // which style the prose was written under.
+  if (input.creativeMode) doc.creativeMode = input.creativeMode;
 
   return {
     doc,
@@ -106,12 +104,8 @@ export async function edit(
 ): Promise<EditResult> {
   if (paths.length === 0) throw new PlanError('An edit needs at least one target path.');
 
-  const styleForPatch = doc.creativeMode
-    ? { styleDirective: resolve(doc.creativeMode.selection, doc.creativeMode.mode).styleDirective }
-    : undefined;
-
   const result = await client.call({
-    systemInstruction: buildPatchSystemPrompt(styleForPatch),
+    systemInstruction: buildPatchSystemPrompt(doc.creativeMode),
     prompt: buildPatchUserPrompt(doc, paths, instruction),
     thinkingLevel: THINKING.patch,
     maxOutputTokens: PATCH_MAX_OUTPUT_TOKENS,

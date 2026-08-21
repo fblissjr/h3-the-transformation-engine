@@ -21,6 +21,10 @@ The planner writes the actual sentences. The serializer assembles structure arou
 - **`src/core/` stays pure.** No React, no DOM, no network, no SDK, no `idb`. `test/purity.test.ts` enforces it. This is what lets the compiler run in a Node script or a CLI later.
 - **Errors only in the validator.** There is no warning severity, and it should not come back. A diagnostic means the document is *provably* malformed. Anything that pattern-matches prose for a preference belongs in the planner prompt, not in `validate/`. Seventeen such rules were removed after they fired on legitimate output.
 - **Every diagnostic code needs a control that makes it go red.** `test/validate.test.ts` scans the rule sources and fails the build if a code has no control. Do not disable that meta-test; it has itself been proven able to fail.
+- **A creative selection travels; its directive text does not.** `CreativeModeRecord` — a mode and a set of pack ids — is the only form that is passed through `CompileInput` or written to a document. The style directive and the display label are derived from it at the point of use by `styleDirective` and `describeSelection`. This is invariant 2 applied one level out: a derived string kept next to its input is a string that can disagree with it, and the planner and patch prompts drifted apart the first time they were each handed a pre-resolved style in a different shape. `test/creative-integration.test.ts` asserts both prompts derive the same text from the same record.
+- **The pack tables are the single source for their family.** Ids, names, directives and strength axes all come out of the one array in `src/core/creative/packs.ts`, with the id union derived as `(typeof VISUAL_PACKS)[number]['id']` the way `vocab.ts` does it. There is no second table of axes to fall out of step. Packs and anchors share one id space (`V01`-`V24`, `R01`-`R30`) so a visual selection is one string and one lookup, never a string-or-number branch.
+- **The derivations tolerate ids they do not know; the schema does too.** A stored document can name a pack a later build renamed. `styleDirective` drops what it cannot resolve and returns null when nothing is left, `H3DocumentSchema` keeps pack ids as bare strings, and `StoredSelection` is the type that says so. Tightening any of these turns a renamed pack into a document that will not open.
+- **The document schema reports, it does not gate.** `loadDocument` returns the record together with `schemaError`, and the UI surfaces it. A build that refuses to open what the previous build wrote loses work that exists nowhere else. `test/db.test.ts` pairs every "it is reported" with "it still opened".
 - **`store: false` is not configurable.** Stored interactions cannot be deleted (`interactions.delete` returns 501). `test/provider.test.ts` fails if it changes.
 - **Never send `temperature`.** Accepted and silently ignored by the API. There is no temperature control in the UI and there should not be one.
 - **Never use `thinking_level: 'minimal'`.** It 400s on gemini-3.7-flash. The SDK's type union spans all models; ours is narrowed to `low | medium | high`.
@@ -42,7 +46,7 @@ If a proposed rule would turn a golden fixture red, the rule is wrong.
 ## Testing
 
 ```
-bun run test        # 176 tests (vitest)
+bun run test        # 225 tests (vitest)
 bun run typecheck
 bun run build
 bun run probe       # live API probes; reads GEMINI_API_KEY from .env

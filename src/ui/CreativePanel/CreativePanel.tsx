@@ -1,94 +1,121 @@
 /**
  * Creative mode panel.
  *
- * Controls which style directive is injected into the planner prompt.
- * Off = no creative directive. Directed = user picks packs. Exploratory =
- * named presets. Wild = random high-leverage combination.
+ * Controls which style directive is injected into the planner prompt. Off = no
+ * creative directive. Directed = the user picks packs. Presets = named
+ * combinations. Wild = a random high-leverage draw.
+ *
+ * Every control here is driven by the record passed in and writes back through
+ * `onChange`. The panel holds no state of its own on purpose: when it did, a
+ * reload restored the badge but not the dropdowns, and the first change to any
+ * dropdown read the empty local copy and silently cleared the style.
  */
 
 import type {
-  CreativeMode,
-  VisualPackId,
-  MotionPackId,
-  FinishPackId,
   AudioPackId,
-  StyleInjection,
+  CreativeMode,
+  CreativeModeRecord,
+  CreativeSelection,
+  FinishPackId,
+  MotionPackId,
+  PackDef,
   StrengthLevel,
-} from '../../core/creative/types';
+  VisualId,
+} from '../../core/creative';
 import {
-  VISUAL_PACKS,
-  MOTION_PACKS,
-  FINISH_PACKS,
   AUDIO_PACKS,
-  resolve,
-  randomWild,
+  FINISH_PACKS,
+  MOTION_PACKS,
   PRESETS,
+  STYLE_ANCHORS,
+  VISUAL_PACKS,
+  describeSelection,
+  randomWild,
 } from '../../core/creative';
 
 const STRENGTH_LEVELS: StrengthLevel[] = ['subtle', 'full', 'stress-test'];
+const MODES: (CreativeMode | null)[] = [null, 'directed', 'exploratory', 'wild'];
+
+const MODE_LABELS: Record<string, string> = {
+  off: 'Off',
+  directed: 'Directed',
+  exploratory: 'Presets',
+  wild: 'Wild',
+};
+
+/** An empty selection is legal: it is the state of a mode picked but not filled in. */
+const EMPTY: CreativeSelection = { strength: 'full' };
 
 interface CreativePanelProps {
-  mode: CreativeMode | null;
-  onModeChange: (mode: CreativeMode | null) => void;
-  style: StyleInjection | null;
-  onStyleChange: (style: StyleInjection | null) => void;
+  value: CreativeModeRecord | null;
+  onChange: (value: CreativeModeRecord | null) => void;
 }
 
-export function CreativePanel({ mode, onModeChange, style, onStyleChange }: CreativePanelProps) {
+export function CreativePanel({ value, onChange }: CreativePanelProps) {
+  const mode = value?.mode ?? null;
+  const selection = value?.selection ?? EMPTY;
+  const label = describeSelection(selection);
+
+  const pickMode = (next: CreativeMode | null) => {
+    if (next === mode) return;
+    if (next === null) return onChange(null);
+    if (next === 'wild') return onChange(randomWild());
+    onChange({ mode: next, selection: EMPTY });
+  };
+
   return (
     <div className="space-y-2">
       <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--color-muted)]">
         Creative Mode
       </label>
 
-      {/* Mode toggle */}
       <div className="flex gap-1" role="group" aria-label="Creative mode">
-        {([null, 'directed', 'exploratory', 'wild'] as const).map((m) => (
+        {MODES.map((m) => (
           <button
             key={m ?? 'off'}
             type="button"
-            onClick={() => {
-              if (mode === m) return;
-              onModeChange(m);
-              if (m === 'wild') onStyleChange(randomWild());
-              else onStyleChange(null);
-            }}
+            aria-pressed={mode === m}
+            onClick={() => pickMode(m)}
             className={`flex-1 rounded border px-2 py-1 text-[10px] ${
               mode === m
                 ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/15 text-[var(--color-accent)]'
                 : 'border-[var(--color-edge)] text-[var(--color-muted)] hover:bg-white/5'
             }`}
           >
-            {m === null ? 'Off' : m === 'directed' ? 'Directed' : m === 'exploratory' ? 'Presets' : 'Wild'}
+            {MODE_LABELS[m ?? 'off']}
           </button>
         ))}
       </div>
 
-      {/* Directed mode: pack selectors */}
-      {mode === 'directed' && <DirectedControls onStyleChange={onStyleChange} />}
+      {mode === 'directed' && (
+        <DirectedControls
+          selection={selection}
+          onChange={(next) => onChange({ mode: 'directed', selection: next })}
+        />
+      )}
 
-      {/* Exploratory mode: preset cards */}
-      {mode === 'exploratory' && <PresetCards onStyleChange={onStyleChange} activePresetId={findActivePreset(style)} />}
+      {mode === 'exploratory' && (
+        <PresetCards
+          selection={selection}
+          onChange={(next) => onChange({ mode: 'exploratory', selection: next })}
+        />
+      )}
 
-      {/* Wild mode: shuffle button */}
       {mode === 'wild' && (
         <button
           type="button"
-          onClick={() => onStyleChange(randomWild())}
+          onClick={() => onChange(randomWild())}
           className="w-full rounded border border-[var(--color-edge)] px-2 py-1.5 text-xs hover:bg-white/5"
         >
           Shuffle
         </button>
       )}
 
-      {/* Active style badge */}
-      {style && (
+      {label !== '' && (
         <div className="rounded border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/5 px-2 py-1.5">
-          <div className="text-[10px] font-semibold text-[var(--color-accent)]">
-            {style.description}
-          </div>
+          <div className="text-[10px] font-semibold text-[var(--color-accent)]">{label}</div>
           <div className="mt-0.5 text-[10px] text-[var(--color-muted)]">
-            {style.selection.strength} strength
+            {selection.strength} strength
           </div>
         </div>
       )}
@@ -100,115 +127,100 @@ export function CreativePanel({ mode, onModeChange, style, onStyleChange }: Crea
 // Directed mode controls
 // ---------------------------------------------------------------------------
 
-import { useState } from 'react';
+const selectClass = 'w-full rounded border border-[var(--color-edge)] bg-black/30 px-2 py-1 text-xs';
 
-function DirectedControls({ onStyleChange }: { onStyleChange: (s: StyleInjection | null) => void }) {
-  const [visual, setVisual] = useState<VisualPackId | ''>('');
-  const [motion, setMotion] = useState<MotionPackId | ''>('');
-  const [finish, setFinish] = useState<FinishPackId | ''>('');
-  const [audio, setAudio] = useState<AudioPackId | ''>('');
-  const [strength, setStrength] = useState<StrengthLevel>('full');
+/** Drop the key entirely when the placeholder option is chosen, rather than storing ''. */
+function withField<K extends keyof CreativeSelection>(
+  selection: CreativeSelection,
+  key: K,
+  raw: string,
+): CreativeSelection {
+  const next = { ...selection };
+  if (raw === '') delete next[key];
+  else next[key] = raw as CreativeSelection[K];
+  return next;
+}
 
-  const apply = (
-    v = visual,
-    m = motion,
-    f = finish,
-    a = audio,
-    s = strength,
-  ) => {
-    if (!v) {
-      onStyleChange(null);
-      return;
-    }
-    onStyleChange(
-      resolve(
-        {
-          visual: v as VisualPackId,
-          ...(m ? { motion: m as MotionPackId } : {}),
-          ...(f ? { finish: f as FinishPackId } : {}),
-          ...(a ? { audio: a as AudioPackId } : {}),
-          strength: s,
-        },
-        'directed',
-      ),
-    );
-  };
-
-  const selectClass = 'w-full rounded border border-[var(--color-edge)] bg-black/30 px-2 py-1 text-xs';
+function PackSelect({
+  label,
+  value,
+  options,
+  onPick,
+}: {
+  label: string;
+  value: string | undefined;
+  options: readonly PackDef[] | { group: string; packs: readonly PackDef[] }[];
+  onPick: (raw: string) => void;
+}) {
+  const groups = Array.isArray(options) && 'group' in (options[0] ?? {})
+    ? (options as { group: string; packs: readonly PackDef[] }[])
+    : [{ group: '', packs: options as readonly PackDef[] }];
 
   return (
+    <select
+      aria-label={label}
+      value={value ?? ''}
+      onChange={(ev) => onPick(ev.target.value)}
+      className={selectClass}
+    >
+      <option value="">{label}...</option>
+      {groups.map(({ group, packs }) =>
+        group === '' ? (
+          packs.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.id} {p.name}
+            </option>
+          ))
+        ) : (
+          <optgroup key={group} label={group}>
+            {packs.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.id} {p.name}
+              </option>
+            ))}
+          </optgroup>
+        ),
+      )}
+    </select>
+  );
+}
+
+function DirectedControls({
+  selection,
+  onChange,
+}: {
+  selection: CreativeSelection;
+  onChange: (next: CreativeSelection) => void;
+}) {
+  return (
     <div className="space-y-1.5">
-      <select
-        aria-label="Visual medium"
-        value={visual as string}
-        onChange={(ev) => {
-          const v = ev.target.value as VisualPackId | '';
-          setVisual(v);
-          apply(v);
-        }}
-        className={selectClass}
-      >
-        <option value="">Visual medium...</option>
-        {VISUAL_PACKS.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.id} {p.name}
-          </option>
-        ))}
-      </select>
-
-      <select
-        aria-label="Motion behavior"
-        value={motion}
-        onChange={(ev) => {
-          const m = ev.target.value as MotionPackId | '';
-          setMotion(m);
-          apply(undefined, m);
-        }}
-        className={selectClass}
-      >
-        <option value="">Motion behavior...</option>
-        {MOTION_PACKS.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.id} {p.name}
-          </option>
-        ))}
-      </select>
-
-      <select
-        aria-label="Finish"
-        value={finish}
-        onChange={(ev) => {
-          const f = ev.target.value as FinishPackId | '';
-          setFinish(f);
-          apply(undefined, undefined, f);
-        }}
-        className={selectClass}
-      >
-        <option value="">Finish...</option>
-        {FINISH_PACKS.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.id} {p.name}
-          </option>
-        ))}
-      </select>
-
-      <select
-        aria-label="Audio treatment"
-        value={audio}
-        onChange={(ev) => {
-          const a = ev.target.value as AudioPackId | '';
-          setAudio(a);
-          apply(undefined, undefined, undefined, a);
-        }}
-        className={selectClass}
-      >
-        <option value="">Audio treatment...</option>
-        {AUDIO_PACKS.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.id} {p.name}
-          </option>
-        ))}
-      </select>
+      <PackSelect
+        label="Visual medium"
+        value={selection.visual}
+        options={[
+          { group: 'Medium', packs: VISUAL_PACKS },
+          { group: 'Reference anchors', packs: STYLE_ANCHORS },
+        ]}
+        onPick={(raw) => onChange(withField(selection, 'visual', raw as VisualId))}
+      />
+      <PackSelect
+        label="Motion behavior"
+        value={selection.motion}
+        options={MOTION_PACKS}
+        onPick={(raw) => onChange(withField(selection, 'motion', raw as MotionPackId))}
+      />
+      <PackSelect
+        label="Finish"
+        value={selection.finish}
+        options={FINISH_PACKS}
+        onPick={(raw) => onChange(withField(selection, 'finish', raw as FinishPackId))}
+      />
+      <PackSelect
+        label="Audio treatment"
+        value={selection.audio}
+        options={AUDIO_PACKS}
+        onPick={(raw) => onChange(withField(selection, 'audio', raw as AudioPackId))}
+      />
 
       <div className="flex items-center gap-2">
         <span className="text-[10px] text-[var(--color-muted)]">Strength</span>
@@ -216,12 +228,10 @@ function DirectedControls({ onStyleChange }: { onStyleChange: (s: StyleInjection
           <button
             key={s}
             type="button"
-            onClick={() => {
-              setStrength(s);
-              apply(undefined, undefined, undefined, undefined, s);
-            }}
+            aria-pressed={selection.strength === s}
+            onClick={() => onChange({ ...selection, strength: s })}
             className={`rounded border px-2 py-0.5 text-[10px] ${
-              strength === s
+              selection.strength === s
                 ? 'border-[var(--color-accent)] text-[var(--color-accent)]'
                 : 'border-[var(--color-edge)] text-[var(--color-muted)] hover:bg-white/5'
             }`}
@@ -239,21 +249,24 @@ function DirectedControls({ onStyleChange }: { onStyleChange: (s: StyleInjection
 // ---------------------------------------------------------------------------
 
 function PresetCards({
-  onStyleChange,
-  activePresetId,
+  selection,
+  onChange,
 }: {
-  onStyleChange: (s: StyleInjection) => void;
-  activePresetId: string | null;
+  selection: CreativeSelection;
+  onChange: (next: CreativeSelection) => void;
 }) {
+  const active = PRESETS.find((p) => sameSelection(p.selection, selection))?.id ?? null;
+
   return (
     <div className="grid grid-cols-2 gap-1">
       {PRESETS.map((p) => (
         <button
           key={p.id}
           type="button"
-          onClick={() => onStyleChange(resolve(p.selection, 'exploratory'))}
+          aria-pressed={active === p.id}
+          onClick={() => onChange({ ...p.selection })}
           className={`rounded border p-1.5 text-left ${
-            activePresetId === p.id
+            active === p.id
               ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10'
               : 'border-[var(--color-edge)] hover:bg-white/5'
           }`}
@@ -266,25 +279,12 @@ function PresetCards({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function findActivePreset(style: StyleInjection | null): string | null {
-  if (!style || style.mode !== 'exploratory') return null;
-  const v = style.selection.visual;
-  const m = style.selection.motion;
-  const f = style.selection.finish;
-  const a = style.selection.audio;
-  for (const p of PRESETS) {
-    if (
-      p.selection.visual === v &&
-      p.selection.motion === m &&
-      p.selection.finish === f &&
-      p.selection.audio === a
-    ) {
-      return p.id;
-    }
-  }
-  return null;
+function sameSelection(a: CreativeSelection, b: CreativeSelection): boolean {
+  return (
+    a.visual === b.visual &&
+    a.motion === b.motion &&
+    a.finish === b.finish &&
+    a.audio === b.audio &&
+    a.strength === b.strength
+  );
 }

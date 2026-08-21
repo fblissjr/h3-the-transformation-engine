@@ -27,7 +27,7 @@ import type {
   TaskType,
   VisualRetention,
 } from './vocab';
-import type { CreativeModeRecord, StyleInjection } from '../creative/types';
+import type { CreativeModeRecord } from '../creative/types';
 
 // ---------------------------------------------------------------------------
 // Reference slots
@@ -284,8 +284,11 @@ export interface CompileInput {
   slots: ReferenceSlot[];
   /** Dialogue the user wants preserved word for word. */
   suppliedDialogue?: string[];
-  /** Creative mode style injection. Affects the planner prompt, not the serialized output. */
-  style?: StyleInjection;
+  /**
+   * The creative mode in force, if any. The planner prompt derives its style
+   * directive from this; the serialized output never sees it.
+   */
+  creativeMode?: CreativeModeRecord;
 }
 
 /** Everything the normalizer can work out without asking a model. */

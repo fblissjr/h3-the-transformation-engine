@@ -26,6 +26,7 @@ import {
   VISUAL_RETENTION,
   VOICEOVER_PHRASE,
 } from '../../core/ir/vocab';
+import { styleDirective } from '../../core/creative';
 import { DIALOGUE_PLACEHOLDER } from '../../core/serialize/shared';
 import { recommendedBeats } from '../../core/normalize/budgets';
 
@@ -78,7 +79,7 @@ A held facial state cannot survive the line that breaks it. If a closed mouth or
 
 \`style\` names the medium and finish. It is rendered as the opening clause of Shot 1, so write it as one.
 
-If a Style Direction section is provided below, follow it -- it overrides the user's request and the genre default. Otherwise, take the style from the request when the request states one; otherwise from the visible medium and finish of a supplied image; otherwise from the genre. Live action is one option among many and never the default -- do not reach for it because nothing else was specified. Name one medium, one motion treatment and one finish. Do not stack unrelated adjectives, and translate a named style into its concrete traits rather than leaning on the name.
+If a Style direction section is provided below, follow it. That section states how far it reaches; do not extend it further than it asks. Otherwise, take the style from the request when the request states one; otherwise from the visible medium and finish of a supplied image; otherwise from the genre. Live action is one option among many and never the default -- do not reach for it because nothing else was specified. Name one medium, one motion treatment and one finish. Do not stack unrelated adjectives, and translate a named style into its concrete traits rather than leaning on the name.
 
 # On-screen text
 
@@ -195,12 +196,10 @@ function suppliedFacts(ctx: NormalizedContext, input: CompileInput): string {
   return `# Supplied facts\n\n${lines.join('\n')}`;
 }
 
-export function buildPlannerSystemPrompt(
-  ctx: NormalizedContext,
-  input: CompileInput,
-): string {
+export function buildPlannerSystemPrompt(ctx: NormalizedContext, input: CompileInput): string {
   const blocks = [CORE, MODE_BLOCKS[ctx.mode]];
-  if (input.style) blocks.push(input.style.styleDirective);
+  const directive = input.creativeMode ? styleDirective(input.creativeMode.selection) : null;
+  if (directive) blocks.push(directive);
   blocks.push(suppliedFacts(ctx, input));
   return blocks.join('\n\n');
 }

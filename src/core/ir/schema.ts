@@ -120,6 +120,25 @@ export const RetentionEntrySchema = z.object({
   note: z.string(),
 });
 
+/**
+ * Pack ids are left as bare strings rather than enums built from the tables.
+ *
+ * A stored document can name a pack that a later build renamed or dropped, and
+ * the right response to that is the style quietly resolving to nothing -- which
+ * `styleDirective` already does -- not the whole document failing to parse and
+ * the user losing their work.
+ */
+const CreativeModeSchema = z.object({
+  mode: z.enum(['directed', 'exploratory', 'wild']),
+  selection: z.object({
+    visual: z.string().optional(),
+    motion: z.string().optional(),
+    finish: z.string().optional(),
+    audio: z.string().optional(),
+    strength: z.enum(['subtle', 'full', 'stress-test']),
+  }),
+});
+
 export const H3DocumentSchema = z.object({
   schemaVersion: z.literal('1.0.0'),
   id: z.string().min(1),
@@ -137,16 +156,7 @@ export const H3DocumentSchema = z.object({
   summary: z.string().optional(),
   taskTypes: z.array(z.enum(TASK_TYPES)).optional(),
   retention: z.array(RetentionEntrySchema).optional(),
-  creativeMode: z.object({
-    mode: z.enum(['directed', 'exploratory', 'wild']),
-    selection: z.object({
-      visual: z.union([z.string(), z.number()]).optional(),
-      motion: z.string().optional(),
-      finish: z.string().optional(),
-      audio: z.string().optional(),
-      strength: z.enum(['subtle', 'full', 'stress-test']),
-    }),
-  }).optional(),
+  creativeMode: CreativeModeSchema.optional(),
 });
 
 // ---------------------------------------------------------------------------

@@ -17,7 +17,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 const { closeDb, db, DB_NAME, STORES } = await import('../src/db/db');
 const { listVersions, recordVersion } = await import('../src/db/versions');
-const { listDocuments, saveDocument } = await import('../src/db/db');
+const { describeSchemaFailure, listDocuments, loadDocument, saveDocument } = await import('../src/db/db');
+const { t2vaBaker } = await import('./fixtures/guide-examples');
 
 const doc = {
   id: 'workspace',
@@ -142,5 +143,56 @@ describe('a store that exists without its index', () => {
 
     expect((await listDocuments()).map((d) => d.id)).toEqual(['workspace']);
     expect(await listVersions('workspace')).toHaveLength(1);
+  });
+});
+
+/**
+ * Reading a stored document that no longer matches the schema.
+ *
+ * The check reports rather than gates, and that distinction is the whole point:
+ * a build that refuses to open what the previous build wrote loses work that
+ * exists nowhere else. Each case here pairs "it is reported" with "it still
+ * opened", because a check that quietly ate the document would pass the first
+ * assertion on its own.
+ */
+describe('a stored document that does not match the schema', () => {
+  beforeEach(wipe);
+
+  it('reports nothing for a document that parses', () => {
+    expect(describeSchemaFailure(t2vaBaker)).toBeNull();
+  });
+
+  it('names the offending path', () => {
+    expect(describeSchemaFailure({ ...t2vaBaker, shots: [] })).toMatch(/^shots: /);
+    expect(describeSchemaFailure({ ...t2vaBaker, durationSeconds: -1 })).toMatch(
+      /^durationSeconds: /,
+    );
+  });
+
+  it('is still returned by loadDocument, with the failure alongside it', async () => {
+    await saveDocument({
+      id: 'workspace',
+      title: 'salvageable',
+      updatedAt: 1,
+      doc: { ...t2vaBaker, durationSeconds: -1 } as never,
+      headVersionId: 'v1',
+    });
+
+    const stored = await loadDocument('workspace');
+    expect(stored?.schemaError).toMatch(/^durationSeconds: /);
+    // The point of reporting rather than gating: the shots are still there.
+    expect(stored?.record.doc.shots).toHaveLength(t2vaBaker.shots.length);
+    expect(stored?.record.title).toBe('salvageable');
+  });
+
+  it('reports nothing for a document that round-trips intact', async () => {
+    await saveDocument({
+      id: 'workspace',
+      title: 'fine',
+      updatedAt: 1,
+      doc: t2vaBaker,
+      headVersionId: 'v1',
+    });
+    expect((await loadDocument('workspace'))?.schemaError).toBeNull();
   });
 });
