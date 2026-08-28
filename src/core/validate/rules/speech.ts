@@ -192,7 +192,16 @@ export const dialoguePunctuation: Rule = (doc) => {
     if (d.userSupplied) return;
     const text = d.text.trim();
 
-    if (text !== '' && !DIALOGUE_TERMINALS.some((t) => text.endsWith(t))) {
+    // Ref 5.4 asks for a terminal mark on "complete statements, questions, and
+    // exclamations". Two shapes are incomplete by construction and would be
+    // wrong to punctuate: the first half of a line that runs across a cut, and
+    // speech the end of the video truncates, which is the whole meaning of
+    // <cutoff>. Both fired here until a fixture was written that used them --
+    // the corpus had never contained either, so the rule had never been handed
+    // one to be wrong about.
+    const incomplete = d.crossesCut === 'starts' || d.cutoff === true;
+
+    if (!incomplete && text !== '' && !DIALOGUE_TERMINALS.some((t) => text.endsWith(t))) {
       out.push(
         error(
           'DIALOGUE_BAD_TERMINAL',
