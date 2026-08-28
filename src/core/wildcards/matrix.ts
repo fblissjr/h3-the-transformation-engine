@@ -16,7 +16,7 @@
  */
 
 import { getCategory } from './library';
-import { placeholdersIn } from './expand';
+import { draw, placeholdersIn, seededRandom } from './expand';
 
 export interface MatrixCell {
   /** The value chosen for each axis, keyed by category. */
@@ -29,6 +29,11 @@ export interface Matrix {
   cells: MatrixCell[];
   /** The axes actually used, in template order. */
   axes: { category: string; values: string[] }[];
+  /**
+   * Placeholders that asked for several values at once, resolved once and held
+   * identical across every cell.
+   */
+  fixed: { category: string; values: string[] }[];
   /** How many cells the configuration describes, before any cap. */
   total: number;
   /** True when `cells` holds fewer than `total`. */
@@ -73,15 +78,40 @@ function product(axes: { category: string; values: string[] }[], limit: number):
  * "vary the setting, leave everything else" -- a matter of naming one axis.
  * A category nothing recognises is skipped and its placeholder is left standing
  * in the text, the same tolerance `roll` has.
+ *
+ * `seed` resolves the multi-draw placeholders. Same seed, same fixed values, so
+ * a matrix is reproducible in the way a roll is.
  */
 export function experimentMatrix(
   template: string,
   config: Record<string, string[]> = {},
+  seed = 0,
 ): Matrix {
+  // A placeholder asking for several values -- {prop:3random}, {era:all} -- is
+  // not an axis. It says "put several of these here", and varying it would be
+  // varying something the writer already decided. It is drawn once and held
+  // identical across every cell, which is the same discipline the matrix exists
+  // for: change one thing, hold the rest still.
+  const random = seededRandom(seed);
+  const fixed: { category: string; values: string[] }[] = [];
+  const drawn: Record<string, string> = {};
+
+  for (const placeholder of placeholdersIn(template)) {
+    if (placeholder.count === 1) continue;
+    const category = getCategory(placeholder.category);
+    if (!category || drawn[placeholder.raw] != null) continue;
+    const count = placeholder.count === 'all' ? category.values.length : placeholder.count;
+    const values = draw(category.values, count, random);
+    drawn[placeholder.raw] = values.join(', ');
+    fixed.push({ category: placeholder.category, values });
+  }
+
+  const resolved = replaceRaw(template, drawn);
+
   const seen = new Set<string>();
   const axes: { category: string; values: string[] }[] = [];
 
-  for (const placeholder of placeholdersIn(template)) {
+  for (const placeholder of placeholdersIn(resolved)) {
     if (seen.has(placeholder.category)) continue;
     const category = getCategory(placeholder.category);
     if (!category) continue;
@@ -101,10 +131,21 @@ export function experimentMatrix(
 
   const cells = rows.map((values) => ({
     values,
-    text: substitute(template, values),
+    text: substitute(resolved, values),
   }));
 
-  return { cells, axes, total, truncated: total > cells.length };
+  return { cells, axes, fixed, total, truncated: total > cells.length };
+}
+
+/** Replace whole placeholders by their exact `{...}` text, right to left. */
+function replaceRaw(template: string, byRaw: Record<string, string>): string {
+  let out = template;
+  for (const p of [...placeholdersIn(template)].sort((a, b) => b.at - a.at)) {
+    const value = byRaw[p.raw];
+    if (value == null) continue;
+    out = out.slice(0, p.at) + value + out.slice(p.at + p.raw.length);
+  }
+  return out;
 }
 
 /** Replace each placeholder with the value chosen for its category. */

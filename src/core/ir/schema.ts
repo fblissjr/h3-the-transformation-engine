@@ -179,6 +179,8 @@ export const H3DocumentSchema = z.object({
   taskTypes: z.array(z.enum(TASK_TYPES)).optional(),
   retention: z.array(RetentionEntrySchema).optional(),
   creativeMode: CreativeModeSchema.optional(),
+  /** Declared for the same reason the glitch record is: an undeclared key is dropped. */
+  roll: z.object({ template: z.string(), seed: z.number() }).optional(),
 });
 
 // ---------------------------------------------------------------------------

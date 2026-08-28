@@ -73,9 +73,11 @@ describe('roll', () => {
     expect(result.text).toBe(result.picks[0].values.join(', '));
   });
 
-  it('draws the whole category for :all', () => {
-    const result = roll('{era:all}', () => 0);
-    expect(result.picks[0].values).toEqual([...getCategory('era')!.values]);
+  /** All of them is not a draw: the order is the category's, every time. */
+  it('takes the whole category for :all, in its own order', () => {
+    for (const random of [() => 0, () => 0.5, seededRandom(9)]) {
+      expect(roll('{era:all}', random).picks[0].values).toEqual([...getCategory('era')!.values]);
+    }
   });
 
   /**
@@ -254,5 +256,52 @@ describe('experimentMatrix', () => {
     expect(matrix.total).toBeGreaterThan(MATRIX_CELL_LIMIT);
     expect(matrix.cells).toHaveLength(MATRIX_CELL_LIMIT);
     expect(matrix.truncated).toBe(true);
+  });
+});
+
+/**
+ * The two buttons have to read the same template the same way.
+ *
+ * `{prop:3random}` means "put three props here". Rolling did that; the matrix
+ * used to hand back one prop per cell, so the same sentence in the same panel
+ * meant different things depending on which button was pressed. A placeholder
+ * asking for several values is not an axis -- it is a decision the writer has
+ * already made, so the matrix draws it once and holds it still.
+ */
+describe('the matrix and the roll read one template the same way', () => {
+  it('holds a multi-draw placeholder fixed instead of varying it', () => {
+    const matrix = experimentMatrix('a courier with {prop:3random} in {era}.', {}, 5);
+    expect(matrix.axes.map((a) => a.category)).toEqual(['era']);
+    expect(matrix.fixed).toHaveLength(1);
+    expect(matrix.fixed[0].category).toBe('prop');
+    expect(matrix.fixed[0].values).toHaveLength(3);
+
+    const props = matrix.fixed[0].values.join(', ');
+    for (const cell of matrix.cells) {
+      expect(cell.text).toContain(props);
+    }
+  });
+
+  it('gives a multi-draw placeholder as many values as a roll would', () => {
+    const matrix = experimentMatrix('{prop:3random} in {era}.', {}, 5);
+    const rolled = roll('{prop:3random}', seededRandom(5));
+    expect(matrix.fixed[0].values).toEqual(rolled.picks[0].values);
+  });
+
+  it('expands :all in the sentence rather than turning it into an axis', () => {
+    const matrix = experimentMatrix('{era:all} seen from {setting}.', {}, 1);
+    expect(matrix.axes.map((a) => a.category)).toEqual(['setting']);
+    expect(matrix.fixed[0].values).toHaveLength(getCategory('era')!.values.length);
+    expect(matrix.cells[0].text.startsWith(getCategory('era')!.values.join(', '))).toBe(true);
+  });
+
+  it('is reproducible: the same seed fixes the same values', () => {
+    const a = experimentMatrix('{prop:2random} in {era}.', {}, 77);
+    const b = experimentMatrix('{prop:2random} in {era}.', {}, 77);
+    expect(a.cells.map((c) => c.text)).toEqual(b.cells.map((c) => c.text));
+  });
+
+  it('has nothing fixed when every placeholder is a plain axis', () => {
+    expect(experimentMatrix('{era} in {setting}').fixed).toEqual([]);
   });
 });

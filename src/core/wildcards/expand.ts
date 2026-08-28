@@ -73,9 +73,18 @@ export function hasPlaceholders(text: string): boolean {
  * Distinctness matters more than the count: `{prop:3random}` on a category of
  * two is asking for something impossible, and two values read better than one
  * value written twice.
+ *
+ * Exported because the matrix draws too. A placeholder asking for several
+ * values is not an axis, and it has to be resolved the same way there as here
+ * or the same text would mean two different things depending on which button
+ * was pressed.
  */
-function draw(values: readonly string[], count: number, random: () => number): string[] {
+export function draw(values: readonly string[], count: number, random: () => number): string[] {
   const wanted = Math.min(Math.max(count, 1), values.length);
+  // Taking all of them is not a draw. `{era:all}` says every value, and every
+  // value in a random order is a different sentence each time for no reason.
+  if (wanted === values.length) return [...values];
+
   const pool = [...values];
   const out: string[] = [];
   while (out.length < wanted && pool.length > 0) {

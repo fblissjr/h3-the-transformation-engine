@@ -9,6 +9,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { assemble, AssembleError } from '../src/core/assemble';
+import type { CreativeModeRecord } from '../src/core/creative';
 import type { PlannerOutput } from '../src/core/ir/schema';
 import type { CompileInput } from '../src/core/ir/types';
 import { normalize } from '../src/core/normalize';
@@ -143,5 +144,38 @@ describe('assemble refuses dangling references', () => {
     expect(() => assemble(bad, refInput, normalize(refInput), { id: 'x' })).toThrow(
       /slot order 7, which was never attached/,
     );
+  });
+});
+
+/**
+ * Input metadata reaching the document.
+ *
+ * These two used to be stamped by the caller, one `if` each in `compile`, where
+ * nothing could reach them without a client: deleting either line left the whole
+ * suite green. They belong on the document -- an assisted edit reads the style
+ * off it, and the version label's seed means nothing without the template
+ * beside it -- so they are assembled with everything else that is derived from
+ * the input.
+ */
+describe('input metadata on the assembled document', () => {
+  it('carries the creative mode that produced the prose', () => {
+    const creativeMode = {
+      mode: 'wild',
+      selection: { visual: 'V06', strength: 'full' },
+    } satisfies CreativeModeRecord;
+    const doc = assemble(plan, { ...input, creativeMode }, normalize({ ...input, creativeMode }), { id: 'd' });
+    expect(doc.creativeMode).toEqual(creativeMode);
+  });
+
+  it('carries the roll that produced the idea', () => {
+    const roll = { template: 'a baker in {setting}.', seed: 7 };
+    const doc = assemble(plan, { ...input, roll }, normalize({ ...input, roll }), { id: 'd' });
+    expect(doc.roll).toEqual(roll);
+  });
+
+  it('adds neither key when the input carries neither', () => {
+    const doc = assemble(plan, input, normalize(input), { id: 'd' });
+    expect('creativeMode' in doc).toBe(false);
+    expect('roll' in doc).toBe(false);
   });
 });

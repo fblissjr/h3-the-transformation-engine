@@ -173,5 +173,12 @@ export function assemble(
           retention,
         }
       : {}),
+    // Input metadata that belongs to the document rather than to the plan: what
+    // the prose was written under, and which roll produced the idea. Stamped
+    // here rather than by the caller, because a caller that forgets is a
+    // document that silently loses the record -- and the callers are the two
+    // that had already forgotten something once.
+    ...(input.creativeMode ? { creativeMode: input.creativeMode } : {}),
+    ...(input.roll ? { roll: input.roll } : {}),
   };
 }

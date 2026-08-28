@@ -503,3 +503,69 @@ describe('recognisable people', () => {
     expect(prompt).toContain('are the exception');
   });
 });
+
+// ---------------------------------------------------------------------------
+// The roll on the document
+// ---------------------------------------------------------------------------
+
+/**
+ * A seed on its own is not a record of anything.
+ *
+ * The version label says "seed 417301", and the template that seed applied to
+ * lives in the idea box, which nothing persists. Storing the seed without its
+ * template would leave the label naming a roll that can never be performed
+ * again -- a partial record that reads as a complete one, which is the derived-
+ * value-next-to-its-input problem the rest of this file exists about.
+ */
+describe('the wildcard roll on the document', () => {
+  const ROLL = { template: 'a baker in {setting} during {era}.', seed: 4242 };
+
+  function docWithRoll(): H3Document {
+    const doc = assemble(plan, input, normalize(input), { id: 'doc-1' });
+    doc.roll = ROLL;
+    return doc;
+  }
+
+  it('carries both halves or neither', () => {
+    expect(docWithRoll().roll).toEqual(ROLL);
+    expect(docWith().roll).toBeUndefined();
+  });
+
+  it('round-trips through the stored-document schema', () => {
+    const stored = JSON.parse(JSON.stringify(docWithRoll()));
+    const parsed = H3DocumentSchema.parse(stored);
+    expect(parsed.roll).toEqual(ROLL);
+  });
+
+  it('survives a patch, so an edit does not lose which roll made the document', () => {
+    const result = applyPatch(docWithRoll(), {
+      operations: [{ path: 'style', value: 'Live-action, cinematic', rationale: 'match' }],
+      declined: [],
+    });
+    expect(result.doc.roll).toEqual(ROLL);
+  });
+
+  it('reproduces the idea it recorded', async () => {
+    const { rollSeeded } = await import('../src/core/wildcards');
+    const doc = docWithRoll();
+    expect(rollSeeded(doc.roll!.template, doc.roll!.seed).text).toBe(
+      rollSeeded(ROLL.template, ROLL.seed).text,
+    );
+    expect(rollSeeded(doc.roll!.template, doc.roll!.seed).text).not.toContain('{');
+  });
+
+  it('is absent from the serialized prompt', async () => {
+    const { serialize } = await import('../src/core/serialize');
+    const { contextFor } = await import('../src/core/normalize');
+    const rolled = docWithRoll();
+    const plain = docWith();
+    expect(serialize(rolled, contextFor(rolled)).text).toBe(serialize(plain, contextFor(plain)).text);
+  });
+
+  /** A document written before rolls existed has no key, and must not gain one. */
+  it('accepts a document written before rolls existed', () => {
+    const parsed = H3DocumentSchema.safeParse(JSON.parse(JSON.stringify(docWith())));
+    expect(parsed.success).toBe(true);
+    expect(parsed.data && 'roll' in parsed.data).toBe(false);
+  });
+});

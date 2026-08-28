@@ -38,5 +38,6 @@ file and let the golden tests report everything the revision changed.
 | Ref 5.4, no `(Sx)` in retention | the `REF_SPEAKER_IN_RETENTION` rule |
 | Ref 7, the worked example | `test/fixtures/ref-example.ts` |
 
-The rewrite notes that used to sit beside these are secondary sources and stay
-out of the repo. When they disagree with the guides, the guides win.
+Two rewrite documents sat beside these and were not moved: they are secondary
+sources rather than the contract, and they are large. They remain untracked for
+now. When any secondary source disagrees with these two files, these two win.

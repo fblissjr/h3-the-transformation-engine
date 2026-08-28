@@ -269,11 +269,28 @@ export interface H3Document {
 
   /** Which creative mode produced this document, if any. Metadata only -- the serializer ignores it. */
   creativeMode?: CreativeModeRecord;
+
+  /**
+   * The wildcard roll that produced the idea, if one did.
+   *
+   * Both halves or neither. A seed on its own is not a record of anything --
+   * the template it was a seed of lives in the idea box, which nothing
+   * persists, so a stored seed without its template names a roll that can
+   * never be performed again.
+   */
+  roll?: WildcardRoll;
 }
 
 // ---------------------------------------------------------------------------
 // Compiler inputs and outputs
 // ---------------------------------------------------------------------------
+
+/** A wildcard roll, as the pair that makes it reproducible. */
+export interface WildcardRoll {
+  /** The idea as written, placeholders intact. */
+  template: string;
+  seed: number;
+}
 
 /** What the user supplies before anything has been planned. */
 export interface CompileInput {
@@ -289,6 +306,13 @@ export interface CompileInput {
    * directive from this; the serialized output never sees it.
    */
   creativeMode?: CreativeModeRecord;
+
+  /**
+   * The roll that produced `idea`, when one did. `idea` is already expanded by
+   * the time it reaches here -- this is the record of how, not an instruction
+   * to expand anything.
+   */
+  roll?: WildcardRoll;
 }
 
 /** Everything the normalizer can work out without asking a model. */

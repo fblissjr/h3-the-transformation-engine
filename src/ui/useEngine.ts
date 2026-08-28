@@ -135,6 +135,10 @@ export function useEngine() {
         setDurationSeconds(record.doc.durationSeconds);
         setModeOverride(record.doc.modeLocked ? record.doc.mode : null);
         setCreative(restoreCreative(record.doc.creativeMode));
+        if (record.doc.roll) {
+          setIdea(record.doc.roll.template);
+          setSeed(record.doc.roll.seed);
+        }
         if (schemaError) {
           const schemaNotice =
             `The stored document does not match this build's schema (${schemaError}). ` +
@@ -213,6 +217,7 @@ export function useEngine() {
     setSlots([]);
     setModeOverride(null);
     setCreative(null);
+    setSeed(null);
     if (scope === 'everything') {
       setApiKey(null);
       setStoredKeyMode(null);
@@ -257,8 +262,11 @@ export function useEngine() {
       // complete direction, and gating on the style alone would silently drop
       // it on the way to the planner.
       ...(creative && hasDirection(creative) ? { creativeMode: creative } : {}),
+      // Both halves or neither: the seed is only a record of a roll while the
+      // template it applied to travels with it.
+      ...(rolled && seed != null ? { roll: { template: idea, seed } } : {}),
     }),
-    [effectiveIdea, mode, durationFrames, durationSeconds, slots, creative],
+    [effectiveIdea, idea, rolled, seed, mode, durationFrames, durationSeconds, slots, creative],
   );
 
   const client = useMemo(() => (apiKey ? new GeminiClient({ apiKey }) : null), [apiKey]);
@@ -366,6 +374,14 @@ export function useEngine() {
     setHeadVersionId(version.id);
     setSlots(version.doc.slots);
     setCreative(restoreCreative(version.doc.creativeMode));
+    // A version records the template as well as the seed, so checking one out
+    // puts the idea box back in the state that produced it.
+    if (version.doc.roll) {
+      setIdea(version.doc.roll.template);
+      setSeed(version.doc.roll.seed);
+    } else {
+      setSeed(null);
+    }
     await saveDocument({
       id: DOC_ID,
       title: version.label,

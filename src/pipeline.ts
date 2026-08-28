@@ -71,10 +71,6 @@ export async function compile(
 
   const doc = assemble(parsed.data, input, ctx, { id: options.id, modeLocked: input.mode != null });
 
-  // Carried on the document so an edit and the version history both know
-  // which style the prose was written under.
-  if (input.creativeMode) doc.creativeMode = input.creativeMode;
-
   return {
     doc,
     validation: validate(doc, ctx),
