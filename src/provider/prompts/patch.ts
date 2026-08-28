@@ -12,7 +12,7 @@
  */
 
 import type { CreativeModeRecord } from '../../core/creative';
-import { styleDirective } from '../../core/creative';
+import { glitchDirective, styleDirective } from '../../core/creative';
 import type { H3Document } from '../../core/ir/types';
 import { serialize } from '../../core/serialize';
 import { contextFor } from '../../core/normalize';
@@ -64,22 +64,51 @@ function editableSection(doc: H3Document, paths: string[]): string {
 }
 
 /**
- * The patch prompt derives the style block from the document's own creative
- * mode, exactly as the planner prompt derives it from the compile input. The
- * two paths call the same function on the same shape, so an edit cannot drift
- * away from the style the document was written under.
+ * The patch prompt derives the style block and the glitch block from the
+ * document's own creative mode, exactly as the planner prompt derives them from
+ * the compile input. The two paths call the same functions on the same shape,
+ * so an edit cannot drift away from what the document was written under.
+ *
+ * Neither derivation is given the H3 mode, and neither needs it: everything
+ * mode-specific about a glitch mark is an affordance, and an edit is not adding
+ * marks -- it is keeping the ones already in the prose intact.
  */
 export function buildPatchSystemPrompt(creativeMode?: CreativeModeRecord): string {
   const directive = creativeMode ? styleDirective(creativeMode.selection) : null;
-  if (!directive) return CORE;
-  return [
-    CORE,
-    '# Active style',
-    '',
-    'The document was written under the style direction below. Preserve it in any prose you rewrite.',
-    '',
-    directive,
-  ].join('\n\n');
+  const glitch = creativeMode ? glitchDirective(creativeMode.glitch) : null;
+  if (!directive && !glitch) return CORE;
+
+  const blocks = [CORE];
+
+  if (directive) {
+    blocks.push(
+      [
+        '# Active style',
+        '',
+        'The document was written under the style direction below. Preserve it in any prose you rewrite.',
+        '',
+        directive,
+      ].join('\n'),
+    );
+  }
+
+  if (glitch) {
+    blocks.push(
+      [
+        '# Active glitch marks',
+        '',
+        'The marks below are already placed in this document. What follows is the direction they were ' +
+          'placed under; read it as a description of what is there, not as an instruction to place ' +
+          'anything. Keep every mark that appears in a beat you rewrite exactly as it is spelled and ' +
+          "keep it in that beat's visibleText. Do not introduce a mark into a beat that has none, and " +
+          'do not remove one unless the instruction asks for it.',
+        '',
+        glitch,
+      ].join('\n'),
+    );
+  }
+
+  return blocks.join('\n\n');
 }
 
 export function buildPatchUserPrompt(doc: H3Document, paths: string[], instruction: string): string {

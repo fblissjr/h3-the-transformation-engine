@@ -12,10 +12,20 @@
 
 import type { MotionPackId, FinishPackId, AudioPackId } from './packs';
 import type { VisualId } from './visual';
+import type { GlitchSelection, StoredGlitch } from './glitch';
 
 export type { Axis, PackDef, VisualPackId, MotionPackId, FinishPackId, AudioPackId } from './packs';
 export type { AnchorId } from './anchors';
 export type { VisualId } from './visual';
+export type {
+  GlitchRegister,
+  GlitchSelection,
+  GlitchSurfaceDef,
+  GlitchSurfaceId,
+  GlitchTokenDef,
+  GlitchTokenId,
+  StoredGlitch,
+} from './glitch';
 
 // ---------------------------------------------------------------------------
 // Style strength
@@ -82,11 +92,26 @@ export interface CreativeSelection extends StoredSelection {
  * travels or is persisted.
  *
  * The directive text and the display label are both pure functions of this
- * record (`styleDirective`, `describeSelection`). Neither is stored, because a
- * stored copy of a derived string is a copy that can disagree with its input --
- * the same reason `serialize(doc, ctx)` is the only writer of prompt text.
+ * record (`styleDirective`, `describeSelection`, `glitchDirective`). None of it
+ * is stored, because a stored copy of a derived string is a copy that can
+ * disagree with its input -- the same reason `serialize(doc, ctx)` is the only
+ * writer of prompt text.
+ *
+ * Glitch marks sit beside the selection rather than inside it. The four style
+ * families are one scalar id each, and every derivation in `resolver.ts` is
+ * built on that shape; a list of token ids in one of those fields would make
+ * `sameSelection` a reference comparison, which silently breaks both the
+ * preset highlight and the badge that says an edit will keep the old style.
  */
 export interface CreativeModeRecord {
   mode: CreativeMode;
   selection: CreativeSelection;
+  glitch?: GlitchSelection;
+}
+
+/** A record as it may arrive from storage, where no id is known to resolve. */
+export interface StoredCreativeRecord {
+  mode: CreativeMode;
+  selection: StoredSelection;
+  glitch?: StoredGlitch;
 }

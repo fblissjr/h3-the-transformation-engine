@@ -17,6 +17,11 @@ import type {
   CreativeModeRecord,
   CreativeSelection,
   FinishPackId,
+  GlitchRegister,
+  GlitchSelection,
+  GlitchSurfaceId,
+  GlitchTokenDef,
+  GlitchTokenId,
   MotionPackId,
   PackDef,
   VisualId,
@@ -24,14 +29,19 @@ import type {
 import {
   AUDIO_PACKS,
   FINISH_PACKS,
+  GLITCH_MAX_TOKENS,
+  GLITCH_REGISTERS,
+  GLITCH_SURFACES,
+  GLITCH_TOKENS,
   MOTION_PACKS,
   PRESETS,
   STRENGTH_LEVELS,
   STYLE_ANCHORS,
   VISUAL_PACKS,
-  describeSelection,
+  describeRecord,
+  randomGlitch,
   randomWild,
-  sameSelection,
+  sameRecord,
 } from '../../core/creative';
 
 const MODES: (CreativeMode | null)[] = [null, 'directed', 'exploratory', 'wild'];
@@ -63,13 +73,24 @@ interface CreativePanelProps {
 export function CreativePanel({ value, onChange, appliesToNextGeneration }: CreativePanelProps) {
   const mode = value?.mode ?? null;
   const selection = value?.selection ?? EMPTY;
-  const label = describeSelection(selection);
+  const glitch = value?.glitch;
+  const label = describeRecord(value);
 
   const pickMode = (next: CreativeMode | null) => {
     if (next === mode) return;
     if (next === null) return onChange(null);
-    if (next === 'wild') return onChange(randomWild());
-    onChange({ mode: next, selection: EMPTY });
+    if (next === 'wild') return onChange({ ...randomWild(), ...(glitch ? { glitch } : {}) });
+    onChange({ mode: next, selection: EMPTY, ...(glitch ? { glitch } : {}) });
+  };
+
+  /**
+   * Marks are independent of the style, so choosing one while the panel is off
+   * has to produce a record rather than nothing. `directed` with an empty
+   * selection is what a record with marks and no packs looks like, and it is a
+   * complete direction on its own.
+   */
+  const setGlitch = (next: GlitchSelection | undefined) => {
+    onChange({ mode: mode ?? 'directed', selection, ...(next ? { glitch: next } : {}) });
   };
 
   return (
@@ -106,19 +127,28 @@ export function CreativePanel({ value, onChange, appliesToNextGeneration }: Crea
       {mode === 'exploratory' && (
         <PresetCards
           selection={selection}
-          onChange={(next) => onChange({ mode: 'exploratory', selection: next })}
+          glitch={glitch}
+          onChange={(next, nextGlitch) =>
+            onChange({
+              mode: 'exploratory',
+              selection: next,
+              ...(nextGlitch ? { glitch: nextGlitch } : {}),
+            })
+          }
         />
       )}
 
       {mode === 'wild' && (
         <button
           type="button"
-          onClick={() => onChange(randomWild())}
+          onClick={() => onChange({ ...randomWild(), ...(glitch ? { glitch } : {}) })}
           className="w-full rounded border border-[var(--color-edge)] px-2 py-1.5 text-xs hover:bg-white/5"
         >
           Shuffle
         </button>
       )}
+
+      <GlitchControls glitch={glitch} onChange={setGlitch} />
 
       {label !== '' && (
         <div className="rounded border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/5 px-2 py-1.5">
@@ -264,12 +294,18 @@ function DirectedControls({
 
 function PresetCards({
   selection,
+  glitch,
   onChange,
 }: {
   selection: CreativeSelection;
-  onChange: (next: CreativeSelection) => void;
+  glitch: GlitchSelection | undefined;
+  onChange: (next: CreativeSelection, nextGlitch: GlitchSelection | undefined) => void;
 }) {
-  const active = PRESETS.find((p) => sameSelection(p.selection, selection))?.id ?? null;
+  // Compared on both halves: two presets can share a style and differ only in
+  // their marks, and comparing the selection alone would light up both.
+  const active =
+    PRESETS.find((p) => sameRecord({ selection: p.selection, glitch: p.glitch }, { selection, glitch }))
+      ?.id ?? null;
 
   return (
     <div className="grid grid-cols-2 gap-1">
@@ -278,7 +314,7 @@ function PresetCards({
           key={p.id}
           type="button"
           aria-pressed={active === p.id}
-          onClick={() => onChange({ ...p.selection })}
+          onClick={() => onChange({ ...p.selection }, p.glitch ? { ...p.glitch } : undefined)}
           className={`rounded border p-1.5 text-left ${
             active === p.id
               ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10'
@@ -289,6 +325,150 @@ function PresetCards({
           <div className="text-[10px] text-[var(--color-muted)]">{p.description}</div>
         </button>
       ))}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Glitch marks
+// ---------------------------------------------------------------------------
+
+const chipClass = (on: boolean) =>
+  `rounded border px-1.5 py-0.5 text-[10px] ${
+    on
+      ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/15 text-[var(--color-accent)]'
+      : 'border-[var(--color-edge)] text-[var(--color-muted)] hover:bg-white/5'
+  }`;
+
+/**
+ * The table widened back to its own interface.
+ *
+ * `as const satisfies` narrows each entry to exactly the keys it has, so the
+ * entries without a `skew` do not carry the optional field at all and the union
+ * cannot be read uniformly.
+ */
+const TOKEN_DEFS: readonly GlitchTokenDef[] = GLITCH_TOKENS;
+
+const REGISTER_LABELS: Record<GlitchRegister, string> = {
+  motif: 'Marks only',
+  ood: 'Marks + OOD prose',
+};
+
+/**
+ * The marks are shown as a flat list of chips rather than a dropdown because
+ * the identity of the string is the whole point: a code standing in for one
+ * would hide the only thing the user is actually choosing.
+ *
+ * Selecting past the cap is refused rather than silently trimmed. The
+ * derivation caps too, but a picker that accepted a fourth and then showed
+ * three would be reporting a selection nobody made.
+ */
+function GlitchControls({
+  glitch,
+  onChange,
+}: {
+  glitch: GlitchSelection | undefined;
+  onChange: (next: GlitchSelection | undefined) => void;
+}) {
+  const tokens = glitch?.tokens ?? [];
+  const surfaces = glitch?.surfaces ?? [];
+  const register: GlitchRegister = glitch?.register ?? 'motif';
+  const atCap = tokens.length >= GLITCH_MAX_TOKENS;
+
+  /** Dropping the last mark clears the record, so "none selected" is one state. */
+  const write = (next: Partial<GlitchSelection>) => {
+    const merged: GlitchSelection = { tokens, surfaces, register, ...next };
+    if (merged.tokens.length === 0) return onChange(undefined);
+    onChange(merged);
+  };
+
+  const toggleToken = (id: GlitchTokenId) => {
+    if (tokens.includes(id)) return write({ tokens: tokens.filter((t) => t !== id) });
+    if (atCap) return;
+    write({ tokens: [...tokens, id] });
+  };
+
+  const toggleSurface = (id: GlitchSurfaceId) => {
+    write({
+      surfaces: surfaces.includes(id) ? surfaces.filter((s) => s !== id) : [...surfaces, id],
+    });
+  };
+
+  return (
+    <div className="space-y-1.5 border-t border-[var(--color-edge)] pt-2">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-muted)]">
+          Glitch marks
+        </span>
+        <button
+          type="button"
+          onClick={() => onChange(randomGlitch())}
+          className="rounded border border-[var(--color-edge)] px-1.5 py-0.5 text-[10px] text-[var(--color-muted)] hover:bg-white/5"
+        >
+          Draw
+        </button>
+      </div>
+
+      <div className="flex flex-wrap gap-1">
+        {TOKEN_DEFS.map((t) => {
+          const on = tokens.includes(t.id as GlitchTokenId);
+          return (
+            <button
+              key={t.id}
+              type="button"
+              aria-pressed={on}
+              disabled={!on && atCap}
+              title={t.skew ? `${t.note} ${t.skew}` : t.note}
+              onClick={() => toggleToken(t.id as GlitchTokenId)}
+              className={`${chipClass(on)} ${!on && atCap ? 'opacity-40' : ''} ${
+                t.skew && !on ? 'italic' : ''
+              }`}
+            >
+              {t.id}
+              {t.skew ? ' *' : ''}
+            </button>
+          );
+        })}
+      </div>
+
+      {tokens.length > 0 && (
+        <>
+          <div className="flex flex-wrap gap-1">
+            {GLITCH_SURFACES.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                aria-pressed={surfaces.includes(s.id)}
+                title={s.directive}
+                onClick={() => toggleSurface(s.id)}
+                className={chipClass(surfaces.includes(s.id))}
+              >
+                {s.name}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex gap-1">
+            {GLITCH_REGISTERS.map((r) => (
+              <button
+                key={r}
+                type="button"
+                aria-pressed={register === r}
+                onClick={() => write({ register: r })}
+                className={`flex-1 ${chipClass(register === r)}`}
+              >
+                {REGISTER_LABELS[r]}
+              </button>
+            ))}
+          </div>
+
+          <p className="text-[10px] text-[var(--color-muted)]">
+            {atCap ? `${GLITCH_MAX_TOKENS} is the ceiling. ` : ''}
+            Each mark appears once, as visible text in the scene. No surface selected means the
+            planner varies them. A starred mark carries a documented pull of its own.
+          </p>
+        </>
+      )}
     </div>
   );
 }

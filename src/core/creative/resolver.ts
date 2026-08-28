@@ -18,9 +18,11 @@ import {
 } from './packs';
 import { canonicalVisualId, getVisual } from './visual';
 import { isStressTestViable, scoreStrength } from './strength';
+import { describeGlitch, hasGlitch, pruneGlitch, sameGlitch } from './glitch';
 import type {
   CreativeModeRecord,
   CreativeSelection,
+  StoredCreativeRecord,
   StoredSelection,
   StrengthLevel,
   VisualId,
@@ -142,6 +144,54 @@ export function sameSelection(a: StoredSelection, b: StoredSelection): boolean {
 /** Human-readable label for the UI badge and the version history entry. */
 export function describeSelection(selection: StoredSelection): string {
   return entries(selection).map((e) => e.name).join(' + ');
+}
+
+// ---------------------------------------------------------------------------
+// The record as a whole
+// ---------------------------------------------------------------------------
+
+/*
+ * A record carries two independent contributions -- a style selection and a set
+ * of glitch marks -- and every caller outside this module cares about the pair,
+ * not about either half. These three exist so that no caller has to remember
+ * there are two halves; forgetting the second is how a glitch-only record ends
+ * up unstamped on the document, or a token change ends up invisible to the
+ * badge that reports what an edit will preserve.
+ */
+
+/** What a record contributes, without the mode that produced it. */
+type Contribution = Pick<StoredCreativeRecord, 'selection' | 'glitch'>;
+
+/** Whether the record contributes anything to a prompt at all. */
+export function hasDirection(record: Contribution): boolean {
+  return hasStyle(record.selection) || hasGlitch(record.glitch);
+}
+
+/** Whether two records contribute the same thing. The mode itself is not a contribution. */
+export function sameRecord(
+  a: Contribution | null | undefined,
+  b: Contribution | null | undefined,
+): boolean {
+  if (!a || !b) return !a && !b;
+  return sameSelection(a.selection, b.selection) && sameGlitch(a.glitch, b.glitch);
+}
+
+/** Label for the badge and the version entry, covering both halves. */
+export function describeRecord(record: Contribution | null | undefined): string {
+  if (!record) return '';
+  return [describeSelection(record.selection), describeGlitch(record.glitch)]
+    .filter((part) => part !== '')
+    .join(' + ');
+}
+
+/** Drop everything this build cannot resolve, in both halves. */
+export function pruneRecord(record: StoredCreativeRecord): CreativeModeRecord {
+  const glitch = pruneGlitch(record.glitch);
+  return {
+    mode: record.mode,
+    selection: pruneSelection(record.selection),
+    ...(glitch ? { glitch } : {}),
+  };
 }
 
 // ---------------------------------------------------------------------------

@@ -14,7 +14,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CompileInput, H3Document, ReferenceSlot } from '../core/ir/types';
 import type { H3Mode } from '../core/ir/vocab';
 import type { CreativeModeRecord } from '../core/creative';
-import { describeSelection, hasStyle, pruneSelection, sameSelection } from '../core/creative';
+import { describeRecord, hasDirection, pruneRecord, sameRecord } from '../core/creative';
 import { contextFor, framesToSeconds } from '../core/normalize';
 import { inferMode } from '../core/normalize/mode';
 import { compile, edit, editDirect, inspect } from '../pipeline';
@@ -52,18 +52,19 @@ export interface EngineState {
 }
 
 /**
- * A stored creative mode, with any pack this build no longer has dropped.
+ * A stored creative mode, with any pack or glitch mark this build no longer
+ * has dropped.
  *
  * The picker shows exactly what it holds, so an id that cannot render as a
- * selected option must not stay in the selection either.
+ * selected option must not stay in the record either.
  */
 function restoreCreative(stored: CreativeModeRecord | undefined): CreativeModeRecord | null {
   if (!stored) return null;
-  return { mode: stored.mode, selection: pruneSelection(stored.selection) };
+  return pruneRecord(stored);
 }
 
-/** Stands in for "no style", so a comparison never has to special-case null. */
-const EMPTY_SELECTION = { strength: 'full' } as const;
+/** Stands in for "no direction", so a comparison never has to special-case null. */
+const EMPTY_RECORD = { mode: 'directed', selection: { strength: 'full' } } as const;
 
 export function useEngine() {
   const [apiKey, setApiKey] = useState<string | null>(null);
@@ -227,8 +228,11 @@ export function useEngine() {
       ...(durationFrames != null ? { durationFrames } : { durationSeconds }),
       slots,
       // A mode with nothing chosen in it contributes nothing, and should not
-      // be stamped onto the document as though it did.
-      ...(creative && hasStyle(creative.selection) ? { creativeMode: creative } : {}),
+      // be stamped onto the document as though it did. Glitch marks count as
+      // something chosen: a record carrying only marks and no packs is a
+      // complete direction, and gating on the style alone would silently drop
+      // it on the way to the planner.
+      ...(creative && hasDirection(creative) ? { creativeMode: creative } : {}),
     }),
     [idea, mode, durationFrames, durationSeconds, slots, creative],
   );
@@ -272,7 +276,7 @@ export function useEngine() {
     setNotice(null);
     try {
       const result = await compile(client, input, { id: DOC_ID });
-      const style = creative ? describeSelection(creative.selection) : '';
+      const style = describeRecord(creative);
       const label = style === '' ? 'Generated' : `Generated (${style})`;
       await commit(result.doc, label);
       setSelectedPaths([]);
@@ -408,7 +412,7 @@ export function useEngine() {
      */
     creativeAppliesToNextGeneration:
       doc != null &&
-      !sameSelection(creative?.selection ?? EMPTY_SELECTION, doc.creativeMode?.selection ?? EMPTY_SELECTION),
+      !sameRecord(creative ?? EMPTY_RECORD, doc.creativeMode ?? EMPTY_RECORD),
   };
 }
 

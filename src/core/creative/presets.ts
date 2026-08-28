@@ -7,13 +7,15 @@
  * execute within the formal prompt grammar.
  */
 
-import type { CreativeSelection } from './types';
+import type { CreativeSelection, GlitchSelection } from './types';
 
 export interface CreativePreset {
   readonly id: string;
   readonly name: string;
   readonly description: string;
   readonly selection: CreativeSelection;
+  /** Glitch marks are opt-in, so only the presets that are about them carry any. */
+  readonly glitch?: GlitchSelection;
 }
 
 export const PRESETS: readonly CreativePreset[] = [
@@ -90,6 +92,39 @@ export const PRESETS: readonly CreativePreset[] = [
     name: 'Retro VHS',
     description: '1990s camcorder aesthetic with tape artifacts and analog audio.',
     selection: { visual: 'R28', finish: 'F04', audio: 'A07', strength: 'full' },
+  },
+  // -- Glitch marks ----------------------------------------------------------
+  // Anomalous strings placed as visible objects in an otherwise unremarkable
+  // scene. The style stays deliberately plain in the first two: the mark reads
+  // as an anomaly only when nothing around it is competing to be strange.
+  {
+    id: 'quiet-anomaly',
+    name: 'Quiet Anomaly',
+    description: 'Ordinary cinematography, one unexplained string carved into the scene.',
+    selection: { visual: 'V19', motion: 'M01', finish: 'F02', audio: 'A01', strength: 'subtle' },
+    glitch: { tokens: ['SolidGoldMagikarp'], surfaces: ['inscription'], register: 'motif' },
+  },
+  {
+    id: 'ghost-signal',
+    name: 'Ghost Signal',
+    description: 'Cyber-noir with two marks: one in a reflection, one flickering on a screen.',
+    selection: { visual: 'V16', motion: 'M01', finish: 'F08', audio: 'A01', strength: 'full' },
+    glitch: {
+      tokens: ['embedreportprint', 'PsyNetMessage'],
+      surfaces: ['reflection', 'overlay'],
+      register: 'motif',
+    },
+  },
+  {
+    id: 'full-ood',
+    name: 'Full OOD',
+    description: 'Three marks, unexpected materials and light throughout, still fully observable.',
+    selection: { visual: 'V13', motion: 'M07', finish: 'F07', audio: 'A08', strength: 'stress-test' },
+    glitch: {
+      tokens: ['oreAndOnline', 'TPPStreamerBot', 'RandomRedditorWithNo'],
+      surfaces: ['stamp', 'wear', 'etching'],
+      register: 'ood',
+    },
   },
 ] as const satisfies readonly CreativePreset[];
 

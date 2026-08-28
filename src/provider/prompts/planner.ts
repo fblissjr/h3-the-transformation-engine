@@ -26,7 +26,7 @@ import {
   VISUAL_RETENTION,
   VOICEOVER_PHRASE,
 } from '../../core/ir/vocab';
-import { styleDirective } from '../../core/creative';
+import { glitchDirective, styleDirective } from '../../core/creative';
 import { DIALOGUE_PLACEHOLDER } from '../../core/serialize/shared';
 import { recommendedBeats } from '../../core/normalize/budgets';
 
@@ -152,6 +152,47 @@ Aim for 350-500 words across all beats, unless the piece is dialogue-dense, in w
 };
 
 // ---------------------------------------------------------------------------
+// Glitch marks, per mode
+// ---------------------------------------------------------------------------
+
+/**
+ * What each contract allows a mark to do, appended to the derived glitch block.
+ *
+ * The prohibitions in that block hold everywhere and so are part of the record's
+ * own derivation, which the patch prompt shares. These are affordances, and they
+ * turn on which pictures are actual frames. A supplied image already exists and
+ * does not contain the mark, so writing that one is visible in it asks the model
+ * to reconcile a description against a picture that contradicts it -- the same
+ * failure as any other invented first-frame detail, but harder to spot because
+ * the mark is meant to look out of place.
+ */
+const GLITCH_MODE_NOTES: Record<string, string> = {
+  T2VA:
+    'Nothing in this scene is fixed by a reference, so a mark can go anywhere the world would ' +
+    'plausibly carry one.',
+
+  I2VA:
+    '<Picture 1> is the actual first frame and does not contain a mark. Do not place one in it or ' +
+    'describe one as visible there. Marks appear after the opening beat, on surfaces the image ' +
+    'establishes or on ones that come into frame later.',
+
+  FL2VA:
+    'Both pictures are actual frames and neither contains a mark. Marks live on the path between ' +
+    'them: one appears after the opening beat and is gone, out of frame, or turned away before the ' +
+    'final beat lands on Picture 2.',
+
+  L2VA:
+    '<Picture 1> is the actual final frame and does not contain a mark. Marks belong to the earlier ' +
+    'state you infer, and none of them is visible in the last beat.',
+
+  Ref2VA:
+    'Marks go on the environment only. Never put one on a referenced subject, and never on a surface ' +
+    'an asset supplies -- the references do not contain these strings, and a subject definition or a ' +
+    'retention note that mentions one is claiming they do. Keep them out of the summary for the same ' +
+    'reason.',
+};
+
+// ---------------------------------------------------------------------------
 // Assembly
 // ---------------------------------------------------------------------------
 
@@ -198,8 +239,13 @@ function suppliedFacts(ctx: NormalizedContext, input: CompileInput): string {
 
 export function buildPlannerSystemPrompt(ctx: NormalizedContext, input: CompileInput): string {
   const blocks = [CORE, MODE_BLOCKS[ctx.mode]];
+
   const directive = input.creativeMode ? styleDirective(input.creativeMode.selection) : null;
   if (directive) blocks.push(directive);
+
+  const glitch = input.creativeMode ? glitchDirective(input.creativeMode.glitch) : null;
+  if (glitch) blocks.push([glitch, GLITCH_MODE_NOTES[ctx.mode]].filter(Boolean).join('\n\n'));
+
   blocks.push(suppliedFacts(ctx, input));
   return blocks.join('\n\n');
 }

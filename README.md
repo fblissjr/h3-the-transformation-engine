@@ -68,7 +68,19 @@ A creative mode contributes exactly one thing to the pipeline: a selection of pa
 
 The visual family covers 24 medium packs and 30 reference anchors in one id space. The anchors translate cultural and studio references into their observable traits, so what reaches the model is craft language rather than a name to imitate.
 
-Four ways in: off, directed (pick the packs), presets (twelve named combinations), and wild (a random draw restricted to combinations with enough leverage to read as a style change rather than a filter). The leverage test is five axes — geometry, shape, palette, motion, texture — and a draw needs three of them with geometry or shape among them.
+Four ways in: off, directed (pick the packs), presets (fifteen named combinations), and wild (a random draw restricted to combinations with enough leverage to read as a style change rather than a filter). The leverage test is five axes — geometry, shape, palette, motion, texture — and a draw needs three of them with geometry or shape among them.
+
+### Glitch marks
+
+The second contribution a creative record can make, independent of the style. A glitch mark is one of a small set of ultra-rare tokenizer strings — the `SolidGoldMagikarp` family and its relatives — placed in the scene as visible text: carved into a wall, legible in a reflection, flickering on a screen inside the frame, stamped on a crate, etched at the scale of a serial number, or half-scratched away. The effect is a string that is legible and deliberate with no author and no explanation. Nobody in the scene reads one, points at one or reacts to one.
+
+Up to three per clip, each placed once, on a different kind of surface. Two of the ten tokens carry a documented pull of their own and are offered but never drawn at random. A register switch decides whether the marks are the only anomaly or whether the surrounding prose also reaches for the less expected material, light and pairing — and in either case every sentence still describes something a camera could record.
+
+A mark is on-screen text, so it goes through the contract's existing rule for that: quoted in the prose, listed in the beat's `visibleText`. Where a mark may go depends on the mode, and only the planner is told, because only it knows the mode: a supplied picture is an actual frame and does not contain a mark, so under I2VA, FL2VA and L2VA the marks live away from the frame the picture fixes. Under Ref2VA they stay on the environment and out of subject definitions, retention notes and the summary, since the references do not contain these strings and a note that mentions one is claiming they do.
+
+None of this is a validator rule. A mark placed badly is a prose preference, and preferences belong in the planner prompt.
+
+This is not the glitch-art aesthetic. VHS wobble and chroma bleed are finish packs and a different feature that happens to share the word.
 
 Two properties hold this in place. The selection is the only thing stored or passed around; the directive text and the display label are derived wherever they are needed, so no copy of them can disagree with the selection. And the serializer never sees any of it — a document with a creative mode and one without serialize identically, because the style lives in the prose the planner wrote, not in a clause the code bolted on.
 

@@ -142,6 +142,23 @@ const CreativeModeSchema = z.object({
     audio: z.string().optional(),
     strength: z.enum(['subtle', 'full', 'stress-test']),
   }),
+  /**
+   * Declared, and not only for validation: an object schema drops keys it does
+   * not describe, so an undeclared `glitch` would vanish from anything read
+   * through this schema without an issue being raised anywhere.
+   *
+   * Ids stay bare strings for the reason every other id here does -- a build
+   * that drops a token must not make the documents written before it
+   * unopenable. `register` is gated like `strength`, being a closed control
+   * vocabulary rather than a name for a piece of content.
+   */
+  glitch: z
+    .object({
+      tokens: z.array(z.string()),
+      surfaces: z.array(z.string()).optional(),
+      register: z.enum(['motif', 'ood']),
+    })
+    .optional(),
 });
 
 export const H3DocumentSchema = z.object({
