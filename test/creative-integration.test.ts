@@ -16,7 +16,7 @@
 import { describe, expect, it } from 'vitest';
 import { assemble } from '../src/core/assemble';
 import { applyPatch } from '../src/core/patch/apply';
-import { glitchDirective, styleDirective } from '../src/core/creative';
+import { getVisual, glitchDirective, styleDirective } from '../src/core/creative';
 import type { CreativeModeRecord } from '../src/core/creative';
 import { H3DocumentSchema } from '../src/core/ir/schema';
 import type { PlannerOutput } from '../src/core/ir/schema';
@@ -97,7 +97,9 @@ describe('buildPlannerSystemPrompt', () => {
   it('carries the style direction when a creative mode is in force', () => {
     const prompt = buildPlannerSystemPrompt(ctx, { ...input, creativeMode: CLAY });
     expect(prompt).toContain('# Style direction');
-    expect(prompt).toContain('clay animation');
+    // Read out of the table, not copied from it: renaming a pack should change
+    // what the prompt says without failing a test about whether it arrived.
+    expect(prompt).toContain(getVisual('V06')!.directive);
   });
 
   it('carries no style direction when there is no creative mode', () => {
@@ -131,7 +133,7 @@ describe('buildPatchSystemPrompt', () => {
   it('carries the document own style so an edit does not drift out of it', () => {
     const prompt = buildPatchSystemPrompt(CLAY);
     expect(prompt).toContain('# Active style');
-    expect(prompt).toContain('clay animation');
+    expect(prompt).toContain(getVisual('V06')!.directive);
   });
 
   it('carries no style block for a document that has none', () => {
@@ -601,19 +603,31 @@ describe('the prompt describes the contract it is compiling for', () => {
     return buildPlannerSystemPrompt(normalize(modeInput), modeInput);
   };
 
-  it('tells the base modes the style is a clause opening Shot 1', () => {
+  /**
+   * Anchored on the rendered shape rather than on the sentence around it.
+   * `[Shot 1] <style>, <your first beat>` is the base contract's output as the
+   * serializer writes it, so this fails when the instruction stops matching the
+   * format and not when someone rewords the paragraph explaining it.
+   */
+  const BASE_SHAPE = '[Shot 1] <style>, <your first beat>';
+
+  it('shows the base modes the shape their serializer produces', () => {
     for (const mode of ['T2VA', 'I2VA', 'FL2VA', 'L2VA'] as H3Mode[]) {
-      expect(promptFor(mode), mode).toContain('[Shot 1] <style>, <your first beat>');
-      expect(promptFor(mode), mode).toContain('starts lowercase');
+      expect(promptFor(mode), mode).toContain(BASE_SHAPE);
     }
   });
 
-  it('tells Ref2VA the opposite, because its serializer does the opposite', () => {
-    const prompt = promptFor('Ref2VA');
-    expect(prompt).toContain('its own sentence before [Shot 1]');
-    expect(prompt).toContain('start the first beat as an ordinary sentence with a capital');
-    expect(prompt).not.toContain('[Shot 1] <style>, <your first beat>');
-    expect(prompt).not.toContain('starts lowercase');
+  it('never shows Ref2VA a shape its serializer does not produce', () => {
+    expect(promptFor('Ref2VA')).not.toContain(BASE_SHAPE);
+  });
+
+  /**
+   * The Ref2VA half has no structural anchor -- the instruction is prose about
+   * where a sentence goes -- so this is a wording proxy, named as one. A reword
+   * that keeps the meaning will fail it, and that failure is about the test.
+   */
+  it('tells Ref2VA the style is a sentence of its own (wording proxy)', () => {
+    expect(promptFor('Ref2VA')).toContain('its own sentence before [Shot 1]');
   });
 
   it('names the continuity fields the schema requires, in every mode', () => {

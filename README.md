@@ -160,7 +160,7 @@ Verified against `@google/genai` types or probed live, not read from docs:
 ```
 bun install
 bun run dev         # http://localhost:5173
-bun run test        # 543 tests
+bun run test        # 544 tests
 bun run typecheck
 bun run build
 bun run probe       # live API probes (reads GEMINI_API_KEY from .env)
@@ -173,7 +173,7 @@ bun run probe       # live API probes (reads GEMINI_API_KEY from .env)
 - Five golden fixtures reproduce the worked examples from both official guides **byte for byte**, and all five validate with zero errors.
 - Those fixtures are checked against the guide files themselves rather than trusted. Two of the five were not the guides' text: `T2VA` and `Ref2VA` had been transcribed with typographic apostrophes where the official text has ASCII ones, so every byte-exact test passed against a copy that was already wrong. `test/guide-fidelity.test.ts` compares the golden text to the tracked guides, and separately checks the character set, which is the half that needs no guide on disk — the worked examples are pure ASCII apart from the em dash opening the FL2VA and L2VA alignment lines.
 - `test/contract.test.ts` binds [contract.json](./reference/h3/contract.json) to the implementation in both directions — 80 assertions covering the guide hashes, every alignment template, section order and layout read off rendered output, every vocabulary list, both prompts' ordered blocks, and the diagnostic catalogue against the codes the rules actually emit. Twelve deliberate breakages, six in the code and four in the spec, confirmed each fires.
-- Every one of the 37 diagnostic codes has a control fixture that makes it fire, plus the standing evidence that the unbroken examples produce none of them.
+- Every one of the 36 diagnostic codes has a control fixture that makes it fire, plus the standing evidence that the unbroken examples produce none of them.
 - A meta-test scans the rule sources and fails if any emitted code has no control, so a new rule cannot ship without one. That meta-test has itself been shown to go red.
 - A purity test fails if `src/core` imports React, the SDK, the DB layer, the DOM, or `fetch`.
 - The request properties described in [Under the hood](#under-the-hood) — `store: false`, no `temperature`, an explicit `thinking_level` — are asserted in `test/provider.test.ts`.

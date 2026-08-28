@@ -59,7 +59,7 @@ If a proposed rule would turn a golden fixture red, the rule is wrong.
 ## Testing
 
 ```
-bun run test        # 543 tests (vitest)
+bun run test        # 544 tests (vitest)
 bun run typecheck
 bun run build
 bun run probe       # live API probes; reads GEMINI_API_KEY from .env
@@ -70,6 +70,10 @@ bun run probe       # live API probes; reads GEMINI_API_KEY from .env
 That is not a licence to skip it, because this is exactly where the gaps have been. Deleting `if (input.creativeMode) doc.creativeMode = ...` from `compile` left all 400-odd tests green, because it sat past the model call where nothing could reach it. The same for the roll record. `{setting}` and `{setting:random}` drew separately for a while with no control at all, under a describe block whose name claimed the case was covered. And the two prototype guards in `matrix.ts` only go red together, which the breakage has to say out loud or the next reader concludes one of them is dead.
 
 **A red is information about the check, not a pass mark.** An axis check written elsewhere in this repo went red on its first run against nine packs that correctly claim no axis: the failure was the check encoding a property that sounded right rather than the one the table has. Before believing a red, read what it says. A control that fails for a reason you did not predict has told you something about the control.
+
+**A test that breaks whenever the logic changes is a change detector, not a test.** This is the other half, and it is the more common failure: proving a check can go red establishes only that it is coupled to the line you edited. What makes a red informative is that the test would *not* have gone red for a legitimate change to the same code — so the question to ask of a new assertion is not "can I make this fail" but "what could I improve here that this would wrongly reject".
+
+The prompt tests in `test/creative-integration.test.ts` are where this repo keeps getting it wrong, because a prompt's contract is prose and prose has no natural anchor. One of them asserted the exact sentence `do not add a full stop it does not have`; a parallel clone reworded that instruction to say the same thing better, and the test failed for a change that broke nothing. Anchor on what the format actually contains — a rendered shape like `[Shot 1] <style>, <your first beat>`, a field name, a tag literal, a directive read out of the pack table rather than copied from it. Where no such anchor exists, keep the wording assertion and *say in the test that it is a wording proxy*, so the next person knows a failure there is a fact about the test.
 
 Storage and crypto tests run against `fake-indexeddb` (a devDependency, not in the bundle) with a `localStorage` stub, so deletes and round-trips are real rather than mocked. What that cannot cover is the browser: **click the thing.** Both bugs that mattered in the storage work — a caller still passing the retired `device` mode, and a vault database wedged at version 1 — passed every unit test and broke the running app. So did the third: a creative picker holding its own copy of the selection, which showed a restored style in its badge but not in its controls and then destroyed it on the first change.
 
