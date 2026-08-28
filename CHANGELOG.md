@@ -72,6 +72,7 @@ All notable changes to this project are documented here. Semantic versioning.
 - **The unverified-guides todo named the wrong directory**, and the contract entry said "six in the code" while listing eight.
 
 - **The patchable surface is pinned.** `VISION.md`'s guarantee that no transform can produce a prompt H3 cannot parse rests entirely on structure staying off `PATCHABLE_LEAVES`, and the control for it named five paths that must be rejected — a proxy, since a sixth derived field added to the allowlist passes all five. Nothing can decide mechanically whether a new leaf is derived, so the list is pinned instead, the way the contract pins the guides' sha256: growing the write surface is now a visible event that someone has to come and confirm was meant.
+- **Every vocabulary claim in the contract now says where it came from, and a test enforces it.** An outside audit found `mediaKinds` and `slotCeilings` sitting unmarked among guide-cited entries, which is how a house partition and a platform limit came to read as contract. Marking them fixed the instances; this closes the class. Every leaf must cite a guide section or declare `house: true`, a citation must look like one, and a house entry must carry a note saying why it is not contract. `modes` was the one the check found on its first run: a bare array, uncited, while every entry beside it carried a citation. Four deliberate breakages confirmed it fires.
 
 ### Removed
 

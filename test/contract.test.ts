@@ -189,7 +189,7 @@ describe('output shape matches the spec', () => {
 describe('vocabulary matches the spec', () => {
   const v = contract.vocabulary;
 
-  it('modes', () => expect(v.modes).toEqual([...vocab.MODES]));
+  it('modes', () => expect(v.modes.values).toEqual([...vocab.MODES]));
   it('camera types', () => expect(v.cameraTypes.values).toEqual([...vocab.CAMERA_TYPES]));
   it('amplitudes', () => {
     expect(v.amplitudes.values).toEqual([...vocab.AMPLITUDES]);
@@ -249,6 +249,67 @@ describe('vocabulary matches the spec', () => {
     expect(unattributed).toEqual([]);
     // Not vacuous: the block has entries and they were actually inspected.
     expect(Object.keys(v).length).toBeGreaterThan(10);
+  });
+});
+
+/**
+ * Every claim in the vocabulary block says where it came from.
+ *
+ * An outside audit found `mediaKinds` and `slotCeilings` sitting unmarked among
+ * guide-cited entries, which is how a platform limit and a house partition came
+ * to read as contract. The fix was to mark them; this is the check that makes
+ * the class impossible to reintroduce quietly, because the whole point of the
+ * spec is that an auditor can tell contract from house style at a glance.
+ *
+ * A leaf is an entry that makes a claim -- it carries values, a value, a range
+ * or a form. A group only holds leaves and cites nothing itself.
+ */
+describe('every vocabulary claim is attributed', () => {
+  type Node = Record<string, unknown>;
+
+  const isLeaf = (node: Node) =>
+    ['values', 'value', 'range', 'form', 'phrases', 'quoting', 'compoundForm'].some(
+      (k) => k in node,
+    );
+
+  function leaves(node: unknown, path: string, out: [string, Node][] = []): [string, Node][] {
+    if (typeof node !== 'object' || node === null) {
+      out.push([path, {} as Node]);
+      return out;
+    }
+    const record = node as Node;
+    if (isLeaf(record)) {
+      out.push([path, record]);
+      return out;
+    }
+    for (const [key, sub] of Object.entries(record)) {
+      if (['note', 'house', 'guide'].includes(key)) continue;
+      leaves(sub, path === '' ? key : `${path}.${key}`, out);
+    }
+    return out;
+  }
+
+  it('cites a guide section or declares itself house, with nothing in between', () => {
+    const unattributed = leaves(contract.vocabulary, '')
+      .filter(([, entry]) => !('guide' in entry) && entry.house !== true)
+      .map(([path]) => path);
+    expect(unattributed).toEqual([]);
+  });
+
+  it('cites a section that looks like one, where it cites at all', () => {
+    for (const [path, entry] of leaves(contract.vocabulary, '')) {
+      if (!('guide' in entry)) continue;
+      expect(String(entry.guide), path).toMatch(/^(base|ref) \d/);
+    }
+  });
+
+  /** A house entry is not exempt from explaining itself. */
+  it('gives every house entry a note saying why it is not contract', () => {
+    for (const [path, entry] of leaves(contract.vocabulary, '')) {
+      if (entry.house !== true) continue;
+      expect(typeof entry.note, path).toBe('string');
+      expect(String(entry.note).length, path).toBeGreaterThan(20);
+    }
   });
 });
 

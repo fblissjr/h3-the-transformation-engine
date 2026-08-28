@@ -118,7 +118,11 @@
   },
 
   "vocabulary": {
-    "modes": ["T2VA", "I2VA", "FL2VA", "L2VA", "Ref2VA"],
+    "modes": {
+      "guide": "base 1, ref 1",
+      "values": ["T2VA", "I2VA", "FL2VA", "L2VA", "Ref2VA"],
+      "note": "Base 1 names the first four; Ref2VA is the full-reference mode the second guide covers. It was a bare array with no citation while every entry beside it carried one -- the same shape as the two entries an outside audit marked house, caught by the check that now enforces the pattern."
+    },
     "cameraTypes": {
       "guide": "base 4.3",
       "values": ["Zoom In", "Zoom Out", "Push In", "Pull Out", "Pan Left", "Pan Right", "Truck Left", "Truck Right", "Tilt Up", "Tilt Down", "Pedestal Up", "Pedestal Down", "Arc Shot", "Tracking Shot", "Static Shot", "Shake Slightly", "Shake Strongly", "POV", "Roll Clockwise", "Roll Counterclockwise"]
