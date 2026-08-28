@@ -15,6 +15,7 @@ import type { CompileInput, H3Document, ReferenceSlot } from '../core/ir/types';
 import type { H3Mode } from '../core/ir/vocab';
 import type { CreativeModeRecord } from '../core/creative';
 import { describeRecord, hasDirection, pruneRecord, sameRecord } from '../core/creative';
+import { hasPlaceholders, newSeed, rollSeeded } from '../core/wildcards';
 import { contextFor, framesToSeconds } from '../core/normalize';
 import { inferMode } from '../core/normalize/mode';
 import { compile, edit, editDirect, inspect } from '../pipeline';
@@ -90,6 +91,15 @@ export function useEngine() {
    * picker holding its own copy agrees with this one exactly once, at mount.
    */
   const [creative, setCreative] = useState<CreativeModeRecord | null>(null);
+  /**
+   * The wildcard seed, or null when nothing has been rolled.
+   *
+   * The idea box keeps the template, braces and all, and the roll is derived
+   * from it. Writing the rolled text back into the box would spend the template
+   * on its first use -- there would be nothing left with a `{setting}` in it to
+   * roll again, and the seed would have nothing to be a seed of.
+   */
+  const [seed, setSeed] = useState<number | null>(null);
 
   // --- persistence -------------------------------------------------------
   useEffect(() => {
@@ -221,9 +231,23 @@ export function useEngine() {
 
   const view = useMemo(() => (doc ? inspect(doc) : null), [doc]);
 
+  /**
+   * The idea as it will actually be compiled.
+   *
+   * Expansion happens here, on the way into `CompileInput`, and nowhere later:
+   * a document assembled from unexpanded text would render a literal
+   * `{setting}` into the H3 prompt, and the prompt is a pure function of the
+   * document, so there is no downstream place to fix it.
+   */
+  const rolled = useMemo(
+    () => (seed != null && hasPlaceholders(idea) ? rollSeeded(idea, seed) : null),
+    [idea, seed],
+  );
+  const effectiveIdea = rolled?.text ?? idea;
+
   const input = useMemo<CompileInput>(
     () => ({
-      idea,
+      idea: effectiveIdea,
       mode,
       ...(durationFrames != null ? { durationFrames } : { durationSeconds }),
       slots,
@@ -234,7 +258,7 @@ export function useEngine() {
       // it on the way to the planner.
       ...(creative && hasDirection(creative) ? { creativeMode: creative } : {}),
     }),
-    [idea, mode, durationFrames, durationSeconds, slots, creative],
+    [effectiveIdea, mode, durationFrames, durationSeconds, slots, creative],
   );
 
   const client = useMemo(() => (apiKey ? new GeminiClient({ apiKey }) : null), [apiKey]);
@@ -270,14 +294,17 @@ export function useEngine() {
   // --- actions -----------------------------------------------------------
   const generate = useCallback(async () => {
     if (!client) return setError('Add a Gemini API key first.');
-    if (idea.trim() === '') return setError('Describe what you want before generating.');
+    if (effectiveIdea.trim() === '') return setError('Describe what you want before generating.');
     setBusy('Planning');
     setError(null);
     setNotice(null);
     try {
       const result = await compile(client, input, { id: DOC_ID });
       const style = describeRecord(creative);
-      const label = style === '' ? 'Generated' : `Generated (${style})`;
+      // The seed goes in the label because it is the only record of which roll
+      // produced this document; the idea box still holds the template.
+      const parts = [style, rolled ? `seed ${seed}` : ''].filter((p) => p !== '');
+      const label = parts.length === 0 ? 'Generated' : `Generated (${parts.join(', ')})`;
       await commit(result.doc, label);
       setSelectedPaths([]);
     } catch (cause) {
@@ -285,7 +312,7 @@ export function useEngine() {
     } finally {
       setBusy(null);
     }
-  }, [client, idea, input, commit, creative]);
+  }, [client, effectiveIdea, input, commit, creative, rolled, seed]);
 
   const applyDirect = useCallback(
     async (path: string, value: unknown) => {
@@ -404,6 +431,12 @@ export function useEngine() {
     checkout,
     creative,
     setCreative,
+    seed,
+    rolled,
+    /** A new seed, which re-derives the idea. Clearing it returns the template. */
+    roll: () => setSeed(newSeed()),
+    clearRoll: () => setSeed(null),
+    rerollSeed: (next: number) => setSeed(next),
     /**
      * Whether the picker describes the next generation rather than the open
      * document. An assisted edit derives its style from `doc.creativeMode`, so

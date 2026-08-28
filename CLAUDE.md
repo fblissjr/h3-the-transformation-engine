@@ -38,21 +38,23 @@ The planner writes the actual sentences. The serializer assembles structure arou
 
 ## Where the truth lives
 
-`src/core/ir/vocab.ts` is contract, not preference. Every value in it should be traceable to a line in one of the two official MiniMax guides:
+`src/core/ir/vocab.ts` is contract, not preference. Every value in it should be traceable to a line in one of the two official MiniMax guides, which are tracked in [reference/h3/](./reference/h3/) so that the tracing can be done from a clean checkout:
 
-- Video Prompt Writing Guide (T2VA / I2VA / FL2VA / L2VA) — the base contract
-- Full-Reference Mode Rewrite Output Format Guide — the Ref2VA contract
+- [Video Prompt Writing Guide](./reference/h3/VIDEO_PROMPT_WRITING_GUIDE_base_en.md) (T2VA / I2VA / FL2VA / L2VA) — the base contract
+- [Full-Reference Mode Rewrite Output Format Guide](./reference/h3/VIDEO_PROMPT_WRITING_GUIDE_ref_en.md) — the Ref2VA contract
+
+Those two files are the source of truth and are not to be edited. Editing one does not change what H3 does; it only makes the tests agree with a contract that no longer exists. `reference/h3/README.md` maps each section of them to the code derived from it.
 
 When those guides and any secondary source disagree, the guides win. Several confident recommendations from a community kit and a design transcript were rejected because the golden fixtures — byte-exact reproductions of the guides' own worked examples — falsified them.
 
-That byte-exactness is now checked rather than claimed. It was not true when it was first written: two of the five examples had been transcribed with typographic apostrophes where the official text has ASCII ones, so the suite was byte-exact against a copy that was already wrong. `test/guide-fidelity.test.ts` compares the golden text to the guide files themselves, and — because `internal/` is gitignored and the guides are therefore not in the repo — also runs a character-set check that needs no guide on disk: the worked examples are pure ASCII apart from the em dash in the FL2VA and L2VA alignment lines. When the guides are absent the comparison reports itself as a named todo, so the run summary says it did not happen instead of looking like it passed. Notably: citing `<Picture N>`/`<Audio N>` inside the timeline is *correct* (both guides do it), retention notes *do* repeat traits deliberately, `(S1)` is used even with a single speaker, and the FL2VA alignment line is bare, not bracketed.
+That byte-exactness is now checked rather than claimed. It was not true when it was first written: two of the five examples had been transcribed with typographic apostrophes where the official text has ASCII ones, so the suite was byte-exact against a copy that was already wrong. `test/guide-fidelity.test.ts` compares the golden text to the guide files themselves, and also runs a character-set check that needs no guide on disk: the worked examples are pure ASCII apart from the em dash in the FL2VA and L2VA alignment lines. If the guides ever go missing the comparison reports itself as a named todo, so the run summary says it did not happen instead of looking like it passed. Notably: citing `<Picture N>`/`<Audio N>` inside the timeline is *correct* (both guides do it), retention notes *do* repeat traits deliberately, `(S1)` is used even with a single speaker, and the FL2VA alignment line is bare, not bracketed.
 
 If a proposed rule would turn a golden fixture red, the rule is wrong.
 
 ## Testing
 
 ```
-bun run test        # 307 tests (vitest)
+bun run test        # 335 tests (vitest)
 bun run typecheck
 bun run build
 bun run probe       # live API probes; reads GEMINI_API_KEY from .env

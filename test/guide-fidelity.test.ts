@@ -14,10 +14,11 @@
  *    ASCII apart from the em dash in the FL2VA and L2VA alignment lines, so
  *    anything else in the golden text came from a transcription tool.
  *
- * 2. The byte comparison against the guide files runs only where those files
- *    exist -- `internal/` is gitignored. When they are missing it says so by
- *    name rather than passing quietly, because a green that skipped the only
- *    check of transcription fidelity should not look like a green that ran it.
+ * 2. The byte comparison against the guide files themselves, which are tracked
+ *    in `reference/h3/` precisely so this can run from a clean checkout. The
+ *    absent branch below is a safety net rather than the normal case now, and
+ *    it reports itself instead of passing quietly: a green that skipped the
+ *    only check of transcription fidelity must not look like one that ran it.
  */
 
 import { existsSync, readFileSync } from 'node:fs';
@@ -31,9 +32,9 @@ import {
 } from './fixtures/guide-examples';
 import { ref2vaCoffeeShopExpected } from './fixtures/ref-example';
 
-const GUIDE_DIR = join(import.meta.dirname, '../internal/reference_prompting_h3');
-const BASE_GUIDE = join(GUIDE_DIR, 'minimax-h3-official-VIDEO_PROMPT_WRITING_GUIDE_base_en.md');
-const REF_GUIDE = join(GUIDE_DIR, 'minimax-h3-official-VIDEO_PROMPT_WRITING_GUIDE_ref_en.md');
+const GUIDE_DIR = join(import.meta.dirname, '../reference/h3');
+const BASE_GUIDE = join(GUIDE_DIR, 'VIDEO_PROMPT_WRITING_GUIDE_base_en.md');
+const REF_GUIDE = join(GUIDE_DIR, 'VIDEO_PROMPT_WRITING_GUIDE_ref_en.md');
 
 /**
  * The em dash opens the FL2VA and L2VA alignment lines and is the only

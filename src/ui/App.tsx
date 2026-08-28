@@ -17,6 +17,7 @@ import { PromptView } from './PromptView/PromptView';
 import { Diagnostics } from './Diagnostics/Diagnostics';
 import { VersionTree } from './VersionTree/VersionTree';
 import { CreativePanel } from './CreativePanel/CreativePanel';
+import { WildcardPanel } from './WildcardPanel/WildcardPanel';
 import { MODES } from '../core/ir/vocab';
 import { gridFramesUpTo } from '../core/normalize/duration';
 import { modeRequirements } from '../core/normalize/mode';
@@ -80,6 +81,19 @@ export function App() {
               className="w-full resize-y rounded border border-[var(--color-edge)] bg-black/30 p-2 text-xs"
             />
           </div>
+
+          <WildcardPanel
+            idea={e.idea}
+            onIdeaChange={e.setIdea}
+            seed={e.seed}
+            rolled={e.rolled}
+            onRoll={e.roll}
+            onClearRoll={e.clearRoll}
+            onUseText={(text) => {
+              e.clearRoll();
+              e.setIdea(text);
+            }}
+          />
 
           <div className="space-y-1">
             <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--color-muted)]">
