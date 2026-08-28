@@ -50,7 +50,7 @@ H3 conditions on descriptive quality, and a canned camera clause bolted onto a s
 src/core/        pure TypeScript, no React, no DOM, no network (enforced by a test)
   ir/            document types, zod schemas, path addressing, the closed vocabularies
   normalize/     duration, label assignment, mode inference, budgets
-  validate/      30 rules emitting 37 error codes, each with a fixture that makes it go red
+  validate/      29 rules emitting 36 error codes, each with a fixture that makes it go red
   serialize/     source-mapped emitter, both output contracts
   patch/         path-scoped patch application
   creative/      style packs, anchors, strength scoring, glitch marks
