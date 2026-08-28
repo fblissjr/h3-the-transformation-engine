@@ -543,6 +543,13 @@
           "note": "Observable-only description, one action at a time, continuity from beat to beat. Neither guide states any of it; base 4.1 says every detail should correspond to something visible or audible, and this is the house reading of what that asks a writer to do."
         },
         {
+          "heading": "# What the frame can show",
+          "source": "core",
+          "conditional": false,
+          "house": true,
+          "note": "Four consequences of base 4.1 that # How to write leaves implicit: absence cannot be rendered so a missing thing is written as its visible evidence; count and position beat adjectives; every property has to be present in one frame; left and right are fixed as the camera sees them. Deliberately narrower than it could be. A fifth rule banning relational placement -- beside, behind her, nearby -- was dropped because the guides' worked examples use it: 'sitting beside <Subject 3> on the sofa' (ref) and 'a closed black umbrella beside a silver bicycle' (base FL2VA). Only the left/right half survives that check, and it survives because no worked example uses body-relative left or right at all."
+        },
+        {
           "heading": "# Recognisable people",
           "source": "core",
           "conditional": false,
@@ -626,7 +633,7 @@
           "source": "core",
           "conditional": false,
           "house": true,
-          "note": "How a surgical edit behaves: change only what was asked, keep register, preserve continuity. No guide describes editing an existing prompt."
+          "note": "How a surgical edit behaves: change only what was asked, keep register, preserve continuity. No guide describes editing an existing prompt. Carries the negation half of the planner's # What the frame can show, and only that half: the rule is asymmetric, since an edit that may write 'no other people' reintroduces exactly what the planner was stopped from writing. The rest of that block is composition guidance a surgical edit has no use for."
         },
         {
           "heading": "# When you should refuse",
@@ -755,7 +762,12 @@
         "why": "Anomalous tokenizer strings placed as visible on-screen text. Uses the guide's on-screen text rule rather than a new one."
       },
       {
-        "id": "wildcards",
+        "id": "frame-legibility",
+      "where": "src/provider/prompts/planner.ts",
+      "why": "Absence written as visible evidence, count and position over adjectives, every property present in one frame, and left/right fixed to the camera. Unsourced craft, kept only in the part the guides' worked examples do not contradict. The negation rule also reaches the patch prompt, because an edit free to write an absence undoes the planner's half of it."
+    },
+    {
+      "id": "wildcards",
         "where": "src/core/wildcards",
         "why": "Content substitution on the idea, before anything is planned. Never touches beat prose or serialized output."
       },

@@ -19,6 +19,16 @@
  *    absent branch below is a safety net rather than the normal case now, and
  *    it reports itself instead of passing quietly: a green that skipped the
  *    only check of transcription fidelity must not look like one that ran it.
+ *
+ * What this file does NOT establish, and must not be read as establishing: that
+ * the file in `reference/h3/` is the official guide. Both checks here look only
+ * at the five worked examples, so an annotated copy -- the guide with its field
+ * descriptions rewritten and empirical claims added around intact examples --
+ * passes every assertion below. One was tried: all four base-guide fixtures
+ * matched it byte for byte. What tells the two apart is the sha256 pin in
+ * `contract.sources`, verified by `test/contract.test.ts`, and that pin is
+ * therefore load-bearing rather than a convenience. Do not relax it on the
+ * grounds that fidelity is covered here.
  */
 
 import { existsSync, readFileSync } from 'node:fs';

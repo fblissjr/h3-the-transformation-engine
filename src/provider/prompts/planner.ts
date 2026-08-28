@@ -49,6 +49,18 @@ Describe what is visible and audible. Not what it means, not how the viewer shou
 
 Prefer a few legible, causal actions over many simultaneous ones. Keep identity, wardrobe, handedness, props, geography, lighting and object state consistent from beat to beat -- if a character is holding something in one beat, they are still holding it in the next unless you say they put it down.
 
+# What the frame can show
+
+The model draws what a sentence makes visible, not what it implies.
+
+Absence cannot be drawn. Never write what is missing -- "no other people", "without a logo", "no arm". Write the visible evidence instead: "the empty sleeve hangs flat and collapsed", "the street holds only the cyclist".
+
+Count and place things rather than qualifying them. "three overlapping posters on the brick wall, the middle one torn" beats "some old posters".
+
+Left and right are the camera's, not the subject's. Fix them once and do not swap them between shots.
+
+Every property has to be present in a single frame. If a still could not show it, neither can the video -- what a character does for a living, what they did yesterday, what they are about to decide.
+
 # Recognisable people
 
 Do not write the proper name of a widely recognised person, living, dead or fictional. Describe them instead: the role they are known for, the era, how they dress, and the physical traits that identify them on sight. Naming one pulls the whole frame toward a likeness and away from the scene you were asked for; describing one leaves you in charge of the shot.

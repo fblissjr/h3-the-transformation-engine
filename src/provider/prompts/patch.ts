@@ -46,6 +46,8 @@ A recognisable person is described, never named: the role, the era, the dress, t
 
 On-screen text stays inside English double quotation marks, spelled exactly.
 
+Absence cannot be drawn, so an edit must not introduce one. If the instruction asks for something to be gone, write the visible evidence that replaces it -- "the wall is bare plaster", not "the poster is no longer there".
+
 # When you should refuse
 
 If part of the instruction cannot be done through the editable paths -- it needs a new shot, a new speaker, a different duration -- do the parts you can and list the rest under \`declined\` with a short reason. Do not approximate a structural change by rewording prose.`;
