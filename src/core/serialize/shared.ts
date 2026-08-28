@@ -36,7 +36,16 @@ export function spliceDialogue(prose: string, dialogue: Dialogue | undefined): s
   return prose.replace(DIALOGUE_PLACEHOLDER, renderDialogueTag(dialogue));
 }
 
-/** Rendered speaker id: `(S1)`, or `(S1,S2)` for a chorus. */
+/**
+ * Rendered speaker id: `(S1)`, or `(S1,S2)` for a chorus. Guide section 4.4.
+ *
+ * The serializer never calls this -- the planner writes the id into the prose
+ * itself, because the guide asks for it inside the sentence. It is the
+ * validator that needs the string, to check the prose against the annotation,
+ * and it built its own copy until this one was the only one left. The copy
+ * sorted the ordinals lexicographically, so ten speakers would have rendered
+ * `(S10,S2)`.
+ */
 export function speakerRef(speaker: Speaker, all: Speaker[]): string {
   if (speaker.compoundOf && speaker.compoundOf.length > 0) {
     const ordinals = speaker.compoundOf

@@ -58,6 +58,12 @@ const CONTROLS: Control[] = [
   { code: 'CUT_OUTSIDE_DURATION', base: t2vaBaker, mutate: (d) => void (d.shots[1].cutAtMs = 99_000) },
   { code: 'SHOT_NO_BEATS', base: t2vaBaker, mutate: (d) => void (d.shots[0].beats = []) },
 
+  {
+    code: 'CUT_STYLE_NOT_IN_PROSE',
+    base: t2vaBaker,
+    mutate: (d) => void (d.shots[1].cutStyle = 'the shot switches to'),
+  },
+
   // --- camera -------------------------------------------------------------
   {
     code: 'CAMERA_TYPE_INVALID',

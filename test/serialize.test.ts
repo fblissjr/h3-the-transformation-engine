@@ -8,6 +8,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { serialize, spanAt, rangeOf } from '../src/core/serialize';
+import { speakerRef } from '../src/core/serialize/shared';
 import { contextFor } from '../src/core/normalize';
 import { validate } from '../src/core/validate';
 import {
@@ -101,5 +102,38 @@ describe('derived values follow the document', () => {
     const b = serialize(ref2vaCoffeeShop, contextFor(ref2vaCoffeeShop));
     expect(a.text).toBe(b.text);
     expect(a.map).toEqual(b.map);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The compound speaker id
+// ---------------------------------------------------------------------------
+
+/**
+ * `speakerRef` is the one renderer for `(S1)` and `(S1,S2)`. The serializer
+ * does not call it -- the planner writes the id into the prose, as the guide
+ * asks -- but the validator does, to check the prose against the annotation,
+ * and it had grown its own copy that sorted the ordinals as strings. Two
+ * implementations of one format is the thing being guarded here; the ten-
+ * speaker case is what tells them apart.
+ */
+describe('speakerRef', () => {
+  const speakers = [
+    { id: 'a', ordinal: 2, descriptor: 'first' },
+    { id: 'b', ordinal: 10, descriptor: 'second' },
+    { id: 'pair', ordinal: 11, descriptor: 'both', compoundOf: ['a', 'b'] },
+  ];
+
+  it('renders a single speaker', () => {
+    expect(speakerRef(speakers[0], speakers)).toBe('(S2)');
+  });
+
+  it('orders compound members numerically, not as strings', () => {
+    expect(speakerRef(speakers[2], speakers)).toBe('(S2,S10)');
+  });
+
+  it('drops a member that is not a declared speaker rather than rendering a hole', () => {
+    const orphan = { id: 'x', ordinal: 3, descriptor: 'x', compoundOf: ['a', 'ghost'] };
+    expect(speakerRef(orphan, speakers)).toBe('(S2)');
   });
 });

@@ -20,6 +20,7 @@ import {
   CAMERA_TYPES,
   MUSIC_SENTENCE_RANGE,
   ORDINARY_CUTS,
+  REF_DETAIL_WORD_RANGE,
   SOUNDSCAPE_SENTENCE_RANGE,
   SPEED_PHRASE,
   TASK_TYPES,
@@ -148,7 +149,7 @@ Retention says how faithfully each reference survives: ${VISUAL_RETENTION.join('
 
 Task types describe what the job actually is: ${TASK_TYPES.join(', ')}. Presence of a video or an audio file does not by itself create a task type -- a video that only supplies a person's appearance is reference generation, not video editing.
 
-Aim for 350-500 words across all beats, unless the piece is dialogue-dense, in which case fitting the complete spoken timeline matters more than the word count.`,
+Aim for ${REF_DETAIL_WORD_RANGE[0]}-${REF_DETAIL_WORD_RANGE[1]} words across all beats, unless the piece is dialogue-dense, in which case fitting the complete spoken timeline matters more than the word count.`,
 };
 
 // ---------------------------------------------------------------------------

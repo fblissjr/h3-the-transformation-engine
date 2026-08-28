@@ -74,7 +74,7 @@ export const ref2vaCoffeeShop: H3Document = {
       appearsInShots: ['shot-1', 'shot-2'],
       retention: 'fully_preserved',
       retentionNote:
-        'the Samoyed’s thick white fur, pointed ears, dark nose, and curved tail are retained.',
+        'the Samoyed\'s thick white fur, pointed ears, dark nose, and curved tail are retained.',
     },
     {
       id: 'subj-woman',
@@ -85,7 +85,7 @@ export const ref2vaCoffeeShop: H3Document = {
         'with rolled-up sleeves.',
       appearsInShots: ['shot-1', 'shot-2', 'shot-3'],
       retention: 'fully_preserved',
-      retentionNote: 'the blonde woman’s identity, long hair, and light-pink shirt are retained.',
+      retentionNote: 'the blonde woman\'s identity, long hair, and light-pink shirt are retained.',
     },
     {
       id: 'subj-man',
@@ -95,7 +95,7 @@ export const ref2vaCoffeeShop: H3Document = {
         'is the young man in <Video 2>, with short wavy brown hair and a dark-grey hoodie with drawstrings.',
       appearsInShots: ['shot-1', 'shot-2'],
       retention: 'fully_preserved',
-      retentionNote: 'the young man’s short wavy brown hair and dark-grey hoodie are retained.',
+      retentionNote: 'the young man\'s short wavy brown hair and dark-grey hoodie are retained.',
     },
   ],
 
@@ -121,19 +121,19 @@ export const ref2vaCoffeeShop: H3Document = {
       target: { type: 'subject', subjectId: 'subj-dog' },
       context: '',
       marker: 'fully_preserved',
-      note: 'the Samoyed’s thick white fur, pointed ears, dark nose, and curved tail are retained.',
+      note: 'the Samoyed\'s thick white fur, pointed ears, dark nose, and curved tail are retained.',
     },
     {
       target: { type: 'subject', subjectId: 'subj-woman' },
       context: '',
       marker: 'fully_preserved',
-      note: 'the blonde woman’s identity, long hair, and light-pink shirt are retained.',
+      note: 'the blonde woman\'s identity, long hair, and light-pink shirt are retained.',
     },
     {
       target: { type: 'subject', subjectId: 'subj-man' },
       context: '',
       marker: 'fully_preserved',
-      note: 'the young man’s short wavy brown hair and dark-grey hoodie are retained.',
+      note: 'the young man\'s short wavy brown hair and dark-grey hoodie are retained.',
     },
     {
       target: { type: 'slot', slotId: 'aud-voice' },
@@ -188,7 +188,7 @@ export const ref2vaCoffeeShop: H3Document = {
             'the shot cuts to a close-up of <Subject 4> (S2), the young man in the dark-grey hoodie from ' +
             'Shot 1, sitting beside <Subject 3> on the sofa and holding <Subject 2> securely in his arms. ' +
             '<Subject 4> (S2) says in a casual young male voice with a playful tone and an easy ' +
-            'conversational pace, <d/> He closes his mouth into an apologetic smile and strokes the dog’s ' +
+            'conversational pace, <d/> He closes his mouth into an apologetic smile and strokes the dog\'s ' +
             'thick white fur.',
           speakerId: 'sp-man',
           dialogue: {
@@ -249,15 +249,15 @@ summary:
 
 retention_analysis:
 <Subject 1> (appears in [Shot 1], [Shot 2], [Shot 3]): fully_preserved - the exposed brick wall, orange tufted sofa, patterned pillows, neon sign, and wooden coffee table are retained.
-<Subject 2> (appears in [Shot 1], [Shot 2]): fully_preserved - the Samoyed’s thick white fur, pointed ears, dark nose, and curved tail are retained.
-<Subject 3> (appears in [Shot 1], [Shot 2], [Shot 3]): fully_preserved - the blonde woman’s identity, long hair, and light-pink shirt are retained.
-<Subject 4> (appears in [Shot 1], [Shot 2]): fully_preserved - the young man’s short wavy brown hair and dark-grey hoodie are retained.
+<Subject 2> (appears in [Shot 1], [Shot 2]): fully_preserved - the Samoyed's thick white fur, pointed ears, dark nose, and curved tail are retained.
+<Subject 3> (appears in [Shot 1], [Shot 2], [Shot 3]): fully_preserved - the blonde woman's identity, long hair, and light-pink shirt are retained.
+<Subject 4> (appears in [Shot 1], [Shot 2]): fully_preserved - the young man's short wavy brown hair and dark-grey hoodie are retained.
 <Audio 1>: reference - its vocal timbre guides the dialogue delivery of <Subject 3> without copying the original signal.
 
 detailed_description:
 The target video uses a realistic multi-camera sitcom style with warm indoor lighting.
 [Shot 1] A medium shot establishes <Subject 1>, the coffee shop with its exposed brick wall, orange tufted sofa, patterned pillows, neon sign, and wooden coffee table. <Subject 3> (S1), the young woman with long blonde hair and a light-pink button-down shirt with rolled-up sleeves, sits on the sofa holding a chocolate-chip cookie. From the left, <Subject 4>, the young man with short wavy brown hair and a dark-grey hoodie with drawstrings, enters holding the leash of <Subject 2>, the thick-furred white Samoyed with pointed ears, a dark nose, and a curved tail. The dog lunges toward the cookie and pulls the leash taut. <Subject 3> (S1) jerks her hand back and, using the clear youthful voice timbre referenced from <Audio 1>, exclaims with light annoyance, <d>[English] Hey! Watch your dog!</d> She closes her lips and guards the cookie while <Subject 4> pulls the dog back.
-[Shot 2] At 00:03.000, the shot cuts to a close-up of <Subject 4> (S2), the young man in the dark-grey hoodie from Shot 1, sitting beside <Subject 3> on the sofa and holding <Subject 2> securely in his arms. <Subject 4> (S2) says in a casual young male voice with a playful tone and an easy conversational pace, <d>[English] He just likes cookies more than me.</d> He closes his mouth into an apologetic smile and strokes the dog’s thick white fur.
+[Shot 2] At 00:03.000, the shot cuts to a close-up of <Subject 4> (S2), the young man in the dark-grey hoodie from Shot 1, sitting beside <Subject 3> on the sofa and holding <Subject 2> securely in his arms. <Subject 4> (S2) says in a casual young male voice with a playful tone and an easy conversational pace, <d>[English] He just likes cookies more than me.</d> He closes his mouth into an apologetic smile and strokes the dog's thick white fur.
 [Shot 3] At 00:05.000, the shot cuts to a close-up of <Subject 3> (S1), the blonde woman in the light-pink shirt from Shot 1. Her annoyance softens as she looks toward the Samoyed. <Subject 3> (S1) replies in the same clear youthful voice referenced from <Audio 1> with an amused cadence, <d>[English] Well, he has good taste at least.</d> She smiles and raises the cookie in a small toast-like gesture. A classic canned audience laugh begins immediately after the line and continues through the final frame.
 
 overall_soundscape:

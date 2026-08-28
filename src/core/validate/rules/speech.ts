@@ -10,7 +10,7 @@
 import type { Diagnostic, Rule } from '../types';
 import { error } from '../types';
 import { SCENETRANS_TAG, CUTOFF_TAG, VOICEOVER_PHRASE } from '../../ir/vocab';
-import { DIALOGUE_PLACEHOLDER } from '../../serialize/shared';
+import { DIALOGUE_PLACEHOLDER, speakerRef } from '../../serialize/shared';
 
 /** Every beat in document order, with its path. */
 function beatsOf(doc: Parameters<Rule>[0]) {
@@ -78,13 +78,7 @@ export const speakerReferences: Rule = (doc) => {
       );
       return;
     }
-    const expected = speaker.compoundOf?.length
-      ? `(S${speaker.compoundOf
-          .map((id) => doc.speakers.find((s) => s.id === id)?.ordinal)
-          .filter(Boolean)
-          .sort()
-          .join(',S')})`
-      : `(S${speaker.ordinal})`;
+    const expected = speakerRef(speaker, doc.speakers);
     if (!beat.prose.includes(expected)) {
       out.push(
         error(

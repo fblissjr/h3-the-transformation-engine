@@ -83,7 +83,7 @@ export const t2vaBaker: H3Document = {
         {
           id: 'b3',
           prose:
-            'the camera cuts to a close-up of steam rising from the sliced bread while the baker’s final ' +
+            'the camera cuts to a close-up of steam rising from the sliced bread while the baker\'s final ' +
             'words carry over from the previous shot.',
           visibleText: [],
           citesSlots: [],
@@ -100,7 +100,7 @@ export const t2vaBaker: H3Document = {
     'fade at the end.',
 };
 
-export const t2vaBakerExpected = `integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium-wide shot frames a baker opening the shutters of a small street bakery before sunrise. The camera pushes in with small amplitude at slow speed as the middle-aged baker with a calm, slightly raspy voice (S1) places a fresh loaf on the wooden counter and says: <d>[English] First batch of the morning.</d> [Shot 2] At 00:05.000, the camera cuts to a close-up of steam rising from the sliced bread while the baker’s final words carry over from the previous shot.
+export const t2vaBakerExpected = `integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium-wide shot frames a baker opening the shutters of a small street bakery before sunrise. The camera pushes in with small amplitude at slow speed as the middle-aged baker with a calm, slightly raspy voice (S1) places a fresh loaf on the wooden counter and says: <d>[English] First batch of the morning.</d> [Shot 2] At 00:05.000, the camera cuts to a close-up of steam rising from the sliced bread while the baker's final words carry over from the previous shot.
 
 overall_soundscape: Wooden shutters scrape open over a quiet street as trays clink softly inside the bakery. The doorbell rings once, followed by light footsteps and the crisp sound of bread being sliced.
 
