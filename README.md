@@ -78,7 +78,7 @@ Adding a mode, a section, a vocabulary value, a prompt block or a diagnostic mea
 
 A creative mode contributes exactly one thing to the pipeline: a selection of pack ids, which the planner prompt turns into a style direction block. Four families combine — visual medium, motion behavior, finish, audio treatment — plus a strength level that says how far the direction reaches, from setting the medium and finish alone up to governing every visual layer.
 
-The visual family covers 24 medium packs and 30 reference anchors in one id space. The anchors translate cultural and studio references into their observable traits, so what reaches the model is craft language rather than a name to imitate.
+The visual family covers 27 medium packs and 30 reference anchors in one id space. The anchors translate cultural and studio references into their observable traits, so what reaches the model is craft language rather than a name to imitate.
 
 Three ways in: off, directed (pick the packs), and wild (a random draw restricted to combinations with enough leverage to read as a style change rather than a filter). The leverage test is five axes — geometry, shape, palette, motion, texture — and a draw needs three of them with geometry or shape among them.
 
@@ -123,6 +123,14 @@ A widely recognised person, living, dead or fictional, reaches the prompt as the
 Two things are exempt, because they are reproduced exactly as given either way: words inside a `dialogue` field, and on-screen text. If a character says a name, they say it.
 
 In both the planner and the patch prompts, so an edit cannot introduce a name the prose was written to avoid. Neither official guide mentions public figures, so this is house style rather than contract, and there is no validator rule for it — deciding whether a description names a real person is exactly the prose pattern-matching that got seventeen rules removed.
+
+## What the frame can show
+
+Four consequences of the guide's own rule that every detail correspond to something visible or audible, which the prompt previously left the model to work out for itself. Absence cannot be drawn, so a missing thing is written as the visible evidence that replaces it — "the empty sleeve hangs flat and collapsed", not "no arm". Count and position beat adjectives. Left and right are the camera's, fixed once and not swapped between shots. Every property has to be present in a single frame: if a still could not show it, neither can the video.
+
+Only the first of the four reaches the patch prompt, and the asymmetry is the point. An edit free to write "the poster is no longer there" reintroduces exactly what the planner was stopped from writing, while the rest is composition guidance a surgical edit has no use for.
+
+House style rather than contract, recorded in the spec's `notInTheGuides`. Two further rules of the same kind were dropped because the guides' own worked examples contradict them: a ban on relational placement, against "sitting beside <Subject 3> on the sofa", and a fixed position for the voice description, against "the middle-aged baker with a calm, slightly raspy voice (S1)". Whether the four that survived condition H3 any better is unmeasured, like everything else in the planner prompt.
 
 ## The source map
 
