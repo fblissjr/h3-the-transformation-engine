@@ -11,6 +11,14 @@
  * one-place edit and cannot leave a table half-updated.
  *
  * Source: the H3 Prompt Director Shareable Pack, aesthetic/motion/audio library.
+ *
+ * V25-V27, F09 and A09 came later, from a coverage gap rather than that pack:
+ * footage that is what a device recorded -- phone, fixed camera, webcam, and
+ * the sensor and microphone that go with them -- had no entry in any table,
+ * with V19 and V21 the nearest and neither of them about the recording. They
+ * claim no leverage axis except F09's palette remap, which is correct and not
+ * an omission: device capture is photorealism recorded badly rather than a
+ * move away from it, so the wild draw should never land on one.
  */
 
 /**
@@ -38,7 +46,7 @@ export interface PackDef {
 }
 
 // ---------------------------------------------------------------------------
-// Visual-medium packs (V01-V24)
+// Visual-medium packs (V01-V27)
 // ---------------------------------------------------------------------------
 
 export const VISUAL_PACKS = [
@@ -186,6 +194,24 @@ export const VISUAL_PACKS = [
     directive: 'High-end real-time rendering, stable world geometry, readable silhouettes, controlled depth of field, responsive animation, coherent PBR materials.',
     axes: [],
   },
+  {
+    id: 'V25',
+    name: 'Handheld phone capture',
+    directive: 'Vertical framing, autofocus hunting between subjects, exposure stepping as the camera turns, rolling-shutter lean on fast pans, compression blocking in the shadows.',
+    axes: [],
+  },
+  {
+    id: 'V26',
+    name: 'Fixed surveillance capture',
+    directive: 'High static mounting, wide-angle edge distortion, uneven room coverage, one long unbroken take, subjects crossing a frame that never reframes.',
+    axes: [],
+  },
+  {
+    id: 'V27',
+    name: 'Webcam and video call',
+    directive: 'Fixed near-eye-level framing, shallow small-sensor depth, uneven key from a screen, dropped frames on fast movement, compression smearing across motion.',
+    axes: [],
+  },
 ] as const satisfies readonly PackDef[];
 
 /** Derived from the table above, so adding a pack is a one-place edit. */
@@ -302,6 +328,12 @@ export const FINISH_PACKS = [
     directive: 'Black-and-white tonal separation, deep controlled shadows, selective highlights, fine grain, minimal midtone haze.',
     axes: ['P'],
   },
+  {
+    id: 'F09',
+    name: 'Sensor imaging',
+    directive: 'Single-channel tonal mapping, bloom around hot points, heavy gain noise across flat areas, hard clipping at the bright end, detail collapsing to silhouette at the dark end.',
+    axes: ['P'],
+  },
 ] as const satisfies readonly PackDef[];
 
 /** Derived from the table above, so adding a pack is a one-place edit. */
@@ -358,6 +390,12 @@ export const AUDIO_PACKS = [
     id: 'A08',
     name: 'Graphic rhythm bed',
     directive: 'Electronic percussion or acoustic clicks at stated tempo aligned to graphic transitions.',
+    axes: [],
+  },
+  {
+    id: 'A09',
+    name: 'Onboard device capture',
+    directive: 'Single onboard microphone perspective, wind buffeting across the capture, clipping on loud transients, room slap on close voices, rolled-off low end.',
     axes: [],
   },
 ] as const satisfies readonly PackDef[];

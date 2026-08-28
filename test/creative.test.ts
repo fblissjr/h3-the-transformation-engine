@@ -714,8 +714,11 @@ describe('the record as a whole', () => {
  * table-wide check.
  *
  * Note what is deliberately NOT asserted here: that every pack claims an axis.
- * Nine do not -- V17, V19, V20, V21, V24, M01, M05, M08, F01 -- and that is the
- * point of the scores rather than a gap in them. An empty set means low style
+ * Twelve do not -- V17, V19, V20, V21, V24, V25, V26, V27, M01, M05, M08, F01
+ * -- and that is the point of the scores rather than a gap in them. The three
+ * device-capture entries are the clearest case: a phone video is photorealism
+ * recorded badly, not a move away from it, so the leverage it claims is none
+ * and the wild draw correctly never lands on it. An empty set means low style
  * leverage, which is how `isStressTestViable` keeps a draw from landing on a
  * combination that reads as a filter. Asserting otherwise was the first version
  * of this test and it went red against nine correct entries, which is the

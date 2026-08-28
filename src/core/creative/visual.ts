@@ -1,7 +1,7 @@
 /**
  * The visual id space.
  *
- * A visual selection is either a medium pack (V01-V24) or a reference anchor
+ * A visual selection is either a medium pack (V01-V27) or a reference anchor
  * (R01-R30). They share one id space and one lookup, which is why nothing
  * downstream needs a branch to tell them apart.
  */
