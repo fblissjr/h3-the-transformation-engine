@@ -58,6 +58,8 @@ All notable changes to this project are documented here. Semantic versioning.
 - **The experiment matrix rebuilt on every render.** Up to 64 substituted strings, re-parsed and re-drawn on every keystroke and on every unrelated re-render of the panel above it. Memoized on the idea.
 - **The unverified-guides todo named the wrong directory**, and the contract entry said "six in the code" while listing eight.
 
+- **The patchable surface is pinned.** `VISION.md`'s guarantee that no transform can produce a prompt H3 cannot parse rests entirely on structure staying off `PATCHABLE_LEAVES`, and the control for it named five paths that must be rejected — a proxy, since a sixth derived field added to the allowlist passes all five. Nothing can decide mechanically whether a new leaf is derived, so the list is pinned instead, the way the contract pins the guides' sha256: growing the write surface is now a visible event that someone has to come and confirm was meant.
+
 ### Removed
 
 - **The fifteen presets, and the mode they lived in.** Each asserted that a particular pairing of four pack ids was worth having, and none had ever been checked against real H3 output — a name on an unverified guess borrows authority it has not earned. Directed mode picks the same four things and wild draws them behind an actual leverage test. `'exploratory'` stays in the stored union because documents written under it exist; it restores as `directed`, which is what it always was underneath, and a control proves both halves of that.

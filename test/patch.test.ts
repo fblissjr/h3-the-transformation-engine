@@ -9,7 +9,15 @@
 
 import { describe, expect, it } from 'vitest';
 import { applyPatch, revertPatch } from '../src/core/patch/apply';
-import { getAtPath, isPatchable, parsePath, formatPath, setAtPath, pathExists } from '../src/core/ir/paths';
+import {
+  PATCHABLE_LEAVES,
+  getAtPath,
+  isPatchable,
+  parsePath,
+  formatPath,
+  setAtPath,
+  pathExists,
+} from '../src/core/ir/paths';
 import { editDirect } from '../src/pipeline';
 import { t2vaBaker, i2vaTrain } from './fixtures/guide-examples';
 
@@ -156,5 +164,55 @@ describe('direct edits go through the same gates', () => {
   it('surfaces a validation error introduced by the edit instead of hiding it', () => {
     const result = editDirect(t2vaBaker, 'shots[1].cutAtMs', 99_000);
     expect(result.validation.diagnostics.map((d) => d.code)).toContain('CUT_OUTSIDE_DURATION');
+  });
+});
+
+/**
+ * The write surface is pinned, because the guarantee rests on it.
+ *
+ * VISION.md's claim that no transform can produce a prompt H3 cannot parse is
+ * true only while structure stays off `PATCHABLE_LEAVES`. The assertions above
+ * name five paths that must be rejected, which is a proxy: adding a sixth
+ * derived field to the allowlist passes every one of them. Nothing can tell
+ * mechanically whether a new entry is derived, so this pins the list instead --
+ * the same move the contract makes with the guides' sha256, and for the same
+ * reason. Growing the surface is then a deliberate, visible event rather than a
+ * silent one, and whoever adds a line has to come here and say it was meant.
+ *
+ * A failure here is not necessarily a bug. It is a question: is the new leaf
+ * something the serializer derives?
+ */
+describe('the patchable surface', () => {
+  it('is exactly this list', () => {
+    expect([...PATCHABLE_LEAVES]).toEqual([
+      'style',
+      'soundscape',
+      'music',
+      'summary',
+      'shots[].beats[].prose',
+      'shots[].beats[].visibleText',
+      'shots[].beats[].dialogue.text',
+      'shots[].beats[].dialogue.language',
+      'shots[].camera.type',
+      'shots[].camera.amplitude',
+      'shots[].camera.speed',
+      'shots[].cutStyle',
+      'shots[].cutAtMs',
+      'subjects[].traits',
+      'subjects[].retention',
+      'subjects[].retentionNote',
+      'speakers[].descriptor',
+      'retention[].marker',
+      'retention[].note',
+      'slots[].description',
+    ]);
+  });
+
+  it('carries no path the serializer derives its structure from', () => {
+    // Not a proof -- see the note above. These are the derived families that
+    // exist today, checked as patterns so a new index or ordinal is caught.
+    for (const leaf of PATCHABLE_LEAVES) {
+      expect(leaf, `${leaf} looks derived`).not.toMatch(/\.(index|ordinal|id)$/);
+    }
   });
 });

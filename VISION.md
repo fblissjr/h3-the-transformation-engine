@@ -51,8 +51,9 @@ the whole output
 ├── shots[].beats[].prose              what actually conditions the model
 ├── shots[].beats[].visibleText        on-screen strings
 ├── shots[].camera.*                   the annotation, not the sentence
-├── overall_soundscape
-├── non_diegetic_music
+├── shots[].cutAtMs                    where the cut falls, not how it renders
+├── soundscape
+├── music
 └── Ref2VA: subjects[].traits, retention[].note, summary
 ```
 
@@ -68,15 +69,26 @@ it to touch. The scope stays mechanical; the precision comes from what you ask.
 
 ## structure is never a target
 
-A transform can write into fields that carry prose. It cannot reach section
-labels, `[Shot N]`, cut timestamps, the alignment line, `<d>` tags, or anything
-else the serializer derives — because those are not addressable. The prompt text
-is a pure function of the document, and structure lives on the function side.
+A transform can write into fields that carry content. It cannot reach section
+labels, `[Shot N]`, the alignment line, `<d>` tags, or anything else the
+serializer derives rather than reads. The prompt text is a pure function of the
+document, and structure lives on the function side.
 
 This is the guarantee that lets any transform be pointed anywhere: **no
 transform, precanned or written by hand, can produce a prompt H3 can no longer
-parse.** Not because a rule forbids it, but because there is no path to the
-thing it would have to break.
+parse.** The mechanism is `PATCHABLE_LEAVES` in `src/core/ir/paths.ts` — the
+write surface is an allowlist of leaves that carry content, and structure is
+not on it. So this is a rule someone has to keep rather than a property that
+holds for free: a derived field added to that list for convenience takes the
+guarantee with it, and the control in `test/patch.test.ts` names five rejected
+paths rather than asserting the property, so it would not notice.
+
+One entry on the list is a timestamp. `shots[].cutAtMs` is patchable, because
+where a cut falls is an editorial decision. What stays derived is its rendering
+— the serializer assembles `[Shot 2] At 00:05.000,` from that number, and the
+validator holds the number to cuts that are strictly increasing and inside the
+video. Aiming a transform at it can produce a worse edit, never a malformed
+prompt.
 
 Corrupting the format on purpose, to see how H3 degrades, was considered and
 rejected. A prompt the model cannot use teaches nothing, and the appeal was
@@ -120,8 +132,8 @@ worse than no name, because it borrows authority the thing has not earned.
   instruction and saying which field kinds it can target. It does not mean a new
   pipeline.
 - **Anything derived stays derived.** If a transform seems to need to edit a
-  timestamp or a label, the document model is missing a field — that is the
-  same rule that governs the serializer, applied one level out.
+  rendered timestamp or a label, the document model is missing a field — that
+  is the same rule that governs the serializer, applied one level out.
 - **Deterministic where it can be.** Rerolling a wildcard in place is string
   substitution, not a model call. Seeds are recorded so a result can be had
   again. Spend a call only where judgement is actually required.
