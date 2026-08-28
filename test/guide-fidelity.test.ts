@@ -156,6 +156,24 @@ describe('the ref word range keeps the scope the guide gives it', () => {
     expect(planner.toLowerCase()).toContain('dialogue-dense');
   });
 
+  /**
+   * `taskTypes` is an array joined with ` + `, so a job is routinely both. ref
+   * 5.2 states the two clauses and never says which wins, and ref 3's own
+   * worked example is the combined prefix. The contract records that as
+   * unresolved; what the planner must not do is treat the range as a floor and
+   * pad toward it, which is the one behaviour both readings rule out.
+   */
+  it('does not let a combined prefix pad toward the range', () => {
+    expect(planner).toContain('never pad toward the range');
+  });
+
+  if (guidesPresent) {
+    it('the combined prefix is the guides own example, not a corner case', () => {
+      const ref = readFileSync(REF_GUIDE, 'utf8');
+      expect(ref).toContain('[video editing + reference generation + audio reuse]');
+    });
+  }
+
   if (!guidesPresent) {
     it.todo('UNVERIFIED: reference/h3 is absent, so the scope was not compared to ref 5.2');
   } else {

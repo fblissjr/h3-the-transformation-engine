@@ -351,6 +351,12 @@ export const MUSIC_SENTENCE_RANGE = [1, 3] as const;
  * of the source video and are exempt, and dialogue-dense content fits the
  * spoken timeline ahead of any count. A consumer that states the range without
  * both exemptions is quoting the guide wrongly.
+ *
+ * Task types combine (`taskTypes` is an array, joined with ` + ` per ref 3),
+ * and ref 5.2 does not say which clause wins when a prefix names video editing
+ * alongside a generation type. That is not a corner: ref 3's own worked example
+ * is `[video editing + reference generation + audio reuse]`. Recorded as
+ * unresolved in the contract rather than decided in either direction.
  */
 export const REF_DETAIL_WORD_RANGE = [350, 500] as const;
 
