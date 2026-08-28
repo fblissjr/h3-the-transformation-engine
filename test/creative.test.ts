@@ -564,6 +564,16 @@ describe('randomGlitch', () => {
     expect(randomGlitch(() => 0.42)).toEqual(randomGlitch(() => 0.42));
   });
 
+  /**
+   * The draw adds marks; it does not rewrite how every sentence in the clip is
+   * worded. That is the larger change of the two and stays a deliberate press.
+   */
+  it('never draws the ood register', () => {
+    for (let seed = 0; seed < 40; seed++) {
+      expect(randomGlitch(() => (seed * 0.025) % 1).register).toBe('motif');
+    }
+  });
+
   /** A pinned source draws the same index every time and the loop comes up short. */
   it('still produces a usable record when every draw collides', () => {
     const drawn = randomGlitch(() => 0);

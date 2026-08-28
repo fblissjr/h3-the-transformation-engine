@@ -375,6 +375,11 @@ export function glitchDirective(glitch: StoredGlitch | undefined): string | null
  * looks; this one puts readable strings on screen, which is a literal addition
  * to the frame and should be something the user asked for rather than something
  * a style shuffle hands them without saying so.
+ *
+ * The register is drawn as `motif` every time, for the same reason. Switching
+ * to `ood` changes how every sentence in the clip is written, which is a larger
+ * change than the marks are, and a button labelled Draw should not be the thing
+ * that makes it.
  */
 export function randomGlitch(random: () => number = Math.random): GlitchSelection {
   const pick = <T>(arr: readonly T[]): T => arr[Math.floor(random() * arr.length)];
@@ -397,5 +402,5 @@ export function randomGlitch(random: () => number = Math.random): GlitchSelectio
     if (!surfaces.includes(surface)) surfaces.push(surface);
   }
 
-  return { tokens, surfaces, register: random() < 0.5 ? 'ood' : 'motif' };
+  return { tokens, surfaces, register: 'motif' };
 }

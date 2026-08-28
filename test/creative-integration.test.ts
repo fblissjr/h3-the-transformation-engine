@@ -409,3 +409,44 @@ describe('glitch marks on the document', () => {
     );
   });
 });
+
+// ---------------------------------------------------------------------------
+// Where a mark meets the validator
+// ---------------------------------------------------------------------------
+
+/**
+ * The glitch block tells the planner a mark is on-screen text and defers to the
+ * contract's rule for that rather than restating it. `visibleTextQuoted` is
+ * that rule, and it turns out to enforce half the mark contract already: a mark
+ * listed in a beat but not written into its prose in double quotes is a real
+ * diagnostic, with no new rule and no prose pattern-matching added.
+ *
+ * Asserted here rather than assumed, because the deferral is only correct if
+ * the existing rule actually accepts a correctly placed mark. A rule that fired
+ * on legitimate marked output would be the class of rule this repo removed
+ * seventeen of.
+ */
+describe('a mark and the on-screen text rule', () => {
+  async function diagnose(prose: string, visibleText: string[]) {
+    const { validate } = await import('../src/core/validate');
+    const { contextFor } = await import('../src/core/normalize');
+    const doc = docWith(MARKED);
+    doc.shots[0].beats[0].prose = prose;
+    doc.shots[0].beats[0].visibleText = visibleText;
+    return validate(doc, contextFor(doc)).diagnostics.map((d) => d.code);
+  }
+
+  it('accepts a mark written the way the block asks for', async () => {
+    const codes = await diagnose(
+      'a wide shot of a bakery before sunrise, "SolidGoldMagikarp" stamped on the flour sack.',
+      ['SolidGoldMagikarp'],
+    );
+    expect(codes).not.toContain('VISIBLE_TEXT_NOT_QUOTED');
+  });
+
+  /** The control: the same mark listed but not quoted into the prose. */
+  it('rejects a mark listed on a beat whose prose does not carry it', async () => {
+    const codes = await diagnose('a wide shot of a bakery before sunrise.', ['SolidGoldMagikarp']);
+    expect(codes).toContain('VISIBLE_TEXT_NOT_QUOTED');
+  });
+});
