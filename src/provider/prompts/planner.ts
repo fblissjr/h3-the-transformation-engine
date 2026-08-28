@@ -19,9 +19,12 @@ import type { H3Mode } from '../../core/ir/vocab';
 import {
   AMPLITUDE_PHRASE,
   CAMERA_TYPES,
+  CONTINUITY_PHRASES,
+  CUTOFF_TAG,
   MUSIC_SENTENCE_RANGE,
   ORDINARY_CUTS,
   REF_DETAIL_WORD_RANGE,
+  SCENETRANS_TAG,
   SOUNDSCAPE_SENTENCE_RANGE,
   SPEED_PHRASE,
   TASK_TYPES,
@@ -65,7 +68,7 @@ Amplitude is optional and only "${AMPLITUDE_PHRASE.small}" or "${AMPLITUDE_PHRAS
 
 # Shots and beats
 
-The first beat of Shot 1 is rendered directly after the style clause, as "[Shot 1] <style>, <your first beat>". So it must start lowercase and read as a continuation: "a medium-wide shot frames a baker opening the shutters".
+Where the style clause goes differs by contract, and the active mode below says which shape applies. Write the first beat of Shot 1 to fit it.
 
 Every later shot is rendered as "[Shot N] At MM:SS.mmm, <your first beat>", so that beat must open with the cut itself: one of ${ORDINARY_CUTS.map((c) => `"${c}"`).join(', ')}.
 
@@ -79,17 +82,23 @@ Put ${DIALOGUE_PLACEHOLDER} in the prose exactly where the spoken line goes, and
 
   "the middle-aged baker with a calm, slightly raspy voice (S1) places a fresh loaf on the counter and says: ${DIALOGUE_PLACEHOLDER}"
 
-Dialogue text is preserved exactly as given. Never translate, paraphrase or tidy a line the user supplied -- base 4.4 requires every original word and punctuation mark verbatim, so a supplied line keeps its ellipses, its "?!", and its missing full stop if that is how it arrived. For a line you are writing yourself, end it with . ? or ! and use no decorative punctuation.
+Dialogue the user supplied is reproduced exactly: never translate, paraphrase, retype or repunctuate it. Base 4.4 requires every original word and punctuation mark verbatim, so a supplied line keeps its ellipses, its "?!", and its missing full stop if that is how it arrived. Changing so much as its punctuation makes the document stop recognising it as the user's own words, which also costs it the protection that stops a later edit rewriting it.
+
+Lines you write yourself end with . ? or ! and carry no decorative punctuation -- no repeated marks, tildes, emoji or bullets.
 
 For voiceover, the prose must contain the exact phrase "${VOICEOVER_PHRASE}", and immediately after the placeholder it must state that the on-screen character's lips remain completely closed.
 
 Name a vocal act only where you supply its words. Writing that someone talks, speaks, argues, rants, sings, narrates or has a conversation, on a beat with no dialogue, is an instruction to vocalise and will be obeyed with invented speech. The only audible words in the clip are the ones in a \`dialogue\` field.
 
+When one spoken line runs across a cut, split it into two beats: mark the first \`crossesCut: "starts"\` and the second \`crossesCut: "continues"\`, write ${SCENETRANS_TAG} into both beats' prose, and say in the prose that the audio carries across -- one of ${CONTINUITY_PHRASES.map((c) => `"${c}"`).join(', ')}. Both halves are required; a start with no continuation is rejected.
+
+When speech is still going as the video ends, mark that beat \`cutoff: true\` and write ${CUTOFF_TAG} into its prose. Only the final beat may carry it.
+
 A held facial state cannot survive the line that breaks it. If a closed mouth or fixed expression is part of a subject's identity, say it returns after the line rather than that it holds through it.
 
 # Style
 
-\`style\` names the medium and finish. It is rendered as the opening clause of Shot 1, so write it as one.
+\`style\` names the medium and finish. How it is rendered depends on the contract; the active mode below says which.
 
 If a Style direction section is provided below, follow it. That section states how far it reaches; do not extend it further than it asks. Otherwise, take the style from the request when the request states one; otherwise from the visible medium and finish of a supplied image; otherwise from the genre. Live action is one option among many and never the default -- do not reach for it because nothing else was specified. Name one medium, one motion treatment and one finish. Do not stack unrelated adjectives, and translate a named style into its concrete traits rather than leaning on the name.
 
@@ -110,9 +119,13 @@ Any sign, banner, label or subtitle that is actually visible goes in the prose i
 const MODE_BLOCKS: Record<string, string> = {
   T2VA: `# Active mode: T2VA
 
+The style clause opens Shot 1: the output reads "[Shot 1] <style>, <your first beat>". So the style is a clause, not a sentence, and the first beat starts lowercase and continues it -- "a medium-wide shot frames a baker opening the shutters".
+
 No reference media. Build the whole timeline from the request. You may add scene, character, action and sound detail that stays consistent with what was asked for.`,
 
   I2VA: `# Active mode: I2VA
+
+The style clause opens Shot 1: the output reads "[Shot 1] <style>, <your first beat>". So the style is a clause, not a sentence, and the first beat starts lowercase and continues it -- "a medium-wide shot frames a baker opening the shutters".
 
 <Picture 1> is the actual first frame at 0.00 seconds and belongs to Shot 1.
 
@@ -121,6 +134,8 @@ Open Shot 1 from what is in that image -- subjects, composition, scene anchors -
 Shape: first-frame anchor, action onset, continuous development, result or reaction.`,
 
   FL2VA: `# Active mode: FL2VA
+
+The style clause opens Shot 1: the output reads "[Shot 1] <style>, <your first beat>". So the style is a clause, not a sentence, and the first beat starts lowercase and continues it -- "a medium-wide shot frames a baker opening the shutters".
 
 Picture 1 is the opening frame and Picture 2 is the ending frame.
 
@@ -131,6 +146,8 @@ Strongly prefer a single shot so the model can interpolate continuously. Use mor
 Shape: first-frame state, observable intermediate changes, progressively narrowing differences, last-frame state.`,
 
   L2VA: `# Active mode: L2VA
+
+The style clause opens Shot 1: the output reads "[Shot 1] <style>, <your first beat>". So the style is a clause, not a sentence, and the first beat starts lowercase and continues it -- "a medium-wide shot frames a baker opening the shutters".
 
 <Picture 1> is the FINAL frame and belongs to the last shot. It is not where the video starts.
 
@@ -149,6 +166,8 @@ Your subject definitions are the binding description of what gets generated. A t
 State the invariant traits first, then any requested restyle or new role. Do not list a trait merely to say it is being discarded. Identify a subject by its source and its visible traits, never by comparison to an outside character, brand or property -- naming one pulls the design toward that thing and away from the asset.
 
 A frame anchor controls exactly one moment. A first frame controls 0.00 seconds and nothing else; a last frame controls the end and nothing else. Do not write that a composition returns, is restored, is matched again or closes the scene unless the request asked for that recurrence -- in a retention note as much as in a beat.
+
+The style is its own sentence before [Shot 1], not a clause inside it: write one or two complete English sentences describing the look, and start the first beat as an ordinary sentence with a capital -- "A medium shot establishes <Subject 1>, the coffee shop with its exposed brick wall".
 
 \`summary\` classifies the job and names who is in it, in one or two sentences. Keep every verb in it physical. Never write that a subject speaks, talks, argues, rants, narrates, replies or sings: the words live in the beats, and a summary that announces speech produces speech before the scripted line arrives. Physical action, setting, and the reference relationship are all fine there.
 

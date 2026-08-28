@@ -569,3 +569,74 @@ describe('the wildcard roll on the document', () => {
     expect(parsed.data && 'roll' in parsed.data).toBe(false);
   });
 });
+
+// ---------------------------------------------------------------------------
+// What the prompt tells the model about its own output shape
+// ---------------------------------------------------------------------------
+
+/**
+ * Three things the prompt got wrong about the format it governs.
+ *
+ * The shared core stated the base contract's style placement for every mode,
+ * including Ref2VA, where the serializer writes the style as its own sentence
+ * before `[Shot 1]`. A model obeying the core returned a clause and a lowercase
+ * first beat, which cannot reproduce the guide's own worked example for that
+ * mode -- and the golden fixture is the proof, since it carries a full sentence
+ * and a capitalised opening.
+ *
+ * The planner schema requires `crossesCut` and `cutoff` on every dialogue beat,
+ * and no prompt named either. A model doing the right thing for a line that
+ * spans a cut produced `SCENETRANS_UNPAIRED` on a tag it was never told to
+ * write -- unclearable, since the patch validator will not rewrite the prose.
+ *
+ * And the speech block said supplied dialogue is preserved exactly and then
+ * told the model to end every line with a terminal mark. Following the second
+ * sentence rewrites the user's words, which makes `assemble` stop matching them
+ * against `suppliedDialogue`, so the document records them as not user-supplied
+ * and the punctuation rules that are scoped away from them start applying.
+ */
+describe('the prompt describes the contract it is compiling for', () => {
+  const promptFor = (mode: H3Mode) => {
+    const modeInput: CompileInput = { ...input, mode };
+    return buildPlannerSystemPrompt(normalize(modeInput), modeInput);
+  };
+
+  it('tells the base modes the style is a clause opening Shot 1', () => {
+    for (const mode of ['T2VA', 'I2VA', 'FL2VA', 'L2VA'] as H3Mode[]) {
+      expect(promptFor(mode), mode).toContain('[Shot 1] <style>, <your first beat>');
+      expect(promptFor(mode), mode).toContain('starts lowercase');
+    }
+  });
+
+  it('tells Ref2VA the opposite, because its serializer does the opposite', () => {
+    const prompt = promptFor('Ref2VA');
+    expect(prompt).toContain('its own sentence before [Shot 1]');
+    expect(prompt).toContain('start the first beat as an ordinary sentence with a capital');
+    expect(prompt).not.toContain('[Shot 1] <style>, <your first beat>');
+    expect(prompt).not.toContain('starts lowercase');
+  });
+
+  it('names the continuity fields the schema requires, in every mode', () => {
+    for (const mode of ['T2VA', 'I2VA', 'FL2VA', 'L2VA', 'Ref2VA'] as H3Mode[]) {
+      const prompt = promptFor(mode);
+      expect(prompt, mode).toContain('<scenetrans>');
+      expect(prompt, mode).toContain('crossesCut');
+      expect(prompt, mode).toContain('<cutoff>');
+      expect(prompt, mode).toContain('cutoff: true');
+    }
+  });
+
+  it('offers the continuity phrasings the guide lists rather than inventing one', async () => {
+    const { CONTINUITY_PHRASES } = await import('../src/core/ir/vocab');
+    const prompt = promptFor('T2VA');
+    for (const phrase of CONTINUITY_PHRASES) expect(prompt).toContain(phrase);
+  });
+
+  it('scopes the punctuation instruction away from words the user supplied', () => {
+    const prompt = promptFor('T2VA');
+    expect(prompt).toContain('Lines you write yourself end with . ? or !');
+    expect(prompt).toContain('its missing full stop if that is how it arrived');
+    // The unscoped form is what made the two instructions contradict.
+    expect(prompt).not.toContain('End each line with . ? or !');
+  });
+});
