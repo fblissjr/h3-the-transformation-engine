@@ -38,6 +38,8 @@ The planner writes the actual sentences. The serializer assembles structure arou
 
 ## Where the truth lives
 
+**[reference/h3/contract.json](./reference/h3/contract.json) is the machine-readable statement of all of it**, and the thing to read before auditing, changing or adding any prompt: output shape per mode, the legal vocabulary with a guide citation per value, the ordered blocks of both system prompts, every diagnostic and why it is legitimate, and everything the compiler does that no guide asks for. `test/contract.test.ts` binds it to the implementation in both directions — code that drifts from the spec fails, and a spec that misdescribes the code fails. Adding a mode, a section, a vocabulary value, a prompt block or a diagnostic means putting it in the spec first, watching that test fail, then implementing it.
+
 `src/core/ir/vocab.ts` is contract, not preference. Every value in it should be traceable to a line in one of the two official MiniMax guides, which are tracked in [reference/h3/](./reference/h3/) so that the tracing can be done from a clean checkout:
 
 - [Video Prompt Writing Guide](./reference/h3/VIDEO_PROMPT_WRITING_GUIDE_base_en.md) (T2VA / I2VA / FL2VA / L2VA) — the base contract
@@ -54,7 +56,7 @@ If a proposed rule would turn a golden fixture red, the rule is wrong.
 ## Testing
 
 ```
-bun run test        # 353 tests (vitest)
+bun run test        # 433 tests (vitest)
 bun run typecheck
 bun run build
 bun run probe       # live API probes; reads GEMINI_API_KEY from .env

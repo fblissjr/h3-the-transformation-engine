@@ -1,0 +1,252 @@
+{
+  "$schema": "./contract.schema.md",
+  "about": "The machine-readable H3 prompt contract. Read this before auditing, changing, or adding a prompt: it is the one place that states what the output must look like per mode, what vocabulary is legal, what blocks each system prompt carries and in what order, and which guide line each of those comes from. test/contract.test.ts binds every field here to the implementation, so a disagreement is a build failure rather than a stale document.",
+  "notWrittenByHand": "Nothing here is generated. It is written independently of the code on purpose -- a spec derived from the implementation cannot contradict it, and therefore cannot catch it being wrong.",
+  "version": "1.0.0",
+
+  "sources": [
+    {
+      "id": "base",
+      "title": "Video Prompt Writing Guide (T2VA / I2VA / FL2VA / L2VA)",
+      "file": "VIDEO_PROMPT_WRITING_GUIDE_base_en.md",
+      "sha256": "2cfebc096a6e08370f288d468d90b60f7f9bcb938f94bf090816e910e48e75fc",
+      "note": "The hash is checked. A guide revision should be a deliberate, visible event: replace the file, update the hash, and let the golden tests report everything the revision changed."
+    },
+    {
+      "id": "ref",
+      "title": "Full-Reference Mode Rewrite Output Format Guide",
+      "file": "VIDEO_PROMPT_WRITING_GUIDE_ref_en.md",
+      "sha256": "1e574f356716ad55612247ffb7bbccbcdb484ad96599d63c7dca1af186b1fab7"
+    }
+  ],
+
+  "output": {
+    "T2VA": {
+      "contract": "base",
+      "guide": "base 5 case 1",
+      "alignment": null,
+      "sections": [
+        { "label": "integrated_multimodal_description", "layout": "inline", "guide": "base 2.2" },
+        { "label": "overall_soundscape", "layout": "inline", "guide": "base 4.6" },
+        { "label": "non_diegetic_music", "layout": "inline", "guide": "base 4.7" }
+      ],
+      "sectionSeparator": "\n\n",
+      "stylePlacement": "inline-after-shot-1",
+      "shotSeparator": " ",
+      "firstShotHasTimestamp": false,
+      "goldenFixture": "t2vaBakerExpected"
+    },
+    "I2VA": {
+      "contract": "base",
+      "guide": "base 5 case 2",
+      "alignment": "For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.",
+      "alignmentGuide": "base 2.1",
+      "alignmentSubstitutions": [],
+      "sections": [
+        { "label": "integrated_multimodal_description", "layout": "inline", "guide": "base 2.2" },
+        { "label": "overall_soundscape", "layout": "inline", "guide": "base 4.6" },
+        { "label": "non_diegetic_music", "layout": "inline", "guide": "base 4.7" }
+      ],
+      "sectionSeparator": "\n\n",
+      "stylePlacement": "inline-after-shot-1",
+      "shotSeparator": " ",
+      "firstShotHasTimestamp": false,
+      "goldenFixture": "i2vaTrainExpected"
+    },
+    "FL2VA": {
+      "contract": "base",
+      "guide": "base 5 case 3",
+      "alignment": "How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot {N}) aligns with the {S.SS}-second mark of the target video.",
+      "alignmentGuide": "base 2.1",
+      "alignmentSubstitutions": ["{N}", "{S.SS}"],
+      "alignmentNote": "Bare. This one line uses Picture 1 and Shot 1 without angle or square brackets, unlike every other citation in the format. The guide's own worked example does, and a fixture proves it.",
+      "sections": [
+        { "label": "integrated_multimodal_description", "layout": "inline", "guide": "base 2.2" },
+        { "label": "overall_soundscape", "layout": "inline", "guide": "base 4.6" },
+        { "label": "non_diegetic_music", "layout": "inline", "guide": "base 4.7" }
+      ],
+      "sectionSeparator": "\n\n",
+      "stylePlacement": "inline-after-shot-1",
+      "shotSeparator": " ",
+      "firstShotHasTimestamp": false,
+      "goldenFixture": "fl2vaUmbrellaExpected"
+    },
+    "L2VA": {
+      "contract": "base",
+      "guide": "base 5 case 4",
+      "alignment": "How the reference pictures align with the target video — <Picture 1> (from [Shot {N}]) aligns with the {S.SS}-second mark of the target video.",
+      "alignmentGuide": "base 2.1",
+      "alignmentSubstitutions": ["{N}", "{S.SS}"],
+      "sections": [
+        { "label": "integrated_multimodal_description", "layout": "inline", "guide": "base 2.2" },
+        { "label": "overall_soundscape", "layout": "inline", "guide": "base 4.6" },
+        { "label": "non_diegetic_music", "layout": "inline", "guide": "base 4.7" }
+      ],
+      "sectionSeparator": "\n\n",
+      "stylePlacement": "inline-after-shot-1",
+      "shotSeparator": " ",
+      "firstShotHasTimestamp": false,
+      "goldenFixture": "l2vaGlassExpected"
+    },
+    "Ref2VA": {
+      "contract": "ref2va",
+      "guide": "ref 7",
+      "alignment": null,
+      "sections": [
+        { "label": "subject_definitions", "layout": "block", "guide": "ref 2" },
+        { "label": "summary", "layout": "block", "guide": "ref 3" },
+        { "label": "retention_analysis", "layout": "block", "guide": "ref 4" },
+        { "label": "detailed_description", "layout": "block", "guide": "ref 5" },
+        { "label": "overall_soundscape", "layout": "block", "guide": "ref 6" },
+        { "label": "non_diegetic_music", "layout": "block", "guide": "ref 6" }
+      ],
+      "sectionSeparator": "\n\n",
+      "stylePlacement": "sentence-before-shot-1",
+      "stylePlacementGuide": "ref 5.2",
+      "shotSeparator": "\n",
+      "firstShotHasTimestamp": false,
+      "summaryPrefix": { "open": "[", "close": "]", "join": " + ", "guide": "ref 3" },
+      "goldenFixture": "ref2vaCoffeeShopExpected"
+    }
+  },
+
+  "shotHeader": {
+    "first": "[Shot 1]",
+    "later": "[Shot {N}] At {MM:SS.mmm},",
+    "guide": "base 4.2",
+    "note": "The cut phrasing itself is prose inside the beat, not part of the header. The guide asks for it as natural language in the sentence."
+  },
+
+  "vocabulary": {
+    "modes": ["T2VA", "I2VA", "FL2VA", "L2VA", "Ref2VA"],
+    "cameraTypes": {
+      "guide": "base 4.3",
+      "values": ["Zoom In", "Zoom Out", "Push In", "Pull Out", "Pan Left", "Pan Right", "Truck Left", "Truck Right", "Tilt Up", "Tilt Down", "Pedestal Up", "Pedestal Down", "Arc Shot", "Tracking Shot", "Static Shot", "Shake Slightly", "Shake Strongly", "POV", "Roll Clockwise", "Roll Counterclockwise"]
+    },
+    "amplitudes": { "guide": "base 4.3", "values": ["small", "large"], "phrases": { "small": "with small amplitude", "large": "with large amplitude" }, "note": "Medium is implied by omission." },
+    "speeds": { "guide": "base 4.3", "values": ["slow", "fast"], "phrases": { "slow": "at slow speed", "fast": "at fast speed" }, "note": "Normal is implied by omission." },
+    "ordinaryCuts": {
+      "guide": "base 4.2",
+      "values": ["the camera cuts to", "the shot cuts to", "the shot transitions to", "the shot changes to", "the shot switches to"]
+    },
+    "specialCuts": { "guide": "base 4.2", "values": ["cross-dissolve", "fade", "wipe"], "note": "Only when the user explicitly asks." },
+    "tags": {
+      "dialogue": { "open": "<d>", "close": "</d>", "form": "<d>[Language] words</d>", "guide": "base 4.4" },
+      "sceneTrans": { "value": "<scenetrans>", "guide": "base 4.4", "note": "Both sides of a line that crosses a cut." },
+      "cutoff": { "value": "<cutoff>", "guide": "base 4.4", "note": "Speech truncated by the end of the video; final beat only." },
+      "unclear": { "value": "[unclear]", "guide": "ref 5.4" }
+    },
+    "voiceoverPhrase": { "value": "says in an off-screen voiceover", "guide": "base 4.4", "note": "Exact phrase, followed by a statement that the lips remain closed." },
+    "speakerIds": { "form": "(S1)", "compoundForm": "(S1,S2)", "guide": "base 4.4", "note": "Numbered by the order of actual vocal events; never renumbered; never written in retention_analysis (ref 5.4)." },
+    "onScreenText": { "quoting": "English double quotation marks, verbatim, untranslated", "guide": "base 4.5" },
+    "taskTypes": { "guide": "ref 3", "values": ["keyframe completion", "reference generation", "video editing", "video continuation", "audio reuse", "audio reference"] },
+    "visualRetention": { "guide": "ref 4.1", "values": ["fully_preserved", "partially_preserved", "attribute_transfer", "weak_reference"] },
+    "audioRetention": { "guide": "ref 4.2", "values": ["fully_copy", "partially_copy", "reference", "weak_reference"] },
+    "labelKinds": { "guide": "ref 2", "values": ["Subject", "Picture", "Video", "Audio"] },
+    "mediaKinds": { "values": ["image", "video", "audio"] },
+    "slotCeilings": { "values": { "image": 9, "video": 3, "audio": 3 } },
+    "budgets": {
+      "soundscapeSentences": { "range": [1, 4], "guide": "base 4.6" },
+      "musicSentences": { "range": [1, 3], "guide": "base 4.7" },
+      "refDetailWords": { "range": [350, 500], "guide": "ref 5.2" }
+    },
+    "notApplicable": { "value": "N/A", "guide": "base 4.6, 4.7" }
+  },
+
+  "prompts": {
+    "planner": {
+      "builder": "src/provider/prompts/planner.ts:buildPlannerSystemPrompt",
+      "note": "Blocks are joined in this order. Anything marked conditional is absent when its input is absent. Adding a block means adding it here first; the conformance test fails otherwise.",
+      "blocks": [
+        { "heading": "# How to write", "source": "core", "conditional": false },
+        { "heading": "# Recognisable people", "source": "core", "conditional": false, "origin": "house", "note": "Not in either guide. From the Sora prompt architecture and the original engine's own fragment. Carve-out: dialogue text and on-screen text are reproduced verbatim regardless." },
+        { "heading": "# Camera", "source": "core", "conditional": false, "guide": "base 4.3" },
+        { "heading": "# Shots and beats", "source": "core", "conditional": false, "guide": "base 4.2" },
+        { "heading": "# Speech", "source": "core", "conditional": false, "guide": "base 4.4" },
+        { "heading": "# Style", "source": "core", "conditional": false, "guide": "base 4.1" },
+        { "heading": "# On-screen text", "source": "core", "conditional": false, "guide": "base 4.5" },
+        { "heading": "# Audio", "source": "core", "conditional": false, "guide": "base 4.6, 4.7" },
+        { "heading": "# Active mode:", "source": "mode-block", "conditional": false, "note": "One per mode; the heading carries the mode name." },
+        { "heading": "# Style direction", "source": "derived:styleDirective", "conditional": true, "note": "From CreativeModeRecord.selection. Absent when no pack resolves." },
+        { "heading": "# Glitch marks", "source": "derived:glitchDirective", "conditional": true, "note": "From CreativeModeRecord.glitch. The planner appends a mode-specific affordance note; the patch prompt does not, because it has no mode." },
+        { "heading": "# Supplied facts", "source": "computed", "conditional": false, "note": "Last on purpose, so the facts have the final word." }
+      ]
+    },
+    "patch": {
+      "builder": "src/provider/prompts/patch.ts:buildPatchSystemPrompt",
+      "blocks": [
+        { "heading": "# Rules", "source": "core", "conditional": false },
+        { "heading": "# When you should refuse", "source": "core", "conditional": false },
+        { "heading": "# Active style", "source": "derived:styleDirective", "conditional": true },
+        { "heading": "# Active glitch marks", "source": "derived:glitchDirective", "conditional": true }
+      ],
+      "parity": "Both prompts derive the style and glitch blocks from the same record through the same function, so an edit cannot drift from what the document was written under. test/creative-integration.test.ts asserts the derived text is identical on both sides."
+    }
+  },
+
+  "invariants": [
+    { "id": "beats-carry-prose", "statement": "The planner writes the sentences; the serializer assembles structure around them and never expands an enum into a sentence.", "enforcedBy": "review, and the absence of any enum-to-prose path in src/core/serialize" },
+    { "id": "prompt-is-derived", "statement": "serialize(doc, ctx) is total and deterministic. Nothing hand-edits prompt text.", "enforcedBy": "test/serialize.test.ts" },
+    { "id": "core-is-pure", "statement": "src/core has no React, DOM, network, SDK or idb.", "enforcedBy": "test/purity.test.ts" },
+    { "id": "errors-only", "statement": "A diagnostic means the document is provably malformed. There is no warning severity.", "enforcedBy": "src/core/validate/types.ts" },
+    { "id": "every-code-controlled", "statement": "Every diagnostic code has a fixture that makes it fire.", "enforcedBy": "test/validate.test.ts control coverage" },
+    { "id": "selections-travel-text-does-not", "statement": "A creative selection and a wildcard roll travel as records; their text is derived at the point of use.", "enforcedBy": "test/creative-integration.test.ts" },
+    { "id": "goldens-are-the-guides", "statement": "The five golden fixtures are the guides' worked examples, byte for byte.", "enforcedBy": "test/guide-fidelity.test.ts" },
+    { "id": "tolerant-ids", "statement": "Stored ids this build does not know resolve to nothing rather than failing to load.", "enforcedBy": "test/creative.test.ts" }
+  ],
+
+  "diagnostics": {
+    "note": "Every code the validator can emit, with what makes it legitimate. Guide-derived codes cite a section; house codes say so. test/validate.test.ts proves each one can fire; the conformance test proves this list matches the codes the rules actually emit.",
+    "codes": {
+      "NO_SHOTS": "house: a document with no shots renders nothing",
+      "DURATION_NOT_POSITIVE": "house: duration drives every derived timestamp",
+      "MODE_SLOT_MISMATCH": "base 1: each mode's reference requirements",
+      "SHOT_INDEX_NOT_SEQUENTIAL": "base 4.2",
+      "SHOT_1_HAS_TIMESTAMP": "base 4.2: the first shot carries no timestamp",
+      "SHOT_MISSING_TIMESTAMP": "base 4.2",
+      "CUT_NOT_INCREASING": "base 4.2: strictly increasing cut times",
+      "CUT_OUTSIDE_DURATION": "base 4.2: cuts fall within the video duration",
+      "CUT_STYLE_NOT_IN_PROSE": "base 4.2: the cut phrasing is one of five exact strings, and the annotation must be the one the prose uses",
+      "SHOT_NO_BEATS": "house: a shot with no prose renders an empty header",
+      "CAMERA_TYPE_INVALID": "base 4.3: the motion table",
+      "FRAME_ROLE_ON_NON_IMAGE": "ref 2.2: only images are frame anchors",
+      "SLOT_CEILING_EXCEEDED": "house: documented per-kind maxima",
+      "SLOT_NO_ROLES": "house: a slot with no role has no label kind",
+      "SLOT_ORDER_NOT_CONTIGUOUS": "house: connection order drives label ordinals",
+      "SPEAKER_ORDINALS_NOT_SEQUENTIAL": "base 4.4",
+      "SPEAKER_ORDER_WRONG": "base 4.4: ids follow the order of actual vocal events",
+      "SPEAKER_UNDECLARED": "base 4.4",
+      "SPEAKER_REF_MISSING_IN_PROSE": "base 4.4: the id is written in the prose",
+      "SPEAKER_NOT_INTRODUCED": "base 4.4: first appearance establishes identity",
+      "COMPOUND_SPEAKER_INVALID": "base 4.4: (S1,S2) names already-numbered speakers",
+      "DIALOGUE_PLACEHOLDER_MISSING": "house: the splice point for <d>",
+      "DIALOGUE_PLACEHOLDER_ORPHAN": "house: a splice point with nothing to splice",
+      "DIALOGUE_BAD_TERMINAL": "ref 5.4: complete statements end . ? or !",
+      "DIALOGUE_DECORATIVE_PUNCT": "ref 5.4: no repeated or decorative punctuation",
+      "VOICEOVER_PHRASE_MISSING": "base 4.4: the exact phrase and the lips-closed clause",
+      "SCENETRANS_UNPAIRED": "base 4.4: both sides of a line crossing a cut",
+      "CUTOFF_NOT_AT_END": "base 4.4: truncation by the end of the video",
+      "VISIBLE_TEXT_NOT_QUOTED": "base 4.5",
+      "REF_MISSING_SUMMARY": "ref 1",
+      "REF_MISSING_TASK_TYPES": "ref 3: the bracketed prefix",
+      "REF_TASK_TYPE_DUPLICATE": "ref 3: do not repeat a type",
+      "REF_SUMMARY_NEW_LABEL": "ref 3: no new labels in the summary",
+      "REF_LABEL_UNDEFINED": "ref 2: a cited label is defined",
+      "REF_RETENTION_MISSING": "ref 4: one line per reference label",
+      "REF_RETENTION_MARKER_WRONG_CLASS": "ref 4.1 and 4.2: visual and audio markers are different sets",
+      "REF_SPEAKER_IN_RETENTION": "ref 5.4: do not write (Sx) in retention_analysis"
+    }
+  },
+
+  "notInTheGuides": {
+    "note": "Everything the compiler does that no guide asks for. An audit should be able to tell contract from house style at a glance.",
+    "items": [
+      { "id": "recognisable-people", "where": "planner and patch prompts", "why": "Naming a public figure pulls the frame toward a likeness. From the Sora prompt architecture." },
+      { "id": "creative-packs", "where": "src/core/creative", "why": "Style direction injected into the planner prompt. Never reaches the serializer." },
+      { "id": "glitch-marks", "where": "src/core/creative/glitch.ts", "why": "Anomalous tokenizer strings placed as visible on-screen text. Uses the guide's on-screen text rule rather than a new one." },
+      { "id": "wildcards", "where": "src/core/wildcards", "why": "Content substitution on the idea, before anything is planned. Never touches beat prose or serialized output." },
+      { "id": "frame-grid", "where": "src/core/normalize/budgets.ts", "why": "17k+5 at 24fps is a workflow fact, not a guide rule." },
+      { "id": "spoken-word-budget", "where": "src/core/normalize/budgets.ts", "why": "2.5 words per second is an estimate, supplied to the planner as advice." }
+    ]
+  }
+}
