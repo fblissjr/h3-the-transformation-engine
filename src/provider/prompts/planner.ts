@@ -15,6 +15,7 @@
  */
 
 import type { CompileInput, NormalizedContext } from '../../core/ir/types';
+import type { H3Mode } from '../../core/ir/vocab';
 import {
   AMPLITUDE_PHRASE,
   CAMERA_TYPES,
@@ -177,7 +178,7 @@ Aim for ${REF_DETAIL_WORD_RANGE[0]}-${REF_DETAIL_WORD_RANGE[1]} words across all
  * failure as any other invented first-frame detail, but harder to spot because
  * the mark is meant to look out of place.
  */
-const GLITCH_MODE_NOTES: Record<string, string> = {
+const GLITCH_MODE_NOTES: Record<H3Mode, string> = {
   T2VA:
     'Nothing in this scene is fixed by a reference, so a mark can go anywhere the world would ' +
     'plausibly carry one.',
@@ -255,7 +256,7 @@ export function buildPlannerSystemPrompt(ctx: NormalizedContext, input: CompileI
   if (directive) blocks.push(directive);
 
   const glitch = input.creativeMode ? glitchDirective(input.creativeMode.glitch) : null;
-  if (glitch) blocks.push([glitch, GLITCH_MODE_NOTES[ctx.mode]].filter(Boolean).join('\n\n'));
+  if (glitch) blocks.push([glitch, GLITCH_MODE_NOTES[ctx.mode]].join('\n\n'));
 
   blocks.push(suppliedFacts(ctx, input));
   return blocks.join('\n\n');

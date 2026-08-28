@@ -118,10 +118,12 @@ export function experimentMatrix(
     seen.add(placeholder.category);
 
     const chosen = config[placeholder.category];
-    const values = chosen && chosen.length > 0
-      ? chosen.filter((v) => category.values.includes(v as never))
-      : [...category.values];
-    if (values.length === 0) continue;
+    // A configuration naming only values the category does not have is a
+    // request that cannot be met. Falling back to the whole category is the
+    // only answer that still varies the axis; dropping it would leave the
+    // placeholder standing in every cell, offered as a finished idea.
+    const named = chosen?.filter((v) => category.values.includes(v)) ?? [];
+    const values = chosen && chosen.length > 0 && named.length > 0 ? named : [...category.values];
 
     axes.push({ category: placeholder.category, values });
   }

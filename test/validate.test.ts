@@ -248,3 +248,25 @@ describe('control coverage', () => {
     expect(emitted.size).toBeGreaterThan(25);
   });
 });
+
+/**
+ * The cut-style rule is scoped to the five ordinary phrasings.
+ *
+ * `PlannedShotSchema.cutStyle` also accepts cross-dissolve, fade and wipe. The
+ * planner prompt never teaches those as prose and the editor's dropdown does
+ * not offer them, so a shot annotated with one would raise an error nobody
+ * could clear, on a prompt that renders perfectly -- the serializer never reads
+ * this field. Whether the ordinary case belongs in the validator at all is a
+ * separate question; this is the half that is plainly wrong either way.
+ */
+describe('CUT_STYLE_NOT_IN_PROSE scope', () => {
+  it('ignores a special cut, which the prose is never taught to write', () => {
+    const doc = broken(t2vaBaker, (d) => void (d.shots[1].cutStyle = 'cross-dissolve'));
+    expect(codesFor(doc)).not.toContain('CUT_STYLE_NOT_IN_PROSE');
+  });
+
+  it('still fires when one ordinary phrasing is annotated and another is written', () => {
+    const doc = broken(t2vaBaker, (d) => void (d.shots[1].cutStyle = 'the shot switches to'));
+    expect(codesFor(doc)).toContain('CUT_STYLE_NOT_IN_PROSE');
+  });
+});

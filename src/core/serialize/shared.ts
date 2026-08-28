@@ -46,12 +46,16 @@ export function spliceDialogue(prose: string, dialogue: Dialogue | undefined): s
  * sorted the ordinals lexicographically, so ten speakers would have rendered
  * `(S10,S2)`.
  */
-export function speakerRef(speaker: Speaker, all: Speaker[]): string {
+export function speakerRef(speaker: Speaker, all: Speaker[]): string | null {
   if (speaker.compoundOf && speaker.compoundOf.length > 0) {
     const ordinals = speaker.compoundOf
       .map((id) => all.find((s) => s.id === id)?.ordinal)
       .filter((o): o is number => o != null)
       .sort((a, b) => a - b);
+    // Nothing resolved, so there is no id to render. Returning `()` would have
+    // the validator telling the user their prose must contain `()`, on top of
+    // the undeclared-member diagnostic that is the actual problem.
+    if (ordinals.length === 0) return null;
     return `(${ordinals.map((o) => `S${o}`).join(',')})`;
   }
   return `(S${speaker.ordinal})`;

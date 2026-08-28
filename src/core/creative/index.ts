@@ -45,8 +45,6 @@ export {
   GLITCH_TOKENS,
   DRAWABLE_TOKENS,
   describeGlitch,
-  getGlitchSurface,
-  getGlitchToken,
   glitchDirective,
   hasGlitch,
   pruneGlitch,

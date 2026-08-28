@@ -110,14 +110,28 @@ export function roll(text: string, random: () => number = Math.random): RollResu
   let out = text;
   const resolved: { at: number; raw: string; replacement: string }[] = [];
 
+  // One draw per category, reused at every occurrence. `{setting} then back to
+  // {setting}` is one place said twice, not two places -- and the matrix reads
+  // it that way, so drawing independently here made the same sentence mean
+  // different things depending on which button was pressed.
+  const drawnFor = new Map<string, string>();
+
   for (const p of found) {
     const category = getCategory(p.category);
     if (!category) {
       if (!unknown.includes(p.category)) unknown.push(p.category);
       continue;
     }
+
+    const already = drawnFor.get(p.raw);
+    if (already != null) {
+      resolved.push({ at: p.at, raw: p.raw, replacement: already });
+      continue;
+    }
+
     const count = p.count === 'all' ? category.values.length : p.count;
     const values = draw(category.values, count, random);
+    drawnFor.set(p.raw, values.join(', '));
     picks.push({ category: p.category, values });
     resolved.push({ at: p.at, raw: p.raw, replacement: values.join(', ') });
   }
@@ -159,4 +173,24 @@ export function newSeed(random: () => number = Math.random): number {
 /** Roll with a seed, so the same seed and text always give the same idea. */
 export function rollSeeded(text: string, seed: number): RollResult {
   return roll(text, seededRandom(seed));
+}
+
+/**
+ * The record of a roll, or nothing when there was no roll to record.
+ *
+ * A template whose every name is unknown still "rolls" -- `hasPlaceholders` is
+ * true and `roll` returns text -- but nothing was drawn, so stamping a seed on
+ * the document would record a roll that substituted nothing and label the
+ * version with a seed that reproduces the template unchanged.
+ *
+ * Lives here rather than in the hook that needs it, because a decision made
+ * inline in a component is a decision no test can reach.
+ */
+export function rollRecord(
+  template: string,
+  seed: number | null,
+): { template: string; seed: number } | undefined {
+  if (seed == null) return undefined;
+  if (rollSeeded(template, seed).picks.length === 0) return undefined;
+  return { template, seed };
 }

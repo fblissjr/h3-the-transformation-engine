@@ -78,7 +78,13 @@ export function CreativePanel({ value, onChange, appliesToNextGeneration }: Crea
 
   const pickMode = (next: CreativeMode | null) => {
     if (next === mode) return;
-    if (next === null) return onChange(null);
+    // Off clears the style. It does not clear the marks: they are a separate
+    // contribution with their own controls, which stay on screen when the mode
+    // buttons read Off, and clearing something whose controls are still showing
+    // its selection is the panel disagreeing with itself.
+    if (next === null) {
+      return onChange(glitch ? { mode: 'directed', selection: EMPTY, glitch } : null);
+    }
     if (next === 'wild') return onChange({ ...randomWild(), ...(glitch ? { glitch } : {}) });
     onChange({ mode: next, selection: EMPTY, ...(glitch ? { glitch } : {}) });
   };
@@ -128,13 +134,18 @@ export function CreativePanel({ value, onChange, appliesToNextGeneration }: Crea
         <PresetCards
           selection={selection}
           glitch={glitch}
-          onChange={(next, nextGlitch) =>
+          onChange={(next, nextGlitch) => {
+            // A preset that carries marks replaces them; one that carries none
+            // leaves the marks alone rather than deleting a selection it says
+            // nothing about. Every other control in this panel carries them
+            // across, and browsing styles is where a silent loss would hurt.
+            const marks = nextGlitch ?? glitch;
             onChange({
               mode: 'exploratory',
               selection: next,
-              ...(nextGlitch ? { glitch: nextGlitch } : {}),
-            })
-          }
+              ...(marks ? { glitch: marks } : {}),
+            });
+          }}
         />
       )}
 

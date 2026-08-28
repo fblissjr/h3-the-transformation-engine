@@ -136,4 +136,14 @@ describe('speakerRef', () => {
     const orphan = { id: 'x', ordinal: 3, descriptor: 'x', compoundOf: ['a', 'ghost'] };
     expect(speakerRef(orphan, speakers)).toBe('(S2)');
   });
+
+  /**
+   * With nothing resolvable there is no id. `()` would have the validator
+   * telling the user their prose must contain `()`, alongside the
+   * undeclared-member diagnostic that is the real problem.
+   */
+  it('is null when no member resolves at all', () => {
+    const ghosts = { id: 'x', ordinal: 3, descriptor: 'x', compoundOf: ['ghost-1', 'ghost-2'] };
+    expect(speakerRef(ghosts, speakers)).toBeNull();
+  });
 });

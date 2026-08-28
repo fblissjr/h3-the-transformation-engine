@@ -13,7 +13,7 @@ export type { WildcardCategory, WildcardCategoryId } from './library';
 export { WILDCARDS, CATEGORY_IDS, getCategory } from './library';
 
 export type { Placeholder, RollResult } from './expand';
-export { roll, rollSeeded, seededRandom, newSeed, placeholdersIn, hasPlaceholders } from './expand';
+export { roll, rollSeeded, rollRecord, seededRandom, newSeed, placeholdersIn, hasPlaceholders } from './expand';
 
 export type { Matrix, MatrixCell } from './matrix';
 export { experimentMatrix, MATRIX_CELL_LIMIT } from './matrix';

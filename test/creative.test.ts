@@ -358,9 +358,20 @@ describe('glitchDirective', () => {
 
   it('names the selected surfaces and no others', () => {
     const text = glitchDirective({ ...ONE, surfaces: ['reflection'] });
-    expect(text).toContain('Use these surfaces and no others:');
+    expect(text).toContain('Use this surface:');
     expect(text).toContain('Readable only in glass');
     expect(text).not.toContain('Printed on something manufactured');
+  });
+
+  /**
+   * The surfaces are a pool rather than an assignment. Nothing couples how many
+   * are chosen to how many marks there are, so "use these and no others" beside
+   * a list of six for a single mark was the block contradicting itself.
+   */
+  it('offers several surfaces as a pool rather than as one per mark', () => {
+    const text = glitchDirective({ ...ONE, surfaces: ['reflection', 'stamp', 'wear'] }) as string;
+    expect(text).toContain('a different one for each mark');
+    expect(text).not.toContain('and no others');
   });
 
   it('asks the planner to vary the surface when none was chosen', () => {

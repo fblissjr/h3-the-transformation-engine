@@ -160,7 +160,7 @@ Verified against `@google/genai` types or probed live, not read from docs:
 ```
 bun install
 bun run dev         # http://localhost:5173
-bun run test        # 433 tests
+bun run test        # 452 tests
 bun run typecheck
 bun run build
 bun run probe       # live API probes (reads GEMINI_API_KEY from .env)

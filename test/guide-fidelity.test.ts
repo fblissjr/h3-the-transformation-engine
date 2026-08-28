@@ -86,7 +86,7 @@ describe('the golden text is the guides own text', () => {
      * says what went unchecked.
      */
     it.todo(
-      'UNVERIFIED: internal/reference_prompting_h3 is absent, so the golden text was not compared to the guides',
+      'UNVERIFIED: reference/h3 is absent, so the golden text was not compared to the guides',
     );
     return;
   }

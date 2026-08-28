@@ -15,7 +15,7 @@ import type { CompileInput, H3Document, ReferenceSlot } from '../core/ir/types';
 import type { H3Mode } from '../core/ir/vocab';
 import type { CreativeModeRecord } from '../core/creative';
 import { describeRecord, hasDirection, pruneRecord, sameRecord } from '../core/creative';
-import { hasPlaceholders, newSeed, rollSeeded } from '../core/wildcards';
+import { hasPlaceholders, newSeed, rollRecord, rollSeeded } from '../core/wildcards';
 import { contextFor, framesToSeconds } from '../core/normalize';
 import { inferMode } from '../core/normalize/mode';
 import { compile, edit, editDirect, inspect } from '../pipeline';
@@ -262,9 +262,8 @@ export function useEngine() {
       // complete direction, and gating on the style alone would silently drop
       // it on the way to the planner.
       ...(creative && hasDirection(creative) ? { creativeMode: creative } : {}),
-      // Both halves or neither: the seed is only a record of a roll while the
-      // template it applied to travels with it.
-      ...(rolled && seed != null ? { roll: { template: idea, seed } } : {}),
+      // Both halves or neither, and only when something was actually drawn.
+      ...(rollRecord(idea, seed) ? { roll: rollRecord(idea, seed)! } : {}),
     }),
     [effectiveIdea, idea, rolled, seed, mode, durationFrames, durationSeconds, slots, creative],
   );
@@ -452,7 +451,6 @@ export function useEngine() {
     /** A new seed, which re-derives the idea. Clearing it returns the template. */
     roll: () => setSeed(newSeed()),
     clearRoll: () => setSeed(null),
-    rerollSeed: (next: number) => setSeed(next),
     /**
      * Whether the picker describes the next generation rather than the open
      * document. An assisted edit derives its style from `doc.creativeMode`, so

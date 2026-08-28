@@ -330,7 +330,12 @@ export function glitchDirective(glitch: StoredGlitch | undefined): string | null
   const surfaces = resolvedSurfaces(glitch);
   const placement =
     surfaces.length > 0
-      ? ['Use these surfaces and no others:', ...surfaces.map((s) => `  ${s.name}: ${s.directive}`)]
+      ? [
+          surfaces.length === 1
+            ? 'Use this surface:'
+            : 'Draw from these surfaces, a different one for each mark:',
+          ...surfaces.map((s) => `  ${s.name}: ${s.directive}`),
+        ]
       : [
           'Give each mark a different kind of surface. Something carved into the world, something ' +
             'legible only in a reflection, a display element inside the scene, something printed on ' +

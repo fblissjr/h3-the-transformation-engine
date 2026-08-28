@@ -13,6 +13,7 @@ import { contextFor, normalize } from './core/normalize';
 import { applyPatch, type PatchResult } from './core/patch/apply';
 import { serialize, type SerializeResult } from './core/serialize';
 import { validate, type ValidationResult } from './core/validate';
+import { placeholdersIn } from './core/wildcards';
 import { dataUrlToAttachment, GeminiClient, THINKING, type ImageAttachment } from './provider/gemini';
 import {
   buildPlannerSystemPrompt,
@@ -43,11 +44,34 @@ function imagesFor(input: CompileInput): ImageAttachment[] {
     .filter((a): a is ImageAttachment => a != null);
 }
 
+/**
+ * Refuse an idea that still carries wildcard placeholders.
+ *
+ * `src/core/wildcards/expand.ts` states that nothing downstream of
+ * `CompileInput` ever sees a placeholder. That was a claim about the UI rather
+ * than a property of anything, and three paths broke it: generating without
+ * rolling at all, checking out a version that carries no roll, and taking a
+ * matrix cell whose category the library does not have. All three end in the
+ * same place, so the check belongs here -- at the boundary the claim is about,
+ * before a model call is spent -- rather than in three places in the UI.
+ */
+function refuseUnexpanded(input: CompileInput): void {
+  const remaining = placeholdersIn(input.idea);
+  if (remaining.length === 0) return;
+
+  const names = [...new Set(remaining.map((p) => p.raw))].join(', ');
+  throw new PlanError(
+    `The idea still contains ${names}. Roll the wildcards, or remove the braces: a placeholder ` +
+      'that reaches the planner is written into the prompt literally.',
+  );
+}
+
 export async function compile(
   client: GeminiClient,
   input: CompileInput,
   options: { id: string; seed?: number; signal?: AbortSignal } = { id: 'doc-1' },
 ): Promise<CompileResult> {
+  refuseUnexpanded(input);
   const ctx = normalize(input);
 
   const result = await client.call({

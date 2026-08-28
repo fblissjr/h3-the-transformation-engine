@@ -79,6 +79,10 @@ export const speakerReferences: Rule = (doc) => {
       return;
     }
     const expected = speakerRef(speaker, doc.speakers);
+    // A compound speaker whose every member is undeclared has no id to look
+    // for. `COMPOUND_SPEAKER_INVALID` is already reporting that; asking the
+    // user to write an empty id in their prose on top of it would be noise.
+    if (expected == null) return;
     if (!beat.prose.includes(expected)) {
       out.push(
         error(

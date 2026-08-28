@@ -10,7 +10,7 @@
  * is open on, which is a view concern and nothing else reads it.
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { Matrix, RollResult } from '../../core/wildcards';
 import {
   MATRIX_CELL_LIMIT,
@@ -42,9 +42,17 @@ export function WildcardPanel({
 }: WildcardPanelProps) {
   const [showMatrix, setShowMatrix] = useState(false);
   const present = hasPlaceholders(idea);
-  const used = new Set(placeholdersIn(idea).map((p) => p.category));
+  const used = useMemo(() => new Set(placeholdersIn(idea).map((p) => p.category)), [idea]);
 
-  const matrix: Matrix | null = showMatrix && present ? experimentMatrix(idea) : null;
+  /**
+   * Memoized on the idea. Unmemoized this re-parsed the template, re-drew the
+   * fixed placeholders and rebuilt up to 64 substituted strings on every
+   * keystroke -- and on every unrelated re-render of the panel above it.
+   */
+  const matrix: Matrix | null = useMemo(
+    () => (showMatrix && present ? experimentMatrix(idea) : null),
+    [idea, showMatrix, present],
+  );
 
   return (
     <div className="space-y-1.5">

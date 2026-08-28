@@ -8,7 +8,7 @@
 
 import type { Diagnostic, Rule } from '../types';
 import { error } from '../types';
-import { CAMERA_TYPES, FRAME_ANCHOR_ROLES } from '../../ir/vocab';
+import { CAMERA_TYPES, FRAME_ANCHOR_ROLES, ORDINARY_CUTS } from '../../ir/vocab';
 
 /** The document must have something to render. */
 export const shotsPresent: Rule = (doc) => {
@@ -177,6 +177,12 @@ export const cutStylePhrasing: Rule = (doc) => {
   doc.shots.forEach((shot, i) => {
     // Shot 1 has no cut to phrase.
     if (i === 0 || !shot.cutStyle) return;
+    // Only the five ordinary phrasings. The planner schema also accepts
+    // cross-dissolve, fade and wipe, which the prompt never teaches as prose
+    // and the editor's dropdown does not offer, so a shot annotated with one
+    // would raise an error the user could not clear -- on output that renders
+    // perfectly, since the serializer never reads this field.
+    if (!(ORDINARY_CUTS as readonly string[]).includes(shot.cutStyle)) return;
     const first = shot.beats[0];
     if (!first) return;
     if (!first.prose.includes(shot.cutStyle)) {
