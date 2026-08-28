@@ -8,7 +8,7 @@
 
 import type { Diagnostic, Rule } from '../types';
 import { error } from '../types';
-import { CAMERA_TYPES, FRAME_ANCHOR_ROLES, ORDINARY_CUTS } from '../../ir/vocab';
+import { CAMERA_TYPES, FRAME_ANCHOR_ROLES } from '../../ir/vocab';
 
 /** The document must have something to render. */
 export const shotsPresent: Rule = (doc) => {
@@ -161,43 +161,6 @@ export const cameraTypeValid: Rule = (doc) => {
   return out;
 };
 
-/**
- * A shot's cut phrasing must be the phrasing its prose actually uses.
- *
- * The five ordinary cuts are exact strings from guide section 4.2, and the
- * planner is told to open a later shot's first beat with one of them. The
- * document records which, and the editor offers it as a dropdown -- so without
- * this the dropdown changes an annotation that reaches no output and disagrees
- * with the prose from then on. That is the same silent disagreement the camera
- * annotation would have, except a cut phrase is a fixed string rather than free
- * prose, so it can be checked exactly.
- */
-export const cutStylePhrasing: Rule = (doc) => {
-  const out: Diagnostic[] = [];
-  doc.shots.forEach((shot, i) => {
-    // Shot 1 has no cut to phrase.
-    if (i === 0 || !shot.cutStyle) return;
-    // Only the five ordinary phrasings. The planner schema also accepts
-    // cross-dissolve, fade and wipe, which the prompt never teaches as prose
-    // and the editor's dropdown does not offer, so a shot annotated with one
-    // would raise an error the user could not clear -- on output that renders
-    // perfectly, since the serializer never reads this field.
-    if (!(ORDINARY_CUTS as readonly string[]).includes(shot.cutStyle)) return;
-    const first = shot.beats[0];
-    if (!first) return;
-    if (!first.prose.includes(shot.cutStyle)) {
-      out.push(
-        error(
-          'CUT_STYLE_NOT_IN_PROSE',
-          `shots[${i}].beats[0].prose`,
-          `Shot ${i + 1} is annotated "${shot.cutStyle}" but its first beat never writes that phrase.`,
-        ),
-      );
-    }
-  });
-  return out;
-};
-
 /** Frame-anchor roles only make sense on images. */
 export const frameRolesOnImages: Rule = (doc) => {
   const out: Diagnostic[] = [];
@@ -226,6 +189,5 @@ export const timelineRules: Rule[] = [
   shotsHaveBeats,
   modeMatchesSlots,
   cameraTypeValid,
-  cutStylePhrasing,
   frameRolesOnImages,
 ];

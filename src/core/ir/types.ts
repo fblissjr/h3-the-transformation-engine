@@ -155,7 +155,16 @@ export interface Shot {
    * Later shots must be strictly increasing and inside the video duration.
    */
   cutAtMs: number | null;
-  /** Which cut phrasing to use. Ignored for Shot 1. */
+  /**
+   * Which of the guide's cut phrasings the planner used, for Shot 2 onward.
+   *
+   * Planner metadata and nothing else. The phrasing itself lives in the beat
+   * prose, because base 4.2 asks for it as natural language inside the
+   * sentence, so the serializer never reads this. It was editable and validated
+   * against the prose for a while; the error fired on documents that rendered
+   * perfectly, which is the rule class this project purged seventeen of, and
+   * the editable dropdown changed a value that reached no output.
+   */
   cutStyle?: CutStyle;
   /** Annotation on the shot's camera work, validated against the beat prose. */
   camera: CameraAnnotation | null;

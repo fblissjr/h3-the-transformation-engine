@@ -124,7 +124,6 @@ export const PATCHABLE_LEAVES: readonly string[] = [
   'shots[].camera.type',
   'shots[].camera.amplitude',
   'shots[].camera.speed',
-  'shots[].cutStyle',
   'shots[].cutAtMs',
   'subjects[].traits',
   'subjects[].retention',

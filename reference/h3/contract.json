@@ -221,7 +221,6 @@
       "SHOT_MISSING_TIMESTAMP": "base 4.2",
       "CUT_NOT_INCREASING": "base 4.2: strictly increasing cut times",
       "CUT_OUTSIDE_DURATION": "base 4.2: cuts fall within the video duration",
-      "CUT_STYLE_NOT_IN_PROSE": "base 4.2: the cut phrasing is one of five exact strings, and the annotation must be the one the prose uses",
       "SHOT_NO_BEATS": "house: a shot with no prose renders an empty header",
       "CAMERA_TYPE_INVALID": "base 4.3: the motion table",
       "FRAME_ROLE_ON_NON_IMAGE": "ref 2.2: only images are frame anchors",

@@ -12,7 +12,7 @@
 
 import { useEffect, useState } from 'react';
 import type { H3Document } from '../../core/ir/types';
-import { AMPLITUDES, CAMERA_TYPES, ORDINARY_CUTS, SPEEDS } from '../../core/ir/vocab';
+import { AMPLITUDES, CAMERA_TYPES, SPEEDS } from '../../core/ir/vocab';
 import { formatTimestamp } from '../../core/normalize/duration';
 
 interface FieldProps {
@@ -142,20 +142,6 @@ export function DocumentEditor({ doc, selectedPaths, onSelect, onCommit }: Props
                 </label>
               )}
 
-              {i > 0 && (
-                <select
-                  value={shot.cutStyle ?? ''}
-                  onChange={(e) => onCommit(`shots[${i}].cutStyle`, e.target.value)}
-                  className="rounded bg-black/30 px-1 py-0.5 text-[10px]"
-                >
-                  <option value="">(cut phrasing)</option>
-                  {ORDINARY_CUTS.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              )}
             </div>
 
             {shot.camera && (
