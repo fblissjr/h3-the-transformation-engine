@@ -408,6 +408,20 @@ describe('a repeated placeholder means the same thing twice', () => {
     expect(result.picks.map((p) => p.category)).toEqual(['era', 'setting']);
   });
 
+  /**
+   * `{setting:random}` is this module's own header saying `{setting}` out loud,
+   * so the two are one request. The draw cache was keyed by the written form,
+   * which had them drawing separately while the matrix -- keyed by category --
+   * gave both the same value: the same template meaning two things depending on
+   * which button was pressed.
+   */
+  it('treats {setting} and {setting:random} as one request', () => {
+    const result = roll('{setting} then back to {setting:random}.', seededRandom(1));
+    expect(result.picks).toHaveLength(1);
+    const [value] = result.picks[0].values;
+    expect(result.text).toBe(`${value} then back to ${value}.`);
+  });
+
   /** Different modifiers on one category are different requests, not one. */
   it('treats {prop} and {prop:2random} as separate draws', () => {
     const result = roll('{prop} and {prop:2random}', seededRandom(12));
@@ -474,5 +488,54 @@ describe('rollRecord', () => {
 
   it('records nothing for a template with no placeholders at all', () => {
     expect(rollRecord('a baker in a laundrette.', 99)).toBeUndefined();
+  });
+});
+
+/**
+ * Placeholder names come out of text the user typed, so every lookup keyed by
+ * one has to be a lookup and not a prototype read.
+ *
+ * `{constructor}` is not a category, so it is correctly skipped as an axis and
+ * left standing -- but the substitution then found `Object.prototype.constructor`
+ * and stringified `function Object() { [native code] }` into every cell. What
+ * made it more than ugly: the result carries no matchable placeholder, so the
+ * compile guard saw a clean idea and a model call was spent on it.
+ */
+describe('names that exist on Object.prototype are not categories', () => {
+  const inherited = ['constructor', 'toString', 'valueOf', 'hasOwnProperty'];
+
+  it('leaves them standing in a rolled idea, and reports them', () => {
+    for (const name of inherited) {
+      const result = roll(`a scene with {${name}}`, () => 0);
+      expect(result.text, name).toBe(`a scene with {${name}}`);
+      // Reported lowercased, as every category name is.
+      expect(result.unknown, name).toEqual([name.toLowerCase()]);
+    }
+  });
+
+  it('leaves them standing in every matrix cell rather than substituting a function', () => {
+    for (const name of inherited) {
+      const matrix = experimentMatrix(`a scene in {setting} with {${name}}`);
+      expect(matrix.axes.map((a) => a.category), name).toEqual(['setting']);
+      for (const cell of matrix.cells) {
+        expect(cell.text, name).toContain(`{${name}}`);
+        expect(cell.text, name).not.toContain('native code');
+      }
+    }
+  });
+
+  it('does not read a configuration off the prototype either', () => {
+    const matrix = experimentMatrix('{setting}', { constructor: ['nonsense'] } as never);
+    expect(matrix.axes[0].values).toEqual([...getCategory('setting')!.values]);
+  });
+
+  /** The compile guard has to still see something to refuse. */
+  it('leaves the guard something to catch', async () => {
+    const { compile, PlanError } = await import('../src/pipeline');
+    const client = { call: () => { throw new Error('unreachable'); } };
+    const idea = experimentMatrix('a scene in {setting} with {constructor}').cells[0].text;
+    await expect(
+      compile(client as never, { idea, durationFrames: 192, slots: [] }, { id: 'd' }),
+    ).rejects.toThrow(PlanError);
   });
 });

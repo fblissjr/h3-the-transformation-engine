@@ -77,13 +77,17 @@ export function CreativePanel({ value, onChange, appliesToNextGeneration }: Crea
 
   const pickMode = (next: WritableCreativeMode | null) => {
     if (next === mode) return;
-    // Off clears the style. It does not clear the marks: they are a separate
-    // contribution with their own controls, which stay on screen when the mode
-    // buttons read Off, and clearing something whose controls are still showing
-    // its selection is the panel disagreeing with itself.
-    if (next === null) {
-      return onChange(glitch ? withGlitch({ mode: 'directed', selection: EMPTY }, glitch) : null);
-    }
+    // Off clears the whole record, marks included.
+    //
+    // Keeping the marks meant returning a record, and a record needs a mode, so
+    // Off set `directed` -- which lit the Directed button, opened its controls,
+    // and made a second Off press a no-op. Off was unreachable while marks
+    // existed, and the comment here claimed the opposite.
+    //
+    // The real fix is that marks do not belong inside a record whose mode
+    // describes a style they have nothing to do with. Until they are lifted out,
+    // Off means off.
+    if (next === null) return onChange(null);
     if (next === 'wild') return onChange(withGlitch(randomWild(), glitch));
     onChange(withGlitch({ mode: next, selection: EMPTY }, glitch));
   };

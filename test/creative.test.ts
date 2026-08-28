@@ -428,6 +428,40 @@ describe('glitchDirective', () => {
   });
 });
 
+/**
+ * Surfaces are chosen independently of marks and nothing caps them against each
+ * other, so the directive has to describe whichever way the two counts fall.
+ * Asking for "a different one for each mark" beside two surfaces and three
+ * marks is an instruction that cannot be followed.
+ */
+describe('the surface clause matches the counts it was given', () => {
+  const three = ['SolidGoldMagikarp', 'GoldMagikarp', 'embedreportprint'];
+
+  it('promises one each only when there are enough', () => {
+    const text = glitchDirective({
+      tokens: three,
+      surfaces: ['inscription', 'reflection', 'stamp'],
+      register: 'motif',
+    }) as string;
+    expect(text).toContain('a different one for each mark');
+  });
+
+  it('says so when there are fewer surfaces than marks', () => {
+    const text = glitchDirective({
+      tokens: three,
+      surfaces: ['inscription', 'reflection'],
+      register: 'motif',
+    }) as string;
+    expect(text).toContain('fewer than there are marks');
+    expect(text).not.toContain('a different one for each mark');
+  });
+
+  it('uses the singular form for one surface', () => {
+    const text = glitchDirective({ tokens: three, surfaces: ['wear'], register: 'motif' }) as string;
+    expect(text).toContain('Use this surface:');
+  });
+});
+
 describe('the glitch tables', () => {
   it('carry unique ids', () => {
     const tokens = GLITCH_TOKENS.map((t) => t.id);
@@ -565,11 +599,26 @@ describe('randomGlitch', () => {
     }
   });
 
-  /** A pinned source draws the same index every time and the loop comes up short. */
-  it('still produces a usable record when every draw collides', () => {
-    const drawn = randomGlitch(() => 0);
+  /**
+   * The first iteration always pushes, so one mark is guaranteed without a
+   * fallback -- one stood in this function unreachable, with a test named for
+   * it that passed `() => 0` and took a path where the loop succeeded first
+   * time. What the attempt bound actually does is stop a pinned source that
+   * keeps drawing the same index from spinning: it comes up short instead.
+   */
+  it('comes up short rather than spinning when every draw collides', () => {
+    // 0.99 lands on the last drawable token every time, so only one is ever
+    // reachable however many were wanted.
+    const drawn = randomGlitch(() => 0.99);
     expect(drawn.tokens).toHaveLength(1);
+    expect(drawn.tokens[0]).toBe(DRAWABLE_TOKENS[DRAWABLE_TOKENS.length - 1]);
     expect(hasGlitch(drawn)).toBe(true);
+  });
+
+  it('always yields at least one mark, whatever the source returns', () => {
+    for (const value of [0, 0.25, 0.5, 0.75, 0.999999]) {
+      expect(randomGlitch(() => value).tokens.length).toBeGreaterThan(0);
+    }
   });
 });
 

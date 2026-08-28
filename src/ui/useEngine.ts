@@ -250,8 +250,11 @@ export function useEngine() {
   );
   const effectiveIdea = rolled?.text ?? idea;
 
-  const input = useMemo<CompileInput>(
-    () => ({
+  const input = useMemo<CompileInput>(() => {
+    // Hoisted: this runs a full seeded roll of the template, and it was being
+    // called twice in one expression to satisfy a non-null assertion.
+    const record = rollRecord(idea, seed);
+    return {
       idea: effectiveIdea,
       mode,
       ...(durationFrames != null ? { durationFrames } : { durationSeconds }),
@@ -262,11 +265,9 @@ export function useEngine() {
       // complete direction, and gating on the style alone would silently drop
       // it on the way to the planner.
       ...(creative && hasDirection(creative) ? { creativeMode: creative } : {}),
-      // Both halves or neither, and only when something was actually drawn.
-      ...(rollRecord(idea, seed) ? { roll: rollRecord(idea, seed)! } : {}),
-    }),
-    [effectiveIdea, idea, rolled, seed, mode, durationFrames, durationSeconds, slots, creative],
-  );
+      ...(record ? { roll: record } : {}),
+    };
+  }, [effectiveIdea, idea, seed, mode, durationFrames, durationSeconds, slots, creative]);
 
   const client = useMemo(() => (apiKey ? new GeminiClient({ apiKey }) : null), [apiKey]);
 

@@ -333,7 +333,9 @@ export function glitchDirective(glitch: StoredGlitch | undefined): string | null
       ? [
           surfaces.length === 1
             ? 'Use this surface:'
-            : 'Draw from these surfaces, a different one for each mark:',
+            : surfaces.length >= tokens.length
+              ? 'Draw from these surfaces, a different one for each mark:'
+              : 'Draw from these surfaces. There are fewer than there are marks, so some will repeat:',
           ...surfaces.map((s) => `  ${s.name}: ${s.directive}`),
         ]
       : [
@@ -393,14 +395,15 @@ export function randomGlitch(random: () => number = Math.random): GlitchSelectio
   const tokens: GlitchTokenId[] = [];
   const surfaces: GlitchSurfaceId[] = [];
 
+  // The first iteration always pushes, so at least one mark is guaranteed and
+  // no zero-token fallback is needed -- one stood here for a while, unreachable,
+  // with a test named for it that took a path where the loop succeeded first
+  // time. What the bound does is stop a pinned source that keeps drawing the
+  // same index from spinning forever; it comes up short instead.
   for (let attempt = 0; attempt < 30 && tokens.length < wanted; attempt++) {
     const token = pick(DRAWABLE_TOKENS);
     if (!tokens.includes(token)) tokens.push(token);
   }
-  // A pinned random source can draw the same index every time, so the loops
-  // above are bounded and may come up short. One mark is still a usable record;
-  // zero is not.
-  if (tokens.length === 0) tokens.push(DRAWABLE_TOKENS[0]);
 
   for (let attempt = 0; attempt < 30 && surfaces.length < tokens.length; attempt++) {
     const surface = pick(GLITCH_SURFACES).id;

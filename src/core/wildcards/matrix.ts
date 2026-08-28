@@ -56,13 +56,19 @@ export const MATRIX_CELL_LIMIT = 64;
  */
 function product(axes: { category: string; values: string[] }[], limit: number): Record<string, string>[] {
   if (axes.length === 0) return [];
-  let rows: Record<string, string>[] = [{}];
+  // Null-prototype, because these are keyed by names out of user-typed text.
+  // `{constructor}` is not a category, so it is correctly skipped as an axis --
+  // but `values['constructor']` then found Object.prototype.constructor and
+  // stringified `function Object() { [native code] }` into every cell. The
+  // result carries no matchable placeholder, so the compile guard passed it
+  // through and a model call was spent on it.
+  let rows: Record<string, string>[] = [Object.create(null)];
   for (const axis of axes) {
     const next: Record<string, string>[] = [];
     for (const row of rows) {
       for (const value of axis.values) {
         if (next.length >= limit) break;
-        next.push({ ...row, [axis.category]: value });
+        next.push(Object.assign(Object.create(null), row, { [axis.category]: value }));
       }
     }
     rows = next;
@@ -117,7 +123,9 @@ export function experimentMatrix(
     if (!category) continue;
     seen.add(placeholder.category);
 
-    const chosen = config[placeholder.category];
+    const chosen = Object.prototype.hasOwnProperty.call(config, placeholder.category)
+      ? config[placeholder.category]
+      : undefined;
     // A configuration naming only values the category does not have is a
     // request that cannot be met. Falling back to the whole category is the
     // only answer that still varies the axis; dropping it would leave the
@@ -155,6 +163,7 @@ function substitute(template: string, values: Record<string, string>): string {
   const found = placeholdersIn(template);
   let out = template;
   for (const p of [...found].sort((a, b) => b.at - a.at)) {
+    if (!Object.prototype.hasOwnProperty.call(values, p.category)) continue;
     const value = values[p.category];
     if (value == null) continue;
     out = out.slice(0, p.at) + value + out.slice(p.at + p.raw.length);

@@ -110,11 +110,18 @@ export function roll(text: string, random: () => number = Math.random): RollResu
   let out = text;
   const resolved: { at: number; raw: string; replacement: string }[] = [];
 
-  // One draw per category, reused at every occurrence. `{setting} then back to
+  // One draw per request, reused at every occurrence. `{setting} then back to
   // {setting}` is one place said twice, not two places -- and the matrix reads
   // it that way, so drawing independently here made the same sentence mean
   // different things depending on which button was pressed.
+  //
+  // Keyed by category and count rather than by the raw text: this file's own
+  // header calls `{setting:random}` the same thing as `{setting}` said out
+  // loud, so keying on the written form had those two drawing separately.
+  // `{prop}` and `{prop:2random}` stay separate, because they ask for
+  // different amounts.
   const drawnFor = new Map<string, string>();
+  const requestKey = (p: Placeholder) => `${p.category}\u0000${p.count}`;
 
   for (const p of found) {
     const category = getCategory(p.category);
@@ -123,7 +130,7 @@ export function roll(text: string, random: () => number = Math.random): RollResu
       continue;
     }
 
-    const already = drawnFor.get(p.raw);
+    const already = drawnFor.get(requestKey(p));
     if (already != null) {
       resolved.push({ at: p.at, raw: p.raw, replacement: already });
       continue;
@@ -131,7 +138,7 @@ export function roll(text: string, random: () => number = Math.random): RollResu
 
     const count = p.count === 'all' ? category.values.length : p.count;
     const values = draw(category.values, count, random);
-    drawnFor.set(p.raw, values.join(', '));
+    drawnFor.set(requestKey(p), values.join(', '));
     picks.push({ category: p.category, values });
     resolved.push({ at: p.at, raw: p.raw, replacement: values.join(', ') });
   }
