@@ -23,7 +23,7 @@ import type { PlannerOutput } from '../src/core/ir/schema';
 import type { CompileInput, H3Document } from '../src/core/ir/types';
 import type { H3Mode } from '../src/core/ir/vocab';
 import { normalize } from '../src/core/normalize';
-import { buildPlannerSystemPrompt } from '../src/provider/prompts/planner';
+import { GLITCH_MODE_NOTES, buildPlannerSystemPrompt } from '../src/provider/prompts/planner';
 import { buildPatchSystemPrompt } from '../src/provider/prompts/patch';
 import { fl2vaUmbrella, i2vaTrain, l2vaGlass, t2vaBaker } from './fixtures/guide-examples';
 import { ref2vaCoffeeShop } from './fixtures/ref-example';
@@ -319,16 +319,35 @@ describe('glitch marks in the planner prompt', () => {
    * which is the same failure as any other invented first-frame detail and
    * harder to notice, since a mark is meant to look out of place.
    */
-  it('tells each mode where a mark may not go', () => {
+  /**
+   * The property, not the sentences.
+   *
+   * This asserted five specific sentences, one per mode, which measured the
+   * wording rather than the thing that matters: that each mode is told
+   * something different, and told only its own. Reading the notes out of the
+   * table makes a reword invisible to the test and a copy-pasted note fatal to
+   * it -- which is the right way round, and is the stronger check besides.
+   */
+  it('gives every mode its own note, and shows it to no other mode', () => {
     const modeInput = (mode: H3Mode): CompileInput => ({ ...input, mode, creativeMode: MARKED });
     const promptFor = (mode: H3Mode) =>
       buildPlannerSystemPrompt(normalize(modeInput(mode)), modeInput(mode));
 
-    expect(promptFor('T2VA')).toContain('Nothing in this scene is fixed by a reference');
-    expect(promptFor('I2VA')).toContain('<Picture 1> is the actual first frame and does not contain a mark');
-    expect(promptFor('FL2VA')).toContain('Both pictures are actual frames and neither contains a mark');
-    expect(promptFor('L2VA')).toContain('<Picture 1> is the actual final frame');
-    expect(promptFor('Ref2VA')).toContain('Marks go on the environment only');
+    const modes = ['T2VA', 'I2VA', 'FL2VA', 'L2VA', 'Ref2VA'] as H3Mode[];
+    const notes = modes.map((m) => GLITCH_MODE_NOTES[m]);
+
+    expect(new Set(notes).size, 'two modes share a note').toBe(modes.length);
+    for (const note of notes) expect(note.length).toBeGreaterThan(40);
+
+    for (const mine of modes) {
+      expect(promptFor(mine), mine).toContain(GLITCH_MODE_NOTES[mine]);
+      for (const other of modes) {
+        if (other === mine) continue;
+        expect(promptFor(other), `${other} carries ${mine}'s note`).not.toContain(
+          GLITCH_MODE_NOTES[mine],
+        );
+      }
+    }
   });
 
   it('adds no mode note when the record has no marks', () => {

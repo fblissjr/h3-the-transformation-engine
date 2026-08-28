@@ -197,7 +197,7 @@ Aim for ${REF_DETAIL_WORD_RANGE[0]}-${REF_DETAIL_WORD_RANGE[1]} words across all
  * failure as any other invented first-frame detail, but harder to spot because
  * the mark is meant to look out of place.
  */
-const GLITCH_MODE_NOTES: Record<H3Mode, string> = {
+export const GLITCH_MODE_NOTES: Record<H3Mode, string> = {
   T2VA:
     'Nothing in this scene is fixed by a reference, so a mark can go anywhere the world would ' +
     'plausibly carry one.',
