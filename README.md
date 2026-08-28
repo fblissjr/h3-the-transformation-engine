@@ -30,7 +30,7 @@ Sora 2 and Veo 3.1 have no formal output contract, so tools for them are prompt 
 - a speaker registry assigned by order of vocal events
 - arithmetic: `frames / 24`, two-decimal durations, `MM:SS.mmm` cut times
 
-Nearly all of that is machine-checkable, so it is checked in code rather than asked for in a prompt.
+Nearly all of that is machine-checkable, so it is checked in code rather than asked for in a prompt, and stated once in [a spec the tests enforce](#the-contract).
 
 ```
 input -> normalize (TS) -> plan (one Gemini call) -> validate (TS) -> [patch] -> serialize (TS) -> prompt
@@ -50,17 +50,29 @@ H3 conditions on descriptive quality, and a canned camera clause bolted onto a s
 src/core/        pure TypeScript, no React, no DOM, no network (enforced by a test)
   ir/            document types, zod schemas, path addressing, the closed vocabularies
   normalize/     duration, label assignment, mode inference, budgets
-  validate/      36 rules, all hard errors, each with a fixture that makes it go red
+  validate/      30 rules emitting 37 error codes, each with a fixture that makes it go red
   serialize/     source-mapped emitter, both output contracts
   patch/         path-scoped patch application
-  creative/      style packs, anchors, strength scoring, presets
+  creative/      style packs, anchors, strength scoring, presets, glitch marks
+  wildcards/     {category} substitution on the idea, and the experiment matrix
 src/provider/    Gemini Interactions client and the planner/patch prompts
 src/crypto/      at-rest storage for the API key, three modes
 src/db/          IndexedDB, three stores, immutable version tree, erase-and-verify
 src/ui/          slot manager, document editor, prompt view, diagnostics, history, local data
+reference/h3/    the two official guides, and contract.json — the machine-readable spec
 ```
 
 `src/core` is runnable with no browser and no API key. That is what makes the grammar assertions cheap to run and lets the compiler move to a CLI or a ComfyUI-adjacent script later.
+
+## The contract
+
+The two official MiniMax guides are tracked in [reference/h3/](./reference/h3/), because the central claim here is that every value in `src/core/ir/vocab.ts` traces to a line in one of them, and a claim that cannot be checked from a clean checkout is not a claim.
+
+Beside them, [contract.json](./reference/h3/contract.json) is the machine-readable statement of the format: per mode the alignment line, section order, layout, separators and where the style clause goes; the legal vocabulary with a guide citation per value; the ordered blocks of both system prompts and which are conditional; every diagnostic and why it is legitimate; and everything the compiler does that no guide asks for, so contract and house style are distinguishable at a glance.
+
+It is written independently of the code rather than generated from it — a spec derived from the implementation agrees with the implementation by construction, and would catch nothing. `test/contract.test.ts` binds it in both directions: code that drifts from the spec fails, and a spec that misdescribes the code fails. The guide files are hashed there too, so a revision to either becomes a visible event rather than a silent change underneath the fixtures.
+
+Adding a mode, a section, a vocabulary value, a prompt block or a diagnostic means putting it in the spec first, watching that test fail, then implementing it.
 
 ## Creative modes
 
@@ -69,6 +81,10 @@ A creative mode contributes exactly one thing to the pipeline: a selection of pa
 The visual family covers 24 medium packs and 30 reference anchors in one id space. The anchors translate cultural and studio references into their observable traits, so what reaches the model is craft language rather than a name to imitate.
 
 Four ways in: off, directed (pick the packs), presets (fifteen named combinations), and wild (a random draw restricted to combinations with enough leverage to read as a style change rather than a filter). The leverage test is five axes — geometry, shape, palette, motion, texture — and a draw needs three of them with geometry or shape among them.
+
+Two properties hold this in place. The selection is the only thing stored or passed around; the directive text and the display label are derived wherever they are needed, so no copy of them can disagree with the selection. And the serializer never sees any of it — a document with a creative mode and one without serialize identically, because the style lives in the prose the planner wrote, not in a clause the code bolted on.
+
+The picker and an open document are deliberately allowed to differ. The picker is what the next generation will use; the document remembers what its own prose was written under, and an assisted edit preserves that rather than adopting whatever is currently selected. When the two diverge the badge says which one it is describing.
 
 ### Glitch marks
 
@@ -82,9 +98,31 @@ None of this is a validator rule. A mark placed badly is a prose preference, and
 
 This is not the glitch-art aesthetic. VHS wobble and chroma bleed are finish packs and a different feature that happens to share the word.
 
-Two properties hold this in place. The selection is the only thing stored or passed around; the directive text and the display label are derived wherever they are needed, so no copy of them can disagree with the selection. And the serializer never sees any of it — a document with a creative mode and one without serialize identically, because the style lives in the prose the planner wrote, not in a clause the code bolted on.
+## Wildcards
 
-The picker and an open document are deliberately allowed to differ. The picker is what the next generation will use; the document remembers what its own prose was written under, and an assisted edit preserves that rather than adopting whatever is currently selected. When the two diverge the badge says which one it is describing.
+`{setting}` anywhere in the idea is a category name. Rolling draws a value for it, so one idea becomes many and the same idea rolled twice is two different clips. Twelve categories of content — subject, action, setting, time, weather, prop, complication, sound, material, creature, era, scale — 122 values in all, deliberately separate from the creative packs: those decide how a clip looks, these decide what is in it. `{prop:3random}` draws three distinct values; `{era:all}` takes the category in its own order.
+
+The idea box keeps the template. Rolling derives the idea rather than overwriting it, so a second roll is still possible and the seed has something to be a seed of. Expansion happens on the way into `CompileInput` and nowhere later — a document assembled from unexpanded text would render a literal `{setting}` into the H3 prompt, and the prompt is a pure function of the document, so there is no downstream place to fix it. The roll travels on the document as `{template, seed}`, both halves or neither, so checking out a version puts the idea box back in the state that produced it.
+
+A name no category matches stays in the text exactly as written, and is reported. The idea is your own sentence; deleting a word out of it because it looked like a category name is worse than leaving something you can see.
+
+Every value is a concrete, observable fragment, and a test checks the whole library against the abstractions the planner prompt rejects by name. A wildcard carrying "melancholy" would hand the planner a word it has been told not to write, arriving inside the idea where the style direction cannot override it.
+
+### The experiment matrix
+
+Every combination of the values nominated per axis, as ideas, capped at 64 with the cap reported. Rolling asks for something else; this holds everything fixed but one axis, which is the only way a comparison between two prompts means anything — and whether the planner's prose conditions H3 well is the open question here.
+
+A placeholder asking for several values at once is not an axis: it is a decision already made, so `{prop:3random}` is drawn once from the matrix seed and held identical across every cell. Without that the same sentence meant two different things depending on which button was pressed.
+
+It stops at the text. Compiling one is a model call, so that decision stays with the person pressing generate.
+
+## Recognisable people
+
+A widely recognised person, living, dead or fictional, reaches the prompt as the role they are known for, the era, the dress, and the traits that identify them on sight — never the proper name. Naming one pulls the frame toward a likeness and away from the scene that was asked for; describing one leaves you in charge of the shot. It applies even when the request names someone: the name is what you asked for, the description is how it gets made.
+
+Two things are exempt, because they are reproduced exactly as given either way: words inside a `dialogue` field, and on-screen text. If a character says a name, they say it.
+
+In both the planner and the patch prompts, so an edit cannot introduce a name the prose was written to avoid. Neither official guide mentions public figures, so this is house style rather than contract, and there is no validator rule for it — deciding whether a description names a real person is exactly the prose pattern-matching that got seventeen rules removed.
 
 ## The source map
 
@@ -122,7 +160,7 @@ Verified against `@google/genai` types or probed live, not read from docs:
 ```
 bun install
 bun run dev         # http://localhost:5173
-bun run test        # 235 tests
+bun run test        # 433 tests
 bun run typecheck
 bun run build
 bun run probe       # live API probes (reads GEMINI_API_KEY from .env)
@@ -133,11 +171,14 @@ bun run probe       # live API probes (reads GEMINI_API_KEY from .env)
 ## Verification
 
 - Five golden fixtures reproduce the worked examples from both official guides **byte for byte**, and all five validate with zero errors.
-- Every one of the 36 diagnostic codes has a control fixture that makes it fire, plus the standing evidence that the unbroken examples produce none of them.
+- Those fixtures are checked against the guide files themselves rather than trusted. Two of the five were not the guides' text: `T2VA` and `Ref2VA` had been transcribed with typographic apostrophes where the official text has ASCII ones, so every byte-exact test passed against a copy that was already wrong. `test/guide-fidelity.test.ts` compares the golden text to the tracked guides, and separately checks the character set, which is the half that needs no guide on disk — the worked examples are pure ASCII apart from the em dash opening the FL2VA and L2VA alignment lines.
+- `test/contract.test.ts` binds [contract.json](./reference/h3/contract.json) to the implementation in both directions — 80 assertions covering the guide hashes, every alignment template, section order and layout read off rendered output, every vocabulary list, both prompts' ordered blocks, and the diagnostic catalogue against the codes the rules actually emit. Twelve deliberate breakages, six in the code and four in the spec, confirmed each fires.
+- Every one of the 37 diagnostic codes has a control fixture that makes it fire, plus the standing evidence that the unbroken examples produce none of them.
 - A meta-test scans the rule sources and fails if any emitted code has no control, so a new rule cannot ship without one. That meta-test has itself been shown to go red.
 - A purity test fails if `src/core` imports React, the SDK, the DB layer, the DOM, or `fetch`.
 - The request properties described in [Under the hood](#under-the-hood) — `store: false`, no `temperature`, an explicit `thinking_level` — are asserted in `test/provider.test.ts`.
 - The creative modes are checked at both ends: the derivations in `test/creative.test.ts`, and the wiring in `test/creative-integration.test.ts` — that both the planner and the patch prompt derive the same directive from the same record, that a creative mode survives a patch, that it changes nothing in the serialized prompt, and that a selection round-trips through the stored-document schema to the same prompt text. Ten deliberate breakages were used to confirm those go red for the right reason.
+- The glitch marks add eighteen more, among them the one an object schema makes invisible: dropping the `glitch` key strips it on load with no issue raised anywhere, and only the storage round trip notices. The wildcards add ten, including a placeholder being deleted rather than left in place, a seed that never reaches the draw, and a mood word entering the library.
 - The stored-document schema is checked on load and reports rather than gates. It is exercised against all five golden fixtures, so a drift between the schema and the type shows up as a failing test rather than as a document that will not open.
 - The storage claims are tested against `fake-indexeddb` rather than a mock, so rows are really written and databases really deleted. `test/wipe.test.ts` pairs every "it is gone" with a case where it is not, and `test/secureStore.test.ts` checks that the wrapping key refuses to export and that destroying it leaves the ciphertext in place but unreadable.
 - The unexportable-key behaviour was then checked in Chrome directly: a `CryptoKey` generated with `extractable: false`, put through IndexedDB and read back, is a genuine structured clone rather than the same object, keeps `extractable: false`, still decrypts, and rejects `exportKey('raw')`, `exportKey('jwk')` and `wrapKey` with `InvalidAccessError`. **One browser, one machine.** Firefox and Safari are unverified.
@@ -148,12 +189,15 @@ Three bugs so far passed the whole unit suite and broke the running app anyway �
 
 A fourth escaped even that. Tightening the stored `visual` field to a string broke only documents written by the *previous* build, and every check — the suite, the controls, the browser pass — ran against documents written by the current one, so nothing exercised it. An independent review of the diff caught it, along with the fact that it violated a rule written in the same diff. The lesson kept in [CLAUDE.md](./CLAUDE.md) is that reviewing your own change is the one gap none of the other checks close, and that the cheap standing test is to seed a document in the shape the last build wrote.
 
+A fifth was in the tests themselves. The golden fixtures were described as byte-exact reproductions of the guides, and two of them were not — the byte-exactness was a claim nothing checked, so the suite compared the serializer to a transcription that had already drifted. Every check in this repo that says "verified" now has to name the thing it read.
+
 **Errors only — there is no warning severity.** A diagnostic means the document is provably malformed: a cut outside the video, an undeclared speaker, a retention marker from the wrong vocabulary. Checks that pattern-matched prose for a preference — sentence counts, word targets, whether a camera annotation was echoed in the wording — were removed, because they fired on legitimate output. A check that cries wolf trains you to ignore the ones that matter. That guidance lives in the planner prompt instead, where being wrong costs nothing.
 
 ## Not built yet
 
 - Video and audio reference analysis. Those need a Files API upload, PROCESSING polling and 48h handle expiry, and only the `uri` path is verified working. Those slots take a written description for now.
-- Planner prompt tuning against real H3 generations. Everything verified so far is grammar; whether the prose conditions H3 well is unmeasured.
+- Planner prompt tuning against real H3 generations. Everything verified so far is grammar; whether the prose conditions H3 well is unmeasured. The experiment matrix is the instrument for asking — it holds every variable but one fixed — but nothing has been run through it yet.
+- Compiling a matrix in one go. It produces ideas; each still has to be generated by hand, because each is a model call.
 - Visual design.
 
 ## Under the hood
