@@ -11,15 +11,25 @@
  * in each entry and nothing else.
  */
 
-import type { H3Document, NormalizedContext, RetentionEntry, SlotLabel } from '../ir/types';
-import { AUDIO_RETENTION } from '../ir/vocab';
+import type { H3Document, NormalizedContext, SlotLabel } from '../ir/types';
+import type { LabelKind } from '../ir/vocab';
 import { Emitter } from './emitter';
 import type { SourceSpan } from './emitter';
 import { renderBeats, renderShotHeader } from './shared';
 
-function labelRef(labels: SlotLabel[], slotId: string, prefer?: 'Audio'): string {
+/**
+ * The label a retention line is about.
+ *
+ * `kind` comes from the entry, because the marker cannot supply it:
+ * `weak_reference` belongs to both marker vocabularies, so a `<Video N>`
+ * structural line -- the ref guide's own 4.1 example -- was rendering under
+ * `<Audio N>` whenever the slot carried both labels. With no kind stored, the
+ * primary label is meant, which is what every document written before the field
+ * existed intends.
+ */
+function labelRef(labels: SlotLabel[], slotId: string, kind?: LabelKind): string {
   const own = labels.filter((l) => l.slotId === slotId);
-  const picked = prefer ? own.find((l) => l.kind === prefer) ?? own[0] : own.find((l) => l.kind !== 'Audio') ?? own[0];
+  const picked = kind ? own.find((l) => l.kind === kind) ?? own[0] : own.find((l) => l.kind !== 'Audio') ?? own[0];
   return picked?.ref ?? `<missing slot ${slotId}>`;
 }
 
@@ -29,10 +39,6 @@ function shotList(doc: H3Document, shotIds: string[]): string {
     .filter((s) => shotIds.includes(s.id))
     .map((s) => `[Shot ${s.index}]`)
     .join(', ');
-}
-
-function isAudioMarker(marker: RetentionEntry['marker']): boolean {
-  return (AUDIO_RETENTION as readonly string[]).includes(marker);
 }
 
 export function serializeRef2va(
@@ -61,7 +67,13 @@ export function serializeRef2va(
         const slotIndex = doc.slots.findIndex((s) => s.id === label.slotId);
         if (slotIndex < 0) return;
         const slot = doc.slots[slotIndex];
-        e.writeAt(`slots[${slotIndex}].description`, `${label.ref} ${slot.description.trim()}`);
+        // A video whose soundtrack is used has two labels and needs two
+        // sentences; with one field the same one rendered twice, once
+        // describing a video under an Audio label.
+        const audio = label.kind === 'Audio' && slot.audioDescription?.trim();
+        const field = audio ? 'audioDescription' : 'description';
+        const text = audio ? slot.audioDescription!.trim() : slot.description.trim();
+        e.writeAt(`slots[${slotIndex}].${field}`, `${label.ref} ${text}`);
         e.newline();
       });
   });
@@ -91,7 +103,7 @@ export function serializeRef2va(
         ref = subject ? `<Subject ${subject.ordinal}>` : `<missing subject>`;
         context = entry.context.trim() || (subject ? `appears in ${shotList(doc, subject.appearsInShots)}` : '');
       } else {
-        ref = labelRef(labels, target.slotId, isAudioMarker(entry.marker) ? 'Audio' : undefined);
+        ref = labelRef(labels, target.slotId, target.labelKind);
         context = entry.context.trim();
       }
 

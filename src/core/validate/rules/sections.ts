@@ -112,10 +112,25 @@ export const refRetentionCoverage: Rule = (doc, ctx) => {
     }
   });
 
+  // One line per label, not per slot. A reference video whose soundtrack is used
+  // is both <Video N> and <Audio N>, and keying by slot alone let one entry
+  // clear both -- so a whole label could vanish from retention_analysis with a
+  // green validator.
+  const primaryKindFor = (slotId: string) =>
+    ctx.labels.find((l) => l.slotId === slotId && l.kind !== 'Audio')?.kind ??
+    ctx.labels.find((l) => l.slotId === slotId)?.kind;
+
   ctx.labels
     .filter((l) => l.standalone)
     .forEach((label) => {
-      const has = entries.some((e) => e.target.type === 'slot' && e.target.slotId === label.slotId);
+      const has = entries.some(
+        (e) =>
+          e.target.type === 'slot' &&
+          e.target.slotId === label.slotId &&
+          // An entry with no kind is about the primary label, which is what
+          // every document written before the field existed means.
+          (e.target.labelKind ?? primaryKindFor(label.slotId)) === label.kind,
+      );
       if (!has) {
         const i = doc.slots.findIndex((s) => s.id === label.slotId);
         out.push(error('REF_RETENTION_MISSING', `slots[${i}]`, `${label.ref} has no retention_analysis entry.`));
@@ -139,10 +154,17 @@ export const refRetentionMarkerClass: Rule = (doc, ctx) => {
     const path = `retention[${i}].marker`;
     // Hoisted so the discriminant survives into the .some() closures.
     const target = entry.target;
-    const isAudioTarget =
-      target.type === 'slot' &&
-      ctx.labels.some((l) => l.slotId === target.slotId && l.kind === 'Audio') &&
-      !ctx.labels.some((l) => l.slotId === target.slotId && l.kind === 'Video');
+    // Which label this line is about, from the entry rather than from the shape
+    // of the slot. Requiring "has an Audio label and no Video label" made the
+    // correct audio marker on a dual-labelled slot an error nobody could clear:
+    // switching to a visual marker would then be wrong for the audio line.
+    const resolvedKind =
+      target.type === 'slot'
+        ? target.labelKind ??
+          ctx.labels.find((l) => l.slotId === target.slotId && l.kind !== 'Audio')?.kind ??
+          ctx.labels.find((l) => l.slotId === target.slotId)?.kind
+        : undefined;
+    const isAudioTarget = resolvedKind === 'Audio';
 
     if (isAudioTarget && !audio.has(entry.marker)) {
       out.push(

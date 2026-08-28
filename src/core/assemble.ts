@@ -21,6 +21,7 @@ import type {
   Subject,
 } from './ir/types';
 import type { PlannerOutput } from './ir/schema';
+import type { LabelKind } from './ir/vocab';
 
 export class AssembleError extends Error {}
 
@@ -129,7 +130,13 @@ export function assemble(
       if (!slot) return [];
       return [
         {
-          target: { type: 'slot' as const, slotId: slot.id },
+          // The planner returns the two kinds in separate fields, so which
+          // label this line is about is known here and never guessed later.
+          target: {
+            type: 'slot' as const,
+            slotId: slot.id,
+            labelKind: (slot.kind === 'video' ? 'Video' : 'Picture') as LabelKind,
+          },
           context: r.context,
           marker: r.marker,
           note: r.note,
@@ -141,7 +148,7 @@ export function assemble(
       if (!slot) return [];
       return [
         {
-          target: { type: 'slot' as const, slotId: slot.id },
+          target: { type: 'slot' as const, slotId: slot.id, labelKind: 'Audio' as LabelKind },
           context: '',
           marker: r.marker,
           note: r.note,

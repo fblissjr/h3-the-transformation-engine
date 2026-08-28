@@ -22,6 +22,7 @@ import {
   AMPLITUDES,
   AUDIO_RETENTION,
   CAMERA_TYPES,
+  LABEL_KINDS,
   MEDIA_KINDS,
   MODES,
   ORDINARY_CUTS,
@@ -66,6 +67,7 @@ export const ReferenceSlotSchema = z.object({
   mimeType: z.string().optional(),
   dataUrl: z.string().optional(),
   description: z.string(),
+  audioDescription: z.string().optional(),
 });
 
 export const SubjectSchema = z.object({
@@ -113,7 +115,13 @@ export const ShotSchema = z.object({
 export const RetentionEntrySchema = z.object({
   target: z.union([
     z.object({ type: z.literal('subject'), subjectId: z.string().min(1) }),
-    z.object({ type: z.literal('slot'), slotId: z.string().min(1) }),
+    z.object({
+      type: z.literal('slot'),
+      slotId: z.string().min(1),
+      // Optional: documents written before a slot could carry two labels have
+      // no kind, and mean the primary one.
+      labelKind: z.enum(LABEL_KINDS).optional(),
+    }),
   ]),
   context: z.string(),
   marker: z.union([z.enum(VISUAL_RETENTION), z.enum(AUDIO_RETENTION)]),

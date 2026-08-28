@@ -17,6 +17,7 @@
 
 import type {
   Amplitude,
+  LabelKind,
   AudioRetention,
   CameraType,
   CutStyle,
@@ -58,6 +59,18 @@ export interface ReferenceSlot {
   dataUrl?: string;
   /** User-written, or derived from vision analysis for image slots. */
   description: string;
+  /**
+   * The sentence for this slot's `<Audio N>` line, when it has one.
+   *
+   * Only a video whose soundtrack is given a job carries two labels, and ref
+   * 2.5 wants two different sentences: `<Video 1> is the source video for the
+   * target video edit.` and `<Audio 2> is the synchronized audio track of
+   * <Video 1> and is reused in the target video.` With one field the same
+   * sentence rendered twice, once describing a video under an Audio label.
+   *
+   * Falls back to `description` when absent.
+   */
+  audioDescription?: string;
 }
 
 /** A derived label. Never stored on the slot; recomputed from order + roles. */
@@ -216,9 +229,23 @@ export interface Beat {
 // Ref2VA retention
 // ---------------------------------------------------------------------------
 
+/**
+ * What a retention line is about.
+ *
+ * A slot can carry two labels -- a reference video whose soundtrack is used is
+ * both `<Video N>` and `<Audio N>` -- and ref 4 asks for one line per label, so
+ * the slot id alone does not say which line this is. `labelKind` says.
+ *
+ * Optional, because documents written before it exist. When absent the primary
+ * (non-Audio, or sole) label is meant, which is what every such document has.
+ * It was absent for everything at first, and the renderer guessed from the
+ * marker instead: `weak_reference` is in both marker vocabularies, so the ref
+ * guide's own `<Video 1> (cut and pacing structure): weak_reference` line
+ * rendered under `<Audio 1>` and the Video label got no line at all.
+ */
 export type RetentionTarget =
   | { type: 'subject'; subjectId: string }
-  | { type: 'slot'; slotId: string };
+  | { type: 'slot'; slotId: string; labelKind?: LabelKind };
 
 export interface RetentionEntry {
   target: RetentionTarget;
