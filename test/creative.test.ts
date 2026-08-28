@@ -21,7 +21,6 @@ import {
   GLITCH_SURFACES,
   GLITCH_TOKENS,
   MOTION_PACKS,
-  PRESETS,
   STYLE_ANCHORS,
   VISUAL_PACKS,
   VISUAL_SOURCES,
@@ -310,24 +309,83 @@ describe('pruneSelection', () => {
   });
 });
 
-describe('presets', () => {
-  it('have unique ids', () => {
-    const ids = PRESETS.map((p) => p.id);
-    expect(new Set(ids).size).toBe(ids.length);
+describe('the legacy numeric anchor id', () => {
+  /**
+   * The form a document written before anchors had string ids carries. This
+   * build renamed them, and the rule is that a rename must not make an older
+   * document unopenable or silently strip its style.
+   */
+  it('resolves to the same anchor as its string id', () => {
+    expect(styleDirective({ visual: 28, strength: 'full' })).toBe(
+      styleDirective({ visual: 'R28', strength: 'full' }),
+    );
+    expect(describeSelection({ visual: 3, strength: 'full' })).toBe(
+      describeSelection({ visual: 'R03', strength: 'full' }),
+    );
   });
 
-  it('name only ids that exist', () => {
-    for (const preset of PRESETS) {
-      expect(hasStyle(preset.selection), preset.id).toBe(true);
-      expect(describeSelection(preset.selection), preset.id).not.toBe('');
-    }
+  it('scores the same as its string id', () => {
+    expect(scoreStrength({ visual: 3 })).toEqual(scoreStrength({ visual: 'R03' }));
   });
 
-  it('score as viable wherever they claim stress-test strength', () => {
-    for (const preset of PRESETS) {
-      if (preset.selection.strength !== 'stress-test') continue;
-      expect(isStressTestViable(scoreStrength(preset.selection)), preset.id).toBe(true);
-    }
+  it('is rewritten to the string form when a stored selection is restored', () => {
+    expect(pruneSelection({ visual: 28, strength: 'full' })).toEqual({
+      visual: 'R28',
+      strength: 'full',
+    });
+  });
+
+  it('still misses when the number names no anchor', () => {
+    expect(styleDirective({ visual: 99, strength: 'full' })).toBeNull();
+  });
+});
+
+describe('sameSelection', () => {
+  it('sees through the legacy id form', () => {
+    expect(sameSelection({ visual: 28, strength: 'full' }, { visual: 'R28', strength: 'full' })).toBe(true);
+  });
+
+  it('separates selections that differ in any field', () => {
+    expect(sameSelection({ visual: 'V04', strength: 'full' }, { visual: 'V06', strength: 'full' })).toBe(false);
+    expect(sameSelection({ visual: 'V04', strength: 'full' }, { visual: 'V04', strength: 'subtle' })).toBe(false);
+    expect(sameSelection({ strength: 'full' }, { strength: 'full' })).toBe(true);
+  });
+});
+
+describe('pruneSelection', () => {
+  it('keeps everything that resolves', () => {
+    const full = { visual: 'V06', motion: 'M04', finish: 'F02', audio: 'A02', strength: 'full' } as const;
+    expect(pruneSelection(full)).toEqual(full);
+  });
+
+  /**
+   * The reason this exists: an id nothing resolves renders as a blank
+   * dropdown, and left in the selection it rides along through every later
+   * edit without ever being visible.
+   */
+  it('drops ids nothing resolves, keeping the rest and the strength', () => {
+    expect(pruneSelection({ visual: 'V99', motion: 'M04', strength: 'subtle' })).toEqual({
+      motion: 'M04',
+      strength: 'subtle',
+    });
+  });
+
+  /**
+   * Strength reaches the strength buttons and the directive preamble. A value
+   * off the union renders a badge no button matches and would be written back
+   * into the next document unchanged.
+   */
+  it('replaces a strength level that is off the union', () => {
+    expect(pruneSelection({ visual: 'V04', strength: 'extreme' } as never)).toEqual({
+      visual: 'V04',
+      strength: 'full',
+    });
+  });
+
+  it('leaves a selection that resolves to nothing at all as just its strength', () => {
+    expect(pruneSelection({ visual: 'V99', audio: 'A99', strength: 'full' })).toEqual({
+      strength: 'full',
+    });
   });
 });
 
@@ -638,12 +696,30 @@ describe('the record as a whole', () => {
    */
   it('leaves a record written before marks existed exactly as it was', () => {
     const previousBuild = JSON.parse(
-      JSON.stringify({ mode: 'exploratory', selection: { visual: 'V06', strength: 'full' } }),
+      JSON.stringify({ mode: 'directed', selection: { visual: 'V06', strength: 'full' } }),
     );
     const restored = pruneRecord(previousBuild);
-    expect(restored).toEqual({ mode: 'exploratory', selection: { visual: 'V06', strength: 'full' } });
+    expect(restored).toEqual({ mode: 'directed', selection: { visual: 'V06', strength: 'full' } });
     expect('glitch' in restored).toBe(false);
     expect(sameRecord(restored, previousBuild)).toBe(true);
+    expect(describeRecord(restored)).toBe('Clay animation');
+  });
+
+  /**
+   * The presets are gone and the picker no longer offers the mode they lived
+   * in, but documents written under it exist. Refusing to open one, or leaving
+   * it holding a mode no button matches, is the regression this repo has
+   * already shipped once.
+   */
+  it('maps the retired preset mode onto what it always was underneath', () => {
+    const stored = JSON.parse(
+      JSON.stringify({ mode: 'exploratory', selection: { visual: 'V06', strength: 'full' } }),
+    );
+    const restored = pruneRecord(stored);
+    expect(restored.mode).toBe('directed');
+    expect(restored.selection).toEqual({ visual: 'V06', strength: 'full' });
+    // The mode is not a contribution, so nothing about the style changed.
+    expect(sameRecord(restored, stored)).toBe(true);
     expect(describeRecord(restored)).toBe('Clay animation');
   });
 
@@ -655,33 +731,5 @@ describe('the record as a whole', () => {
         glitch: { tokens: ['NotAToken'], register: 'motif' },
       }),
     ).toEqual({ mode: 'directed', selection: { motion: 'M04', strength: 'full' } });
-  });
-});
-
-describe('the glitch presets', () => {
-  const withMarks = PRESETS.filter((p) => p.glitch);
-
-  it('exist', () => {
-    expect(withMarks.length).toBeGreaterThan(0);
-  });
-
-  it('name only tokens and surfaces that exist, within the ceiling', () => {
-    for (const preset of withMarks) {
-      expect(pruneGlitch(preset.glitch), preset.id).toEqual(preset.glitch);
-      expect(preset.glitch!.tokens.length, preset.id).toBeLessThanOrEqual(GLITCH_MAX_TOKENS);
-    }
-  });
-
-  /** Both halves are compared to light a card, so both halves have to be distinct. */
-  it('are distinguishable from each other and from the styles they share', () => {
-    for (const preset of PRESETS) {
-      const twins = PRESETS.filter((other) =>
-        sameRecord(
-          { selection: other.selection, glitch: other.glitch },
-          { selection: preset.selection, glitch: preset.glitch },
-        ),
-      );
-      expect(twins.map((t) => t.id), preset.id).toEqual([preset.id]);
-    }
   });
 });

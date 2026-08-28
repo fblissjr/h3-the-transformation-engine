@@ -60,7 +60,20 @@ export interface StrengthScore {
 // Selection
 // ---------------------------------------------------------------------------
 
+/**
+ * How the style selection was arrived at.
+ *
+ * `exploratory` was the preset mode. The presets are gone -- fifteen named pack
+ * combinations that asserted particular pairings were good, with nothing ever
+ * checked against real H3 output -- but the value stays in the union because
+ * documents written under it exist, and a build that refuses to open what the
+ * previous build wrote loses work that exists nowhere else. It is restored as
+ * `directed`, which is what it always was underneath: four pack ids.
+ */
 export type CreativeMode = 'directed' | 'exploratory' | 'wild';
+
+/** The modes the picker offers. `exploratory` is read, never written. */
+export type WritableCreativeMode = Exclude<CreativeMode, 'exploratory'>;
 
 /**
  * A selection as it may arrive from storage.
@@ -100,8 +113,8 @@ export interface CreativeSelection extends StoredSelection {
  * Glitch marks sit beside the selection rather than inside it. The four style
  * families are one scalar id each, and every derivation in `resolver.ts` is
  * built on that shape; a list of token ids in one of those fields would make
- * `sameSelection` a reference comparison, which silently breaks both the
- * preset highlight and the badge that says an edit will keep the old style.
+ * `sameSelection` a reference comparison, which silently breaks the badge that
+ * says an edit will keep the old style.
  */
 export interface CreativeModeRecord {
   mode: CreativeMode;

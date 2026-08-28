@@ -53,7 +53,7 @@ src/core/        pure TypeScript, no React, no DOM, no network (enforced by a te
   validate/      30 rules emitting 37 error codes, each with a fixture that makes it go red
   serialize/     source-mapped emitter, both output contracts
   patch/         path-scoped patch application
-  creative/      style packs, anchors, strength scoring, presets, glitch marks
+  creative/      style packs, anchors, strength scoring, glitch marks
   wildcards/     {category} substitution on the idea, and the experiment matrix
 src/provider/    Gemini Interactions client and the planner/patch prompts
 src/crypto/      at-rest storage for the API key, three modes
@@ -80,7 +80,7 @@ A creative mode contributes exactly one thing to the pipeline: a selection of pa
 
 The visual family covers 24 medium packs and 30 reference anchors in one id space. The anchors translate cultural and studio references into their observable traits, so what reaches the model is craft language rather than a name to imitate.
 
-Four ways in: off, directed (pick the packs), presets (fifteen named combinations), and wild (a random draw restricted to combinations with enough leverage to read as a style change rather than a filter). The leverage test is five axes — geometry, shape, palette, motion, texture — and a draw needs three of them with geometry or shape among them.
+Three ways in: off, directed (pick the packs), and wild (a random draw restricted to combinations with enough leverage to read as a style change rather than a filter). The leverage test is five axes — geometry, shape, palette, motion, texture — and a draw needs three of them with geometry or shape among them.
 
 Two properties hold this in place. The selection is the only thing stored or passed around; the directive text and the display label are derived wherever they are needed, so no copy of them can disagree with the selection. And the serializer never sees any of it — a document with a creative mode and one without serialize identically, because the style lives in the prose the planner wrote, not in a clause the code bolted on.
 
@@ -160,7 +160,7 @@ Verified against `@google/genai` types or probed live, not read from docs:
 ```
 bun install
 bun run dev         # http://localhost:5173
-bun run test        # 463 tests
+bun run test        # 468 tests
 bun run typecheck
 bun run build
 bun run probe       # live API probes (reads GEMINI_API_KEY from .env)

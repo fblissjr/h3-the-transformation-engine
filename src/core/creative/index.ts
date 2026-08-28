@@ -15,6 +15,7 @@ export type {
   CreativeMode,
   CreativeModeRecord,
   CreativeSelection,
+  WritableCreativeMode,
   StoredCreativeRecord,
   StoredSelection,
   StrengthLevel,
@@ -64,5 +65,3 @@ export {
   sameSelection,
   randomWild,
 } from './resolver';
-export { PRESETS } from './presets';
-export type { CreativePreset } from './presets';

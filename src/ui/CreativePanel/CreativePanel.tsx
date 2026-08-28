@@ -1,9 +1,10 @@
 /**
  * Creative mode panel.
  *
- * Controls which style directive is injected into the planner prompt. Off = no
- * creative directive. Directed = the user picks packs. Presets = named
- * combinations. Wild = a random high-leverage draw.
+ * Controls what a creative record contributes to the planner prompt: a style
+ * direction and, independently, a set of glitch marks. Off = no style. Directed
+ * = the user picks packs. Wild = a random high-leverage draw. The marks have
+ * their own controls and are not cleared by any of the three.
  *
  * Every control here is driven by the record passed in and writes back through
  * `onChange`. The panel holds no state of its own on purpose: when it did, a
@@ -13,7 +14,7 @@
 
 import type {
   AudioPackId,
-  CreativeMode,
+  WritableCreativeMode,
   CreativeModeRecord,
   CreativeSelection,
   FinishPackId,
@@ -34,22 +35,19 @@ import {
   GLITCH_SURFACES,
   GLITCH_TOKENS,
   MOTION_PACKS,
-  PRESETS,
   STRENGTH_LEVELS,
   STYLE_ANCHORS,
   VISUAL_PACKS,
   describeRecord,
   randomGlitch,
   randomWild,
-  sameRecord,
 } from '../../core/creative';
 
-const MODES: (CreativeMode | null)[] = [null, 'directed', 'exploratory', 'wild'];
+const MODES: (WritableCreativeMode | null)[] = [null, 'directed', 'wild'];
 
 const MODE_LABELS: Record<string, string> = {
   off: 'Off',
   directed: 'Directed',
-  exploratory: 'Presets',
   wild: 'Wild',
 };
 
@@ -76,7 +74,7 @@ export function CreativePanel({ value, onChange, appliesToNextGeneration }: Crea
   const glitch = value?.glitch;
   const label = describeRecord(value);
 
-  const pickMode = (next: CreativeMode | null) => {
+  const pickMode = (next: WritableCreativeMode | null) => {
     if (next === mode) return;
     // Off clears the style. It does not clear the marks: they are a separate
     // contribution with their own controls, which stay on screen when the mode
@@ -127,25 +125,6 @@ export function CreativePanel({ value, onChange, appliesToNextGeneration }: Crea
         <DirectedControls
           selection={selection}
           onChange={(next) => onChange({ mode: 'directed', selection: next })}
-        />
-      )}
-
-      {mode === 'exploratory' && (
-        <PresetCards
-          selection={selection}
-          glitch={glitch}
-          onChange={(next, nextGlitch) => {
-            // A preset that carries marks replaces them; one that carries none
-            // leaves the marks alone rather than deleting a selection it says
-            // nothing about. Every other control in this panel carries them
-            // across, and browsing styles is where a silent loss would hurt.
-            const marks = nextGlitch ?? glitch;
-            onChange({
-              mode: 'exploratory',
-              selection: next,
-              ...(marks ? { glitch: marks } : {}),
-            });
-          }}
         />
       )}
 
@@ -295,47 +274,6 @@ function DirectedControls({
           </button>
         ))}
       </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Preset cards
-// ---------------------------------------------------------------------------
-
-function PresetCards({
-  selection,
-  glitch,
-  onChange,
-}: {
-  selection: CreativeSelection;
-  glitch: GlitchSelection | undefined;
-  onChange: (next: CreativeSelection, nextGlitch: GlitchSelection | undefined) => void;
-}) {
-  // Compared on both halves: two presets can share a style and differ only in
-  // their marks, and comparing the selection alone would light up both.
-  const active =
-    PRESETS.find((p) => sameRecord({ selection: p.selection, glitch: p.glitch }, { selection, glitch }))
-      ?.id ?? null;
-
-  return (
-    <div className="grid grid-cols-2 gap-1">
-      {PRESETS.map((p) => (
-        <button
-          key={p.id}
-          type="button"
-          aria-pressed={active === p.id}
-          onClick={() => onChange({ ...p.selection }, p.glitch ? { ...p.glitch } : undefined)}
-          className={`rounded border p-1.5 text-left ${
-            active === p.id
-              ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10'
-              : 'border-[var(--color-edge)] hover:bg-white/5'
-          }`}
-        >
-          <div className="text-[10px] font-semibold">{p.name}</div>
-          <div className="text-[10px] text-[var(--color-muted)]">{p.description}</div>
-        </button>
-      ))}
     </div>
   );
 }

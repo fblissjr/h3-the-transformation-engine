@@ -188,7 +188,9 @@ export function describeRecord(record: Contribution | null | undefined): string 
 export function pruneRecord(record: StoredCreativeRecord): CreativeModeRecord {
   const glitch = pruneGlitch(record.glitch);
   return {
-    mode: record.mode,
+    // `exploratory` was the preset mode and the picker no longer offers it.
+    // Underneath it was always four pack ids, which is `directed`.
+    mode: record.mode === 'exploratory' ? 'directed' : record.mode,
     selection: pruneSelection(record.selection),
     ...(glitch ? { glitch } : {}),
   };
