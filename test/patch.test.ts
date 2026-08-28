@@ -181,6 +181,21 @@ describe('direct edits go through the same gates', () => {
  *
  * A failure here is not necessarily a bug. It is a question: is the new leaf
  * something the serializer derives?
+ *
+ * Pinning is right here and is not right everywhere. The condition is not that
+ * the list is small -- it is that the pin catches the direction of change that
+ * is dangerous. This list GRANTS write access, so growth is the harmful
+ * direction and a pin fires exactly there. A list that RESTRICTS -- a denylist
+ * of phrases, say -- is the mirror: growth means somebody found another bad
+ * case and the check got stronger, shrinkage is the silent loss, and a strict
+ * pin would fail on every legitimate addition until someone deleted it. Both
+ * are "a list of strings the code compares against" and the shape does not tell
+ * you which you have. Ask which edit you are afraid of first.
+ *
+ * The separation is load-bearing too: the list lives in `src/core/ir/paths.ts`
+ * and this copy is written by hand here, so granting access and acknowledging
+ * it cannot be the same edit. A baseline sitting beside the list it guards is a
+ * speed bump rather than a control -- whoever changes one changes both.
  */
 describe('the patchable surface', () => {
   it('is exactly this list', () => {
