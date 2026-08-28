@@ -9,9 +9,6 @@
  * exist in either file. Nothing downstream may cite it as a guide rule.
  */
 
-/** A shot needs enough time after its cut to show anything at all. */
-export const MIN_SHOT_MS = 1_500;
-
 /**
  * House pacing figure: roughly one dominant beat per 2.5 seconds.
  *
@@ -41,14 +38,6 @@ export function latestCutMs(durationSeconds: number): number {
 }
 
 /**
- * The last millisecond at which a cut still leaves a usable shot behind it.
- * Softer than `latestCutMs`; crossing this is a warning, not an error.
- */
-export function comfortableLatestCutMs(durationSeconds: number): number {
-  return Math.max(0, Math.floor(durationSeconds * 1000) - MIN_SHOT_MS);
-}
-
-/**
  * Suggested shot count.
  *
  * Multi-shot is supported and is not a licence to cram unrelated scenes into
@@ -71,25 +60,10 @@ export function recommendedBeats(durationSeconds: number): number {
   return Math.max(1, Math.round((durationSeconds * 1000) / MS_PER_BEAT));
 }
 
-/** Count words the way the budget check does: whitespace-separated tokens. */
-export function countWords(text: string): number {
-  const trimmed = text.trim();
-  if (trimmed === '') return 0;
-  return trimmed.split(/\s+/).length;
-}
-
-/**
- * Sentence count for the two audio sections.
- *
- * Splits on terminal punctuation followed by whitespace or end of string. Good
- * enough for a 1-4 sentence bound; abbreviations would fool it, but the audio
- * sections describe sound and do not contain them.
- */
-export function countSentences(text: string): number {
-  const trimmed = text.trim();
-  if (trimmed === '') return 0;
-  const matches = trimmed.match(/[^.!?]+[.!?]+(\s|$)/g);
-  if (!matches) return 1; // no terminal punctuation at all is still one attempt
-  const remainder = trimmed.replace(/[^.!?]+[.!?]+(\s|$)/g, '').trim();
-  return matches.length + (remainder === '' ? 0 : 1);
-}
+// Four exports were removed from here: `MIN_SHOT_MS`, `comfortableLatestCutMs`,
+// `countWords` and `countSentences`. None had a caller anywhere outside this
+// file. `comfortableLatestCutMs` also carried the last written trace of the
+// warning severity the validator retired -- "crossing this is a warning, not an
+// error" -- which is a rule the repo removed documented as if it were live. The
+// sentence ranges it would have checked reach the planner prompt as advice and
+// no rule counts them, so nothing was quietly relying on any of it.

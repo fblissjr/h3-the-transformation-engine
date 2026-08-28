@@ -62,6 +62,7 @@ export {
   pruneRecord,
   pruneSelection,
   sameRecord,
+  withGlitch,
   sameSelection,
   randomWild,
 } from './resolver';

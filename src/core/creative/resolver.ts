@@ -23,6 +23,7 @@ import type {
   CreativeModeRecord,
   CreativeSelection,
   StoredCreativeRecord,
+  StoredGlitch,
   StoredSelection,
   StrengthLevel,
   VisualId,
@@ -184,16 +185,42 @@ export function describeRecord(record: Contribution | null | undefined): string 
     .join(' + ');
 }
 
+/**
+ * Attach a set of marks to a style selection, or leave the record without one.
+ *
+ * The marks are the half of the record a caller forgets. Every place that
+ * builds a record from a new style has to carry the existing marks across, and
+ * writing `...(glitch ? { glitch } : {})` by hand at each one is four chances
+ * to leave it out -- which is exactly what happened in the creative panel's
+ * pack dropdowns, where changing any pack silently deleted the selected marks.
+ * `tokens: []` and no record at all must not be two states, so an empty set
+ * produces no key rather than an empty one; `pruneGlitch` already decides that
+ * and this defers to it.
+ */
+export function withGlitch(
+  base: Omit<CreativeModeRecord, 'glitch'>,
+  glitch: StoredGlitch | undefined,
+): CreativeModeRecord {
+  const kept = pruneGlitch(glitch);
+  return { ...base, ...(kept ? { glitch: kept } : {}) };
+}
+
 /** Drop everything this build cannot resolve, in both halves. */
 export function pruneRecord(record: StoredCreativeRecord): CreativeModeRecord {
-  const glitch = pruneGlitch(record.glitch);
-  return {
-    // `exploratory` was the preset mode and the picker no longer offers it.
-    // Underneath it was always four pack ids, which is `directed`.
-    mode: record.mode === 'exploratory' ? 'directed' : record.mode,
-    selection: pruneSelection(record.selection),
-    ...(glitch ? { glitch } : {}),
-  };
+  return withGlitch(
+    {
+      // `exploratory` was the preset mode and the picker no longer offers it.
+      // Underneath it was always four pack ids, which is `directed`. Anything
+      // else off the union is a document from a build this one does not know:
+      // pruneSelection guards `strength` for exactly this reason, and a mode
+      // off the union renders a panel with no button highlighted, no controls,
+      // and a badge for a style the user cannot see or edit -- then gets
+      // written back to the next document unchanged.
+      mode: record.mode === 'directed' || record.mode === 'wild' ? record.mode : 'directed',
+      selection: pruneSelection(record.selection),
+    },
+    record.glitch,
+  );
 }
 
 // ---------------------------------------------------------------------------

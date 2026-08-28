@@ -219,6 +219,37 @@ describe('vocabulary matches the spec', () => {
     expect(v.budgets.refDetailWords.range).toEqual([...vocab.REF_DETAIL_WORD_RANGE]);
   });
   it('the not-applicable sentinel', () => expect(v.notApplicable.value).toBe(vocab.NOT_APPLICABLE));
+
+  /**
+   * Every vocabulary entry says where it came from.
+   *
+   * `slotCeilings` and `mediaKinds` sat in this block beside twenty guide-cited
+   * entries with the absence of a `guide` key as the only signal that no guide
+   * states them. Marking the two was a data edit; without this the next entry
+   * added with neither key is exactly as invisible as those two were, and the
+   * whole suite stays green. An audit has to be able to tell contract from
+   * house style at a glance, which is this file's stated job.
+   */
+  it('every entry carries either a guide citation or a house marker', () => {
+    const unattributed = Object.entries(v)
+      .filter(([, entry]) => entry !== null && typeof entry === 'object' && !Array.isArray(entry))
+      .filter(([, entry]) => {
+        const e = entry as Record<string, unknown>;
+        if (typeof e.guide === 'string' || e.house === true) return false;
+        // A grouping of sub-entries (tags) attributes each child instead.
+        return !Object.values(e).every(
+          (child) =>
+            child !== null &&
+            typeof child === 'object' &&
+            typeof (child as Record<string, unknown>).guide === 'string',
+        );
+      })
+      .map(([key]) => key);
+
+    expect(unattributed).toEqual([]);
+    // Not vacuous: the block has entries and they were actually inspected.
+    expect(Object.keys(v).length).toBeGreaterThan(10);
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -156,6 +156,7 @@
           "video editing: the description scales with the complexity of the source video and is not held to this range",
           "dialogue-dense material: fitting the complete spoken timeline outranks the count"
         ],
+        "alsoInTheSameSentence": "A single shot does not automatically justify a shorter description; distribute detail across multiple shots according to their information load. Carried by the planner, and recorded here so the spec states the whole clause group rather than the parts that happened to be contested.",
         "unresolved": "Task types combine (ref 3: joined with ' + ', and its own worked example is [video editing + reference generation + audio reuse]). ref 5.2 does not say which clause governs a prefix naming video editing alongside a generation type. Left unresolved here on purpose rather than decided in either direction; the planner is told only not to pad toward the range to satisfy it, since padding is the failure mode either answer would rule out. A guide revision that resolves it is a visible event -- the guide files are hash-checked in sources above.",
         "note": "The scope is part of the rule. Stating the bare range overstates the guide, which is how the planner came to apply it to video-editing jobs."
       }

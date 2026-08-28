@@ -300,6 +300,15 @@ describe('dialogue punctuation scope', () => {
     expect(codesFor(doc)).not.toContain('DIALOGUE_BAD_TERMINAL');
   });
 
+  it('still fires on a missing terminal mark once it is not user-supplied', () => {
+    const doc = supplied((d) => {
+      const dialogue = d.shots[0].beats[2].dialogue!;
+      dialogue.userSupplied = false;
+      dialogue.text = 'I get off at the next station';
+    });
+    expect(codesFor(doc)).toContain('DIALOGUE_BAD_TERMINAL');
+  });
+
   it('still fires on the same text once it is not user-supplied', () => {
     const doc = supplied((d) => {
       const dialogue = d.shots[0].beats[2].dialogue!;

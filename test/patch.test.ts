@@ -199,7 +199,11 @@ describe('direct edits go through the same gates', () => {
  */
 describe('the patchable surface', () => {
   it('is exactly this list', () => {
-    expect([...PATCHABLE_LEAVES]).toEqual([
+    // Sorted on both sides: reordering the source list changes nothing about
+    // what is writable, and a pin that fails on tidying is one that gets
+    // deleted. Growth is the direction this exists to catch.
+    expect([...PATCHABLE_LEAVES].sort()).toEqual(
+      [
       'style',
       'soundscape',
       'music',
@@ -220,7 +224,8 @@ describe('the patchable surface', () => {
       'retention[].marker',
       'retention[].note',
       'slots[].description',
-    ]);
+      ].sort(),
+    );
   });
 
   it('carries no path the serializer derives its structure from', () => {

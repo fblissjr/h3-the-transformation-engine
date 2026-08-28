@@ -41,6 +41,7 @@ import {
   describeRecord,
   randomGlitch,
   randomWild,
+  withGlitch,
 } from '../../core/creative';
 
 const MODES: (WritableCreativeMode | null)[] = [null, 'directed', 'wild'];
@@ -81,10 +82,10 @@ export function CreativePanel({ value, onChange, appliesToNextGeneration }: Crea
     // buttons read Off, and clearing something whose controls are still showing
     // its selection is the panel disagreeing with itself.
     if (next === null) {
-      return onChange(glitch ? { mode: 'directed', selection: EMPTY, glitch } : null);
+      return onChange(glitch ? withGlitch({ mode: 'directed', selection: EMPTY }, glitch) : null);
     }
-    if (next === 'wild') return onChange({ ...randomWild(), ...(glitch ? { glitch } : {}) });
-    onChange({ mode: next, selection: EMPTY, ...(glitch ? { glitch } : {}) });
+    if (next === 'wild') return onChange(withGlitch(randomWild(), glitch));
+    onChange(withGlitch({ mode: next, selection: EMPTY }, glitch));
   };
 
   /**
@@ -94,7 +95,7 @@ export function CreativePanel({ value, onChange, appliesToNextGeneration }: Crea
    * complete direction on its own.
    */
   const setGlitch = (next: GlitchSelection | undefined) => {
-    onChange({ mode: mode ?? 'directed', selection, ...(next ? { glitch: next } : {}) });
+    onChange(withGlitch({ mode: mode ?? 'directed', selection }, next));
   };
 
   return (
@@ -124,14 +125,14 @@ export function CreativePanel({ value, onChange, appliesToNextGeneration }: Crea
       {mode === 'directed' && (
         <DirectedControls
           selection={selection}
-          onChange={(next) => onChange({ mode: 'directed', selection: next })}
+          onChange={(next) => onChange(withGlitch({ mode: 'directed', selection: next }, glitch))}
         />
       )}
 
       {mode === 'wild' && (
         <button
           type="button"
-          onClick={() => onChange({ ...randomWild(), ...(glitch ? { glitch } : {}) })}
+          onClick={() => onChange(withGlitch(randomWild(), glitch))}
           className="w-full rounded border border-[var(--color-edge)] px-2 py-1.5 text-xs hover:bg-white/5"
         >
           Shuffle

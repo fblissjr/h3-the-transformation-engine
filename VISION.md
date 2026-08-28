@@ -79,9 +79,10 @@ transform, precanned or written by hand, can produce a prompt H3 can no longer
 parse.** The mechanism is `PATCHABLE_LEAVES` in `src/core/ir/paths.ts` — the
 write surface is an allowlist of leaves that carry content, and structure is
 not on it. So this is a rule someone has to keep rather than a property that
-holds for free: a derived field added to that list for convenience takes the
-guarantee with it, and the control in `test/patch.test.ts` names five rejected
-paths rather than asserting the property, so it would not notice.
+holds for free: a derived field added to that list for convenience would take
+the guarantee with it. Nothing can decide mechanically whether a new leaf is
+derived, so `test/patch.test.ts` pins the list entry for entry instead, and
+growing the write surface fails there until someone confirms it was meant.
 
 One entry on the list is a timestamp. `shots[].cutAtMs` is patchable, because
 where a cut falls is an editorial decision. What stays derived is its rendering

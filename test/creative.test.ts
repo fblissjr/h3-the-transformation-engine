@@ -8,8 +8,9 @@
  *
  * The second is that the tables stay in step with each other. The axes now live
  * on the pack entries, so a pack cannot exist without a score, but a pack can
- * still be given the wrong axes -- and the preset viability check is what
- * notices.
+ * still be given the wrong axes. The preset viability check used to be what
+ * noticed, by sweeping fifteen four-pack combinations through the scorer; the
+ * presets are gone, so `the pack tables` below sweeps the tables themselves.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -35,6 +36,7 @@ import {
   isStressTestViable,
   pruneGlitch,
   pruneRecord,
+  withGlitch,
   pruneSelection,
   randomGlitch,
   sameGlitch,
@@ -225,86 +227,6 @@ describe('randomWild', () => {
       finish: 'F07',
       audio: 'A08',
       strength: 'stress-test',
-    });
-  });
-});
-
-describe('the legacy numeric anchor id', () => {
-  /**
-   * The form a document written before anchors had string ids carries. This
-   * build renamed them, and the rule is that a rename must not make an older
-   * document unopenable or silently strip its style.
-   */
-  it('resolves to the same anchor as its string id', () => {
-    expect(styleDirective({ visual: 28, strength: 'full' })).toBe(
-      styleDirective({ visual: 'R28', strength: 'full' }),
-    );
-    expect(describeSelection({ visual: 3, strength: 'full' })).toBe(
-      describeSelection({ visual: 'R03', strength: 'full' }),
-    );
-  });
-
-  it('scores the same as its string id', () => {
-    expect(scoreStrength({ visual: 3 })).toEqual(scoreStrength({ visual: 'R03' }));
-  });
-
-  it('is rewritten to the string form when a stored selection is restored', () => {
-    expect(pruneSelection({ visual: 28, strength: 'full' })).toEqual({
-      visual: 'R28',
-      strength: 'full',
-    });
-  });
-
-  it('still misses when the number names no anchor', () => {
-    expect(styleDirective({ visual: 99, strength: 'full' })).toBeNull();
-  });
-});
-
-describe('sameSelection', () => {
-  it('sees through the legacy id form', () => {
-    expect(sameSelection({ visual: 28, strength: 'full' }, { visual: 'R28', strength: 'full' })).toBe(true);
-  });
-
-  it('separates selections that differ in any field', () => {
-    expect(sameSelection({ visual: 'V04', strength: 'full' }, { visual: 'V06', strength: 'full' })).toBe(false);
-    expect(sameSelection({ visual: 'V04', strength: 'full' }, { visual: 'V04', strength: 'subtle' })).toBe(false);
-    expect(sameSelection({ strength: 'full' }, { strength: 'full' })).toBe(true);
-  });
-});
-
-describe('pruneSelection', () => {
-  it('keeps everything that resolves', () => {
-    const full = { visual: 'V06', motion: 'M04', finish: 'F02', audio: 'A02', strength: 'full' } as const;
-    expect(pruneSelection(full)).toEqual(full);
-  });
-
-  /**
-   * The reason this exists: an id nothing resolves renders as a blank
-   * dropdown, and left in the selection it rides along through every later
-   * edit without ever being visible.
-   */
-  it('drops ids nothing resolves, keeping the rest and the strength', () => {
-    expect(pruneSelection({ visual: 'V99', motion: 'M04', strength: 'subtle' })).toEqual({
-      motion: 'M04',
-      strength: 'subtle',
-    });
-  });
-
-  /**
-   * Strength reaches the strength buttons and the directive preamble. A value
-   * off the union renders a badge no button matches and would be written back
-   * into the next document unchanged.
-   */
-  it('replaces a strength level that is off the union', () => {
-    expect(pruneSelection({ visual: 'V04', strength: 'extreme' } as never)).toEqual({
-      visual: 'V04',
-      strength: 'full',
-    });
-  });
-
-  it('leaves a selection that resolves to nothing at all as just its strength', () => {
-    expect(pruneSelection({ visual: 'V99', audio: 'A99', strength: 'full' })).toEqual({
-      strength: 'full',
     });
   });
 });
@@ -731,5 +653,113 @@ describe('the record as a whole', () => {
         glitch: { tokens: ['NotAToken'], register: 'motif' },
       }),
     ).toEqual({ mode: 'directed', selection: { motion: 'M04', strength: 'full' } });
+  });
+});
+
+/**
+ * Every axis a pack claims is a real one, and the leverage pool is not empty.
+ *
+ * This replaces what went with the presets. Their viability sweep incidentally
+ * put fifteen four-pack combinations through `scoreStrength`, so a typo'd axis
+ * letter turned something red. Deleting them left five hand-picked ids and no
+ * table-wide check.
+ *
+ * Note what is deliberately NOT asserted here: that every pack claims an axis.
+ * Nine do not -- V17, V19, V20, V21, V24, M01, M05, M08, F01 -- and that is the
+ * point of the scores rather than a gap in them. An empty set means low style
+ * leverage, which is how `isStressTestViable` keeps a draw from landing on a
+ * combination that reads as a filter. Asserting otherwise was the first version
+ * of this test and it went red against nine correct entries, which is the
+ * cheapest possible demonstration that a table-wide check needs to encode the
+ * property the table actually has.
+ */
+describe('the axis tables', () => {
+  const AXES = new Set(['G', 'S', 'P', 'M', 'T']);
+  const styled = [...VISUAL_PACKS, ...MOTION_PACKS, ...FINISH_PACKS, ...AUDIO_PACKS];
+
+  it('claims only documented axes', () => {
+    for (const pack of styled) {
+      for (const axis of pack.axes) {
+        expect(AXES.has(axis), `${pack.id} claims unknown axis "${axis}"`).toBe(true);
+      }
+    }
+  });
+
+  it('never claims the same axis twice', () => {
+    for (const pack of styled) {
+      expect(new Set(pack.axes).size, `${pack.id} repeats an axis`).toBe(pack.axes.length);
+    }
+  });
+
+  it('leaves enough leverage in the visual table for a draw to be possible', () => {
+    const withLeverage = VISUAL_PACKS.filter(
+      (p) => (p.axes as readonly string[]).includes('G') || (p.axes as readonly string[]).includes('S'),
+    );
+    expect(withLeverage.length).toBeGreaterThan(5);
+  });
+
+  it('audio packs carry no visual leverage, on purpose', () => {
+    expect(AUDIO_PACKS.every((p) => p.axes.length === 0)).toBe(true);
+  });
+});
+
+/**
+ * The marks survive a change to the style, at the one place that builds a
+ * record from a new selection.
+ *
+ * `withGlitch` exists because this was four hand-written spreads in the
+ * creative panel and one of them left the marks out: changing any pack
+ * dropdown deleted the selected marks from the record, the badge and the chips
+ * in the same render. A UI bug, but the fix is a core function so it can be
+ * held here rather than by clicking.
+ */
+describe('withGlitch', () => {
+  const marks: StoredGlitch = { tokens: ['SolidGoldMagikarp'], register: 'motif' };
+  const style = { mode: 'directed', selection: { visual: 'V06', strength: 'full' } } as const;
+
+  it('carries marks across a change of style', () => {
+    expect(withGlitch(style, marks).glitch?.tokens).toEqual(['SolidGoldMagikarp']);
+  });
+
+  it('leaves no key at all when there are no marks', () => {
+    expect('glitch' in withGlitch(style, undefined)).toBe(false);
+  });
+
+  it('treats an empty token list as no marks, not as an empty set', () => {
+    expect('glitch' in withGlitch(style, { tokens: [], register: 'motif' })).toBe(false);
+  });
+
+  it('does not disturb the style half', () => {
+    const out = withGlitch(style, marks);
+    expect(out.mode).toBe('directed');
+    expect(out.selection).toEqual(style.selection);
+  });
+});
+
+/**
+ * A mode off the union is a document from a build this one does not know.
+ *
+ * `loadDocument` reports schema failures rather than gating on them, so an
+ * unrecognised mode reaches `pruneRecord`. Left alone it renders a panel with
+ * no mode button highlighted and no controls, beside a badge for a style the
+ * user can neither see nor edit, and is then written back to the next document
+ * unchanged. `pruneSelection` guards `strength` for exactly this reason.
+ */
+describe('pruneRecord guards the mode', () => {
+  const stored = (mode: string) =>
+    pruneRecord({ mode, selection: { visual: 'V06', strength: 'full' } } as never);
+
+  it('keeps the two modes this build offers', () => {
+    expect(stored('directed').mode).toBe('directed');
+    expect(stored('wild').mode).toBe('wild');
+  });
+
+  it('maps the retired preset mode onto what it always was underneath', () => {
+    expect(stored('exploratory').mode).toBe('directed');
+  });
+
+  it('falls back for a mode off the union entirely', () => {
+    expect(stored('cinematic').mode).toBe('directed');
+    expect(stored('').mode).toBe('directed');
   });
 });

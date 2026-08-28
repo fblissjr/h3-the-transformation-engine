@@ -79,7 +79,7 @@ Put ${DIALOGUE_PLACEHOLDER} in the prose exactly where the spoken line goes, and
 
   "the middle-aged baker with a calm, slightly raspy voice (S1) places a fresh loaf on the counter and says: ${DIALOGUE_PLACEHOLDER}"
 
-Dialogue text is preserved exactly as given. Never translate, paraphrase or tidy user-supplied lines. End each line with . ? or !, and use no decorative punctuation.
+Dialogue text is preserved exactly as given. Never translate, paraphrase or tidy a line the user supplied -- base 4.4 requires every original word and punctuation mark verbatim, so a supplied line keeps its ellipses, its "?!", and its missing full stop if that is how it arrived. For a line you are writing yourself, end it with . ? or ! and use no decorative punctuation.
 
 For voiceover, the prose must contain the exact phrase "${VOICEOVER_PHRASE}", and immediately after the placeholder it must state that the on-screen character's lips remain completely closed.
 

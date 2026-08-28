@@ -72,7 +72,17 @@ export interface StrengthScore {
  */
 export type CreativeMode = 'directed' | 'exploratory' | 'wild';
 
-/** The modes the picker offers. `exploratory` is read, never written. */
+/**
+ * The modes the picker offers.
+ *
+ * This narrows what the panel's own controls can produce; it is not a gate on
+ * the document write path, which is typed `CreativeModeRecord` and accepts the
+ * full union. What actually keeps `exploratory` off a new document is
+ * `pruneRecord`, which maps it to `directed` on the way out of storage and
+ * falls back for anything off the union entirely. Compare `WritableKeyMode`,
+ * which does gate its write path at the type level -- this one reads like that
+ * and is not, so the runtime guard is the thing to keep working.
+ */
 export type WritableCreativeMode = Exclude<CreativeMode, 'exploratory'>;
 
 /**
