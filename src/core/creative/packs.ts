@@ -203,7 +203,7 @@ export const VISUAL_PACKS = [
   {
     id: 'V26',
     name: 'Fixed surveillance capture',
-    directive: 'High static mounting, wide-angle edge distortion, uneven room coverage, one long unbroken take, subjects crossing a frame that never reframes.',
+    directive: 'High static mounting, wide-angle edge distortion, uneven room coverage, one long unbroken take, subjects entering and leaving at the frame edges.',
     axes: [],
   },
   {
