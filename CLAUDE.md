@@ -54,7 +54,7 @@ If a proposed rule would turn a golden fixture red, the rule is wrong.
 ## Testing
 
 ```
-bun run test        # 341 tests (vitest)
+bun run test        # 339 tests (vitest)
 bun run typecheck
 bun run build
 bun run probe       # live API probes; reads GEMINI_API_KEY from .env
