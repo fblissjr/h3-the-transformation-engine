@@ -174,6 +174,16 @@ export const dialoguePunctuation: Rule = (doc) => {
   beatsOf(doc).forEach(({ beat, path }) => {
     const d = beat.dialogue;
     if (!d) return;
+    // The two guides split here, and the split is the whole rule. Base 4.4
+    // covers words the user supplied: "Preserve every original word and
+    // punctuation mark verbatim; do not translate or rewrite them." Ref 5.4's
+    // standardization -- terminal mark, no tildes, emoji, bullets or repeated
+    // punctuation -- is scoped in its own paragraph to dialogue reused from
+    // reference audio or reperformed on request, none of which the user typed.
+    // Applying it to a supplied line makes the validator demand a rewrite the
+    // base guide forbids, and the patch validator will not permit that rewrite
+    // anyway, so the error would be unclearable.
+    if (d.userSupplied) return;
     const text = d.text.trim();
 
     if (text !== '' && !/[.?!]$/.test(text)) {

@@ -3,15 +3,21 @@
  *
  * These are heuristics and are labelled as such. The hard constraint -- a cut
  * must fall strictly inside the video -- lives in the validator as an error.
- * Everything here produces advice, because the guide's density guidance ("one
- * dominant action beat per roughly 1-3 seconds") is a recommendation about
- * legibility, not a property the format enforces.
+ * Everything here produces advice. The beat-density figure is house judgement
+ * and not contract: neither guide states a beats-per-second rate, and an
+ * earlier version of this comment attributed one to "the guide" that does not
+ * exist in either file. Nothing downstream may cite it as a guide rule.
  */
 
 /** A shot needs enough time after its cut to show anything at all. */
 export const MIN_SHOT_MS = 1_500;
 
-/** Guide section on density: roughly one dominant beat per 1-3 seconds. */
+/**
+ * House pacing figure: roughly one dominant beat per 2.5 seconds.
+ *
+ * Recorded in the contract's notInTheGuides. Neither guide contains "dominant",
+ * "density" or any beats-per-second rate; searching for them is the check.
+ */
 export const MS_PER_BEAT = 2_500;
 
 /**

@@ -18,7 +18,7 @@ import { describe, expect, it } from 'vitest';
 import type { H3Document } from '../src/core/ir/types';
 import { contextFor } from '../src/core/normalize';
 import { validate, type Rule } from '../src/core/validate';
-import { t2vaBaker } from './fixtures/guide-examples';
+import { i2vaTrain, t2vaBaker } from './fixtures/guide-examples';
 import { ref2vaCoffeeShop } from './fixtures/ref-example';
 
 type Mutate = (doc: H3Document) => void;
@@ -268,5 +268,45 @@ describe('CUT_STYLE_NOT_IN_PROSE scope', () => {
   it('still fires when one ordinary phrasing is annotated and another is written', () => {
     const doc = broken(t2vaBaker, (d) => void (d.shots[1].cutStyle = 'the shot switches to'));
     expect(codesFor(doc)).toContain('CUT_STYLE_NOT_IN_PROSE');
+  });
+});
+
+/**
+ * The punctuation rules are scoped to dialogue the user did not supply.
+ *
+ * Ref 5.4 standardizes punctuation, but its own paragraph scopes that to
+ * dialogue reused from reference audio or reperformed on request. Base 4.4
+ * governs the other case and says the opposite: "Preserve every original word
+ * and punctuation mark verbatim; do not translate or rewrite them." Applied to
+ * a line the user typed, these two codes demand a rewrite the base guide
+ * forbids -- and `src/core/patch/apply.ts` refuses to let a patch touch
+ * user-supplied dialogue, so the error could not be cleared even by agreeing
+ * with it. `i2vaTrain` carries the only userSupplied line in the fixtures.
+ */
+describe('dialogue punctuation scope', () => {
+  const supplied = (mutate: Mutate) => broken(i2vaTrain, mutate);
+
+  it('the fixture it relies on really is user-supplied', () => {
+    expect(i2vaTrain.shots[0].beats[2].dialogue?.userSupplied).toBe(true);
+  });
+
+  it('leaves decorative punctuation alone in a supplied line', () => {
+    const doc = supplied((d) => void (d.shots[0].beats[2].dialogue!.text = 'I get off... at the next station!!!'));
+    expect(codesFor(doc)).not.toContain('DIALOGUE_DECORATIVE_PUNCT');
+  });
+
+  it('leaves a missing terminal mark alone in a supplied line', () => {
+    const doc = supplied((d) => void (d.shots[0].beats[2].dialogue!.text = 'I get off at the next station'));
+    expect(codesFor(doc)).not.toContain('DIALOGUE_BAD_TERMINAL');
+  });
+
+  it('still fires on the same text once it is not user-supplied', () => {
+    const doc = supplied((d) => {
+      const dialogue = d.shots[0].beats[2].dialogue!;
+      dialogue.userSupplied = false;
+      dialogue.text = 'I get off... at the next station!!!';
+    });
+    const codes = codesFor(doc);
+    expect(codes).toContain('DIALOGUE_DECORATIVE_PUNCT');
   });
 });

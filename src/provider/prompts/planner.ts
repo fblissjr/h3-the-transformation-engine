@@ -160,7 +160,7 @@ Retention says how faithfully each reference survives: ${VISUAL_RETENTION.join('
 
 Task types describe what the job actually is: ${TASK_TYPES.join(', ')}. Presence of a video or an audio file does not by itself create a task type -- a video that only supplies a person's appearance is reference generation, not video editing.
 
-Aim for ${REF_DETAIL_WORD_RANGE[0]}-${REF_DETAIL_WORD_RANGE[1]} words across all beats, unless the piece is dialogue-dense, in which case fitting the complete spoken timeline matters more than the word count.`,
+Aim for ${REF_DETAIL_WORD_RANGE[0]}-${REF_DETAIL_WORD_RANGE[1]} words across all beats when the job is a generation task. Two exemptions, both from the same guide paragraph: a video-editing job scales its description with the complexity of the source video and is not held to that range, and dialogue-dense material fits the complete spoken timeline ahead of any word count. A single shot does not by itself justify a shorter description -- distribute detail across shots according to how much each one carries.`,
 };
 
 // ---------------------------------------------------------------------------

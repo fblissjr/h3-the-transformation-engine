@@ -170,16 +170,14 @@ export type CutStyle = (typeof ORDINARY_CUTS)[number] | (typeof SPECIAL_CUTS)[nu
 /** Exact phrase required for voiceover. */
 export const VOICEOVER_PHRASE = 'says in an off-screen voiceover';
 
-/**
- * The lips-closed clause must follow every voiceover <d> block. The guide gives
- * one form; these are the accepted variants the validator will recognise.
- */
-export const LIPS_CLOSED_PHRASES = [
-  'his lips remain completely closed',
-  'her lips remain completely closed',
-  'their lips remain completely closed',
-  'lips remain completely closed',
-] as const;
+// The lips-closed clause that base 4.4 requires after a voiceover <d> block has
+// no constant here on purpose. The guide mandates the statement, not a wording
+// ("state that the corresponding on-screen character's lips remain completely
+// closed"), so an allowlist of four phrasings could only fire on legitimate
+// prose that said the same thing differently. The planner and patch prompts
+// carry the requirement instead. A list of variants lived here for a while with
+// no caller, and the contract's description of VOICEOVER_PHRASE_MISSING claimed
+// a check that was never written.
 
 /** Continuity phrasing for dialogue that crosses a cut. Guide section 4.4. */
 export const CONTINUITY_PHRASES = [
@@ -213,7 +211,13 @@ export type LabelKind = (typeof LABEL_KINDS)[number];
 export const MEDIA_KINDS = ['image', 'video', 'audio'] as const;
 export type MediaKind = (typeof MEDIA_KINDS)[number];
 
-/** Documented Ref2VA ceilings. */
+/**
+ * Per-kind Ref2VA slot ceilings.
+ *
+ * Not in either guide -- neither states a limit on reference assets at all.
+ * A platform limit carried here without a guide citation; listed in the
+ * contract's notInTheGuides so an audit can tell it from vocabulary.
+ */
 export const SLOT_CEILINGS: Record<MediaKind, number> = {
   image: 9,
   video: 3,
@@ -339,7 +343,15 @@ export const SOUNDSCAPE_SENTENCE_RANGE = [1, 4] as const;
 /** non_diegetic_music: 1-3 sentences. Guide section 4.7. */
 export const MUSIC_SENTENCE_RANGE = [1, 3] as const;
 
-/** detailed_description word target for generation tasks. Ref guide section 5.2. */
+/**
+ * detailed_description word target. Ref guide section 5.2.
+ *
+ * Scoped by the guide, and the scope travels with the number: it is the range
+ * for *generation* tasks. Video-editing descriptions scale with the complexity
+ * of the source video and are exempt, and dialogue-dense content fits the
+ * spoken timeline ahead of any count. A consumer that states the range without
+ * both exemptions is quoting the guide wrongly.
+ */
 export const REF_DETAIL_WORD_RANGE = [350, 500] as const;
 
 /** Value meaning "deliberately absent" in the two audio sections. */

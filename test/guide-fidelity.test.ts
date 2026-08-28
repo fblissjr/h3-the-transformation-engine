@@ -31,6 +31,9 @@ import {
   t2vaBakerExpected,
 } from './fixtures/guide-examples';
 import { ref2vaCoffeeShopExpected } from './fixtures/ref-example';
+import { REF_DETAIL_WORD_RANGE } from '../src/core/ir/vocab';
+import { normalize } from '../src/core/normalize';
+import { buildPlannerSystemPrompt } from '../src/provider/prompts/planner';
 
 const GUIDE_DIR = join(import.meta.dirname, '../reference/h3');
 const BASE_GUIDE = join(GUIDE_DIR, 'VIDEO_PROMPT_WRITING_GUIDE_base_en.md');
@@ -112,6 +115,59 @@ describe('the golden text is the guides own text', () => {
   for (const { name, golden, guide } of pairs) {
     it(name, () => {
       expect(golden).toBe(guide);
+    });
+  }
+});
+
+/**
+ * A scoped number carries its scope, or it is a misquote.
+ *
+ * ref 5.2 states 350-500 words `for generation tasks` and exempts two cases in
+ * the same breath: video-editing descriptions scale with the source video, and
+ * dialogue-dense material fits the spoken timeline first. The contract encoded
+ * the bare range and the planner applied it to every Ref2VA job, so a video
+ * edit was told to pad to a range the guide explicitly frees it from. An
+ * outside audit of the contract found it; nothing here would have.
+ *
+ * The guide half of this test needs the guide on disk and says so when it is
+ * absent. The planner half does not, because the exemptions are the thing that
+ * regresses -- a later edit that tightens the sentence back to a bare range
+ * should fail on a clean checkout too.
+ */
+describe('the ref word range keeps the scope the guide gives it', () => {
+  const planner = buildPlannerSystemPrompt(
+    normalize({ idea: 'A coffee shop scene, recut.', mode: 'Ref2VA', durationFrames: 192, slots: [] }),
+    { idea: 'A coffee shop scene, recut.', mode: 'Ref2VA', durationFrames: 192, slots: [] },
+  );
+
+  it('states the range at all, so the rest of this test is not vacuous', () => {
+    expect(planner).toContain(`${REF_DETAIL_WORD_RANGE[0]}-${REF_DETAIL_WORD_RANGE[1]} words`);
+  });
+
+  it('names the generation-task scope', () => {
+    expect(planner).toContain('generation task');
+  });
+
+  it('names the video-editing exemption', () => {
+    expect(planner.toLowerCase()).toContain('video-editing');
+  });
+
+  it('names the dialogue-dense exemption', () => {
+    expect(planner.toLowerCase()).toContain('dialogue-dense');
+  });
+
+  if (!guidesPresent) {
+    it.todo('UNVERIFIED: reference/h3 is absent, so the scope was not compared to ref 5.2');
+  } else {
+    it('is the scope ref 5.2 actually states', () => {
+      const ref = readFileSync(REF_GUIDE, 'utf8');
+      const sentence = ref
+        .split('\n')
+        .find((line) => line.includes(`${REF_DETAIL_WORD_RANGE[0]}-${REF_DETAIL_WORD_RANGE[1]} English words`));
+      expect(sentence, 'ref 5.2 no longer states the range this build encodes').toBeDefined();
+      expect(sentence).toContain('For generation tasks');
+      expect(sentence).toContain('do not have to follow the generation-task range');
+      expect(sentence).toContain('Dialogue-dense content');
     });
   }
 });
