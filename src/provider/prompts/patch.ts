@@ -42,6 +42,8 @@ Never introduce a speech act into \`summary\`, or into a beat that has no dialog
 
 Voiceover prose must keep the exact phrase "${VOICEOVER_PHRASE}" and the statement that the character's lips remain completely closed.
 
+A recognisable person is described, never named: the role, the era, the dress, the traits that identify them on sight. An edit must not introduce a proper name that the prose was written to avoid. Words inside a \`dialogue\` field and on-screen text are the exception, and are reproduced exactly either way.
+
 On-screen text stays inside English double quotation marks, spelled exactly.
 
 # When you should refuse
