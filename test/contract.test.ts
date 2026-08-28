@@ -296,10 +296,40 @@ describe('every vocabulary claim is attributed', () => {
     expect(unattributed).toEqual([]);
   });
 
+  /**
+   * The prompt blocks are where house rules actually get written into the
+   * model's instructions, and they were the least attributed part of the spec:
+   * one block marked `origin: "house"`, five with nothing at all, and the patch
+   * prompt with no attribution on any block. A different key from the
+   * vocabulary's, too, so the check could not have been pointed at them.
+   */
+  it('attributes every prompt block, on both prompts, with the same key', () => {
+    for (const side of ['planner', 'patch'] as const) {
+      for (const block of contract.prompts[side].blocks) {
+        const entry = block as Record<string, unknown>;
+        expect('origin' in entry, `${side} ${block.heading} uses the retired key`).toBe(false);
+        expect(
+          'guide' in entry || entry.house === true,
+          `${side} ${block.heading} cites nothing and declares nothing`,
+        ).toBe(true);
+        if (entry.house === true) {
+          expect(typeof entry.note, `${side} ${block.heading}`).toBe('string');
+        }
+      }
+    }
+  });
+
   it('cites a section that looks like one, where it cites at all', () => {
     for (const [path, entry] of leaves(contract.vocabulary, '')) {
       if (!('guide' in entry)) continue;
       expect(String(entry.guide), path).toMatch(/^(base|ref) \d/);
+    }
+    for (const side of ['planner', 'patch'] as const) {
+      for (const block of contract.prompts[side].blocks) {
+        const guide = (block as Record<string, unknown>).guide;
+        if (guide == null) continue;
+        expect(String(guide), `${side} ${block.heading}`).toMatch(/^(base|ref) \d/);
+      }
     }
   });
 
@@ -310,6 +340,82 @@ describe('every vocabulary claim is attributed', () => {
       expect(typeof entry.note, path).toBe('string');
       expect(String(entry.note).length, path).toBeGreaterThan(20);
     }
+  });
+});
+
+/**
+ * The reverse direction: a vocabulary the code exports and the spec omits.
+ *
+ * Every check above compares what the spec declares against the code. Nothing
+ * compared the other way, so five role tables, the continuity phrasings, the
+ * two dialogue punctuation sets and the house `<d/>` token were absent from the
+ * spec entirely and invisible -- an omission is not a disagreement. `SLOT_ROLES`
+ * is the one that mattered: 19 values deciding which label kind every reference
+ * asset gets and whether it earns a definition line.
+ *
+ * Each vocabulary leaf names the constant it describes, and this asserts the two
+ * sets are equal. Constants that belong to another part of the spec are listed
+ * here by name rather than left to a substring match, so adding one is a
+ * decision someone writes down.
+ */
+describe('the spec covers every vocabulary the code exports', () => {
+  /** Declared elsewhere in the spec, or not vocabulary at all. */
+  const ELSEWHERE: Record<string, string> = {
+    ALIGNMENT_TEMPLATES: 'output[].alignment, one per mode',
+    BASE_SECTIONS: 'output[].sections for the base contract',
+    REF_SECTIONS: 'output[].sections for Ref2VA',
+    AMPLITUDE_PHRASE: 'vocabulary.amplitudes.phrases',
+    SPEED_PHRASE: 'vocabulary.speeds.phrases',
+    SCENETRANS_TAG: 'vocabulary.tags.sceneTrans',
+    CUTOFF_TAG: 'vocabulary.tags.cutoff',
+    UNCLEAR_MARKER: 'vocabulary.tags.unclear',
+    SOUNDSCAPE_SENTENCE_RANGE: 'vocabulary.budgets.soundscapeSentences',
+    MUSIC_SENTENCE_RANGE: 'vocabulary.budgets.musicSentences',
+    REF_DETAIL_WORD_RANGE: 'vocabulary.budgets.refDetailWords',
+    FPS: 'a workflow constant, not part of the output format',
+    FRAME_BLOCK: 'the frame grid, in notInTheGuides',
+    FRAME_OFFSET: 'the frame grid, in notInTheGuides',
+  };
+
+  /**
+   * Only the vocabulary subtree. `prompts.*.blocks[].source` is a different
+   * field with a different meaning -- `core`, `mode-block`, `computed` -- and
+   * walking the whole document swept those in as constant names.
+   */
+  function declaredSources(node: unknown, out: Set<string> = new Set()): Set<string> {
+    if (typeof node !== 'object' || node === null) return out;
+    const record = node as Record<string, unknown>;
+    if (typeof record.source === 'string') out.add(record.source);
+    for (const sub of Object.values(record)) declaredSources(sub, out);
+    return out;
+  }
+
+  it('names every exported vocabulary constant, or says where it lives instead', () => {
+    const source = readFileSync(join(import.meta.dirname, '../src/core/ir/vocab.ts'), 'utf8');
+    const exported = [...source.matchAll(/^export const ([A-Z][A-Z0-9_]*)\b/gm)].map((m) => m[1]);
+    expect(exported.length).toBeGreaterThan(20);
+
+    const declared = declaredSources(contract.vocabulary);
+    const missing = exported.filter((name) => !declared.has(name) && !(name in ELSEWHERE));
+    expect(missing).toEqual([]);
+  });
+
+  it('does not name a constant the code no longer exports', () => {
+    const source = readFileSync(join(import.meta.dirname, '../src/core/ir/vocab.ts'), 'utf8');
+    const shared = readFileSync(join(import.meta.dirname, '../src/core/serialize/shared.ts'), 'utf8');
+    const known = new Set([
+      ...[...source.matchAll(/^export const ([A-Z][A-Z0-9_]*)\b/gm)].map((m) => m[1]),
+      ...[...shared.matchAll(/^export const ([A-Z][A-Z0-9_]*)\b/gm)].map((m) => m[1]),
+    ]);
+    const stale = [...declaredSources(contract.vocabulary)].filter((name) => !known.has(name));
+    expect(stale).toEqual([]);
+  });
+
+  it('lists nothing under ELSEWHERE that the code stopped exporting', () => {
+    const source = readFileSync(join(import.meta.dirname, '../src/core/ir/vocab.ts'), 'utf8');
+    const exported = new Set([...source.matchAll(/^export const ([A-Z][A-Z0-9_]*)\b/gm)].map((m) => m[1]));
+    const gone = Object.keys(ELSEWHERE).filter((name) => !exported.has(name));
+    expect(gone).toEqual([]);
   });
 });
 

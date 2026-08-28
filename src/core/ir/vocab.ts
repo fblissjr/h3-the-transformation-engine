@@ -117,33 +117,13 @@ export const SPEED_PHRASE: Record<Speed, string> = {
   fast: 'at fast speed',
 };
 
-/**
- * Verb forms the guide's own examples use when a camera motion is written as
- * natural prose inside a shot. Used by the validator to confirm a beat's prose
- * actually expresses the annotated motion rather than stacking it as a label.
- */
-export const CAMERA_PROSE_HINTS: Record<CameraType, readonly string[]> = {
-  'Zoom In': ['zooms in', 'zooming in'],
-  'Zoom Out': ['zooms out', 'zooming out'],
-  'Push In': ['pushes in', 'pushing in'],
-  'Pull Out': ['pulls out', 'pulling out'],
-  'Pan Left': ['pans left', 'panning left'],
-  'Pan Right': ['pans right', 'panning right'],
-  'Truck Left': ['trucks left', 'trucking left'],
-  'Truck Right': ['trucks right', 'trucking right'],
-  'Tilt Up': ['tilts up', 'tilting up'],
-  'Tilt Down': ['tilts down', 'tilting down'],
-  'Pedestal Up': ['pedestals up', 'rises', 'cranes up'],
-  'Pedestal Down': ['pedestals down', 'lowers', 'cranes down'],
-  'Arc Shot': ['arcs', 'arcing'],
-  'Tracking Shot': ['tracks', 'tracking', 'follows'],
-  'Static Shot': ['holds a static shot', 'remains static', 'stays still', 'holds still'],
-  'Shake Slightly': ['shakes slightly'],
-  'Shake Strongly': ['shakes strongly'],
-  POV: ['point of view', 'POV'],
-  'Roll Clockwise': ['rolls clockwise'],
-  'Roll Counterclockwise': ['rolls counterclockwise'],
-};
+// CAMERA_PROSE_HINTS lived here: a table of verb forms per motion type, with a
+// comment saying the validator used it to confirm a beat's prose expressed the
+// annotated motion. No such rule was ever written, and writing one would be the
+// prose pattern-matching this project purged seventeen rules of -- "the camera
+// holds" and "the frame stays put" are both a static shot. The planner prompt
+// asks for the agreement instead, where being wrong costs nothing.
+
 
 // ---------------------------------------------------------------------------
 // Cuts. Guide section 4.2.

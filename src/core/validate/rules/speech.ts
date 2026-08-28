@@ -9,7 +9,13 @@
 
 import type { Diagnostic, Rule } from '../types';
 import { error } from '../types';
-import { SCENETRANS_TAG, CUTOFF_TAG, VOICEOVER_PHRASE } from '../../ir/vocab';
+import {
+  CUTOFF_TAG,
+  DIALOGUE_ALLOWED_PUNCTUATION,
+  DIALOGUE_TERMINALS,
+  SCENETRANS_TAG,
+  VOICEOVER_PHRASE,
+} from '../../ir/vocab';
 import { DIALOGUE_PLACEHOLDER, speakerRef } from '../../serialize/shared';
 
 /** Every beat in document order, with its path. */
@@ -186,7 +192,7 @@ export const dialoguePunctuation: Rule = (doc) => {
     if (d.userSupplied) return;
     const text = d.text.trim();
 
-    if (text !== '' && !/[.?!]$/.test(text)) {
+    if (text !== '' && !DIALOGUE_TERMINALS.some((t) => text.endsWith(t))) {
       out.push(
         error(
           'DIALOGUE_BAD_TERMINAL',
@@ -202,7 +208,7 @@ export const dialoguePunctuation: Rule = (doc) => {
         error(
           'DIALOGUE_DECORATIVE_PUNCT',
           `${path}.dialogue.text`,
-          'Dialogue contains decorative or repeated punctuation. Standardize to , . ? and !.',
+          `Dialogue contains decorative or repeated punctuation. Standardize to ${DIALOGUE_ALLOWED_PUNCTUATION.join(' ')}.`,
         ),
       );
     }

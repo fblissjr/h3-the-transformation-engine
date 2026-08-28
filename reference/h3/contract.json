@@ -1,9 +1,7 @@
 {
-  "$schema": "./contract.schema.md",
   "about": "The machine-readable H3 prompt contract. Read this before auditing, changing, or adding a prompt: it is the one place that states what the output must look like per mode, what vocabulary is legal, what blocks each system prompt carries and in what order, and which guide line each of those comes from. test/contract.test.ts binds every field here to the implementation, so a disagreement is a build failure rather than a stale document.",
   "notWrittenByHand": "Nothing here is generated. It is written independently of the code on purpose -- a spec derived from the implementation cannot contradict it, and therefore cannot catch it being wrong.",
   "version": "1.0.0",
-
   "sources": [
     {
       "id": "base",
@@ -19,16 +17,27 @@
       "sha256": "1e574f356716ad55612247ffb7bbccbcdb484ad96599d63c7dca1af186b1fab7"
     }
   ],
-
   "output": {
     "T2VA": {
       "contract": "base",
       "guide": "base 5 case 1",
       "alignment": null,
       "sections": [
-        { "label": "integrated_multimodal_description", "layout": "inline", "guide": "base 2.2" },
-        { "label": "overall_soundscape", "layout": "inline", "guide": "base 4.6" },
-        { "label": "non_diegetic_music", "layout": "inline", "guide": "base 4.7" }
+        {
+          "label": "integrated_multimodal_description",
+          "layout": "inline",
+          "guide": "base 2.2"
+        },
+        {
+          "label": "overall_soundscape",
+          "layout": "inline",
+          "guide": "base 4.6"
+        },
+        {
+          "label": "non_diegetic_music",
+          "layout": "inline",
+          "guide": "base 4.7"
+        }
       ],
       "sectionSeparator": "\n\n",
       "stylePlacement": "inline-after-shot-1",
@@ -43,9 +52,21 @@
       "alignmentGuide": "base 2.1",
       "alignmentSubstitutions": [],
       "sections": [
-        { "label": "integrated_multimodal_description", "layout": "inline", "guide": "base 2.2" },
-        { "label": "overall_soundscape", "layout": "inline", "guide": "base 4.6" },
-        { "label": "non_diegetic_music", "layout": "inline", "guide": "base 4.7" }
+        {
+          "label": "integrated_multimodal_description",
+          "layout": "inline",
+          "guide": "base 2.2"
+        },
+        {
+          "label": "overall_soundscape",
+          "layout": "inline",
+          "guide": "base 4.6"
+        },
+        {
+          "label": "non_diegetic_music",
+          "layout": "inline",
+          "guide": "base 4.7"
+        }
       ],
       "sectionSeparator": "\n\n",
       "stylePlacement": "inline-after-shot-1",
@@ -56,14 +77,29 @@
     "FL2VA": {
       "contract": "base",
       "guide": "base 5 case 3",
-      "alignment": "How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot {N}) aligns with the {S.SS}-second mark of the target video.",
+      "alignment": "How the reference pictures align with the target video \u2014 Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot {N}) aligns with the {S.SS}-second mark of the target video.",
       "alignmentGuide": "base 2.1",
-      "alignmentSubstitutions": ["{N}", "{S.SS}"],
+      "alignmentSubstitutions": [
+        "{N}",
+        "{S.SS}"
+      ],
       "alignmentNote": "Bare. This one line uses Picture 1 and Shot 1 without angle or square brackets, unlike every other citation in the format. The guide's own worked example does, and a fixture proves it.",
       "sections": [
-        { "label": "integrated_multimodal_description", "layout": "inline", "guide": "base 2.2" },
-        { "label": "overall_soundscape", "layout": "inline", "guide": "base 4.6" },
-        { "label": "non_diegetic_music", "layout": "inline", "guide": "base 4.7" }
+        {
+          "label": "integrated_multimodal_description",
+          "layout": "inline",
+          "guide": "base 2.2"
+        },
+        {
+          "label": "overall_soundscape",
+          "layout": "inline",
+          "guide": "base 4.6"
+        },
+        {
+          "label": "non_diegetic_music",
+          "layout": "inline",
+          "guide": "base 4.7"
+        }
       ],
       "sectionSeparator": "\n\n",
       "stylePlacement": "inline-after-shot-1",
@@ -74,13 +110,28 @@
     "L2VA": {
       "contract": "base",
       "guide": "base 5 case 4",
-      "alignment": "How the reference pictures align with the target video — <Picture 1> (from [Shot {N}]) aligns with the {S.SS}-second mark of the target video.",
+      "alignment": "How the reference pictures align with the target video \u2014 <Picture 1> (from [Shot {N}]) aligns with the {S.SS}-second mark of the target video.",
       "alignmentGuide": "base 2.1",
-      "alignmentSubstitutions": ["{N}", "{S.SS}"],
+      "alignmentSubstitutions": [
+        "{N}",
+        "{S.SS}"
+      ],
       "sections": [
-        { "label": "integrated_multimodal_description", "layout": "inline", "guide": "base 2.2" },
-        { "label": "overall_soundscape", "layout": "inline", "guide": "base 4.6" },
-        { "label": "non_diegetic_music", "layout": "inline", "guide": "base 4.7" }
+        {
+          "label": "integrated_multimodal_description",
+          "layout": "inline",
+          "guide": "base 2.2"
+        },
+        {
+          "label": "overall_soundscape",
+          "layout": "inline",
+          "guide": "base 4.6"
+        },
+        {
+          "label": "non_diegetic_music",
+          "layout": "inline",
+          "guide": "base 4.7"
+        }
       ],
       "sectionSeparator": "\n\n",
       "stylePlacement": "inline-after-shot-1",
@@ -93,67 +144,263 @@
       "guide": "ref 7",
       "alignment": null,
       "sections": [
-        { "label": "subject_definitions", "layout": "block", "guide": "ref 2" },
-        { "label": "summary", "layout": "block", "guide": "ref 3" },
-        { "label": "retention_analysis", "layout": "block", "guide": "ref 4" },
-        { "label": "detailed_description", "layout": "block", "guide": "ref 5" },
-        { "label": "overall_soundscape", "layout": "block", "guide": "ref 6" },
-        { "label": "non_diegetic_music", "layout": "block", "guide": "ref 6" }
+        {
+          "label": "subject_definitions",
+          "layout": "block",
+          "guide": "ref 2"
+        },
+        {
+          "label": "summary",
+          "layout": "block",
+          "guide": "ref 3"
+        },
+        {
+          "label": "retention_analysis",
+          "layout": "block",
+          "guide": "ref 4"
+        },
+        {
+          "label": "detailed_description",
+          "layout": "block",
+          "guide": "ref 5"
+        },
+        {
+          "label": "overall_soundscape",
+          "layout": "block",
+          "guide": "ref 6"
+        },
+        {
+          "label": "non_diegetic_music",
+          "layout": "block",
+          "guide": "ref 6"
+        }
       ],
       "sectionSeparator": "\n\n",
       "stylePlacement": "sentence-before-shot-1",
       "stylePlacementGuide": "ref 5.2",
       "shotSeparator": "\n",
       "firstShotHasTimestamp": false,
-      "summaryPrefix": { "open": "[", "close": "]", "join": " + ", "guide": "ref 3" },
+      "summaryPrefix": {
+        "open": "[",
+        "close": "]",
+        "join": " + ",
+        "guide": "ref 3"
+      },
       "goldenFixture": "ref2vaCoffeeShopExpected"
     }
   },
-
   "shotHeader": {
     "first": "[Shot 1]",
     "later": "[Shot {N}] At {MM:SS.mmm},",
     "guide": "base 4.2",
     "note": "The cut phrasing itself is prose inside the beat, not part of the header. The guide asks for it as natural language in the sentence."
   },
-
   "vocabulary": {
     "modes": {
+      "source": "MODES",
       "guide": "base 1, ref 1",
-      "values": ["T2VA", "I2VA", "FL2VA", "L2VA", "Ref2VA"],
+      "values": [
+        "T2VA",
+        "I2VA",
+        "FL2VA",
+        "L2VA",
+        "Ref2VA"
+      ],
       "note": "Base 1 names the first four; Ref2VA is the full-reference mode the second guide covers. It was a bare array with no citation while every entry beside it carried one -- the same shape as the two entries an outside audit marked house, caught by the check that now enforces the pattern."
     },
     "cameraTypes": {
+      "source": "CAMERA_TYPES",
       "guide": "base 4.3",
-      "values": ["Zoom In", "Zoom Out", "Push In", "Pull Out", "Pan Left", "Pan Right", "Truck Left", "Truck Right", "Tilt Up", "Tilt Down", "Pedestal Up", "Pedestal Down", "Arc Shot", "Tracking Shot", "Static Shot", "Shake Slightly", "Shake Strongly", "POV", "Roll Clockwise", "Roll Counterclockwise"]
+      "values": [
+        "Zoom In",
+        "Zoom Out",
+        "Push In",
+        "Pull Out",
+        "Pan Left",
+        "Pan Right",
+        "Truck Left",
+        "Truck Right",
+        "Tilt Up",
+        "Tilt Down",
+        "Pedestal Up",
+        "Pedestal Down",
+        "Arc Shot",
+        "Tracking Shot",
+        "Static Shot",
+        "Shake Slightly",
+        "Shake Strongly",
+        "POV",
+        "Roll Clockwise",
+        "Roll Counterclockwise"
+      ]
     },
-    "amplitudes": { "guide": "base 4.3", "values": ["small", "large"], "phrases": { "small": "with small amplitude", "large": "with large amplitude" }, "note": "Medium is implied by omission." },
-    "speeds": { "guide": "base 4.3", "values": ["slow", "fast"], "phrases": { "slow": "at slow speed", "fast": "at fast speed" }, "note": "Normal is implied by omission." },
+    "amplitudes": {
+      "source": "AMPLITUDES",
+      "guide": "base 4.3",
+      "values": [
+        "small",
+        "large"
+      ],
+      "phrases": {
+        "small": "with small amplitude",
+        "large": "with large amplitude"
+      },
+      "note": "Medium is implied by omission."
+    },
+    "speeds": {
+      "source": "SPEEDS",
+      "guide": "base 4.3",
+      "values": [
+        "slow",
+        "fast"
+      ],
+      "phrases": {
+        "slow": "at slow speed",
+        "fast": "at fast speed"
+      },
+      "note": "Normal is implied by omission."
+    },
     "ordinaryCuts": {
+      "source": "ORDINARY_CUTS",
       "guide": "base 4.2",
-      "values": ["the camera cuts to", "the shot cuts to", "the shot transitions to", "the shot changes to", "the shot switches to"]
+      "values": [
+        "the camera cuts to",
+        "the shot cuts to",
+        "the shot transitions to",
+        "the shot changes to",
+        "the shot switches to"
+      ]
     },
-    "specialCuts": { "guide": "base 4.2", "values": ["cross-dissolve", "fade", "wipe"], "note": "Only when the user explicitly asks." },
+    "specialCuts": {
+      "source": "SPECIAL_CUTS",
+      "guide": "base 4.2",
+      "values": [
+        "cross-dissolve",
+        "fade",
+        "wipe"
+      ],
+      "note": "Only when the user explicitly asks."
+    },
     "tags": {
-      "dialogue": { "open": "<d>", "close": "</d>", "form": "<d>[Language] words</d>", "guide": "base 4.4" },
-      "sceneTrans": { "value": "<scenetrans>", "guide": "base 4.4", "note": "Both sides of a line that crosses a cut." },
-      "cutoff": { "value": "<cutoff>", "guide": "base 4.4", "note": "Speech truncated by the end of the video; final beat only." },
-      "unclear": { "value": "[unclear]", "guide": "ref 5.4" }
+      "dialogue": {
+        "open": "<d>",
+        "close": "</d>",
+        "form": "<d>[Language] words</d>",
+        "guide": "base 4.4"
+      },
+      "sceneTrans": {
+        "value": "<scenetrans>",
+        "guide": "base 4.4",
+        "note": "Both sides of a line that crosses a cut."
+      },
+      "cutoff": {
+        "value": "<cutoff>",
+        "guide": "base 4.4",
+        "note": "Speech truncated by the end of the video; final beat only."
+      },
+      "unclear": {
+        "value": "[unclear]",
+        "guide": "ref 5.4"
+      }
     },
-    "voiceoverPhrase": { "value": "says in an off-screen voiceover", "guide": "base 4.4", "note": "Exact phrase, followed by a statement that the lips remain closed." },
-    "speakerIds": { "form": "(S1)", "compoundForm": "(S1,S2)", "guide": "base 4.4", "note": "Numbered by the order of actual vocal events; never renumbered; never written in retention_analysis (ref 5.4)." },
-    "onScreenText": { "quoting": "English double quotation marks, verbatim, untranslated", "guide": "base 4.5" },
-    "taskTypes": { "guide": "ref 3", "values": ["keyframe completion", "reference generation", "video editing", "video continuation", "audio reuse", "audio reference"] },
-    "visualRetention": { "guide": "ref 4.1", "values": ["fully_preserved", "partially_preserved", "attribute_transfer", "weak_reference"] },
-    "audioRetention": { "guide": "ref 4.2", "values": ["fully_copy", "partially_copy", "reference", "weak_reference"] },
-    "labelKinds": { "guide": "ref 2", "values": ["Subject", "Picture", "Video", "Audio"] },
-    "mediaKinds": { "values": ["image", "video", "audio"], "house": true, "note": "House partition of reference assets. Neither guide enumerates media kinds; it exists so a slot can be typed." },
-    "slotCeilings": { "values": { "image": 9, "video": 3, "audio": 3 }, "house": true, "note": "Not in either guide -- neither states any limit on reference assets. A platform limit carried without a guide citation." },
+    "voiceoverPhrase": {
+      "source": "VOICEOVER_PHRASE",
+      "value": "says in an off-screen voiceover",
+      "guide": "base 4.4",
+      "note": "Exact phrase, followed by a statement that the lips remain closed."
+    },
+    "speakerIds": {
+      "form": "(S1)",
+      "compoundForm": "(S1,S2)",
+      "guide": "base 4.4",
+      "note": "Numbered by the order of actual vocal events; never renumbered; never written in retention_analysis (ref 5.4)."
+    },
+    "onScreenText": {
+      "quoting": "English double quotation marks, verbatim, untranslated",
+      "guide": "base 4.5"
+    },
+    "taskTypes": {
+      "source": "TASK_TYPES",
+      "guide": "ref 3",
+      "values": [
+        "keyframe completion",
+        "reference generation",
+        "video editing",
+        "video continuation",
+        "audio reuse",
+        "audio reference"
+      ]
+    },
+    "visualRetention": {
+      "source": "VISUAL_RETENTION",
+      "guide": "ref 4.1",
+      "values": [
+        "fully_preserved",
+        "partially_preserved",
+        "attribute_transfer",
+        "weak_reference"
+      ]
+    },
+    "audioRetention": {
+      "source": "AUDIO_RETENTION",
+      "guide": "ref 4.2",
+      "values": [
+        "fully_copy",
+        "partially_copy",
+        "reference",
+        "weak_reference"
+      ]
+    },
+    "labelKinds": {
+      "source": "LABEL_KINDS",
+      "guide": "ref 2",
+      "values": [
+        "Subject",
+        "Picture",
+        "Video",
+        "Audio"
+      ]
+    },
+    "mediaKinds": {
+      "source": "MEDIA_KINDS",
+      "values": [
+        "image",
+        "video",
+        "audio"
+      ],
+      "house": true,
+      "note": "House partition of reference assets. Neither guide enumerates media kinds; it exists so a slot can be typed."
+    },
+    "slotCeilings": {
+      "source": "SLOT_CEILINGS",
+      "values": {
+        "image": 9,
+        "video": 3,
+        "audio": 3
+      },
+      "house": true,
+      "note": "Not in either guide -- neither states any limit on reference assets. A platform limit carried without a guide citation."
+    },
     "budgets": {
-      "soundscapeSentences": { "range": [1, 4], "guide": "base 4.6" },
-      "musicSentences": { "range": [1, 3], "guide": "base 4.7" },
+      "soundscapeSentences": {
+        "range": [
+          1,
+          4
+        ],
+        "guide": "base 4.6"
+      },
+      "musicSentences": {
+        "range": [
+          1,
+          3
+        ],
+        "guide": "base 4.7"
+      },
       "refDetailWords": {
-        "range": [350, 500],
+        "range": [
+          350,
+          500
+        ],
         "guide": "ref 5.2",
         "appliesTo": "generation tasks",
         "exemptions": [
@@ -165,57 +412,295 @@
         "note": "The scope is part of the rule. Stating the bare range overstates the guide, which is how the planner came to apply it to video-editing jobs."
       }
     },
-    "notApplicable": { "value": "N/A", "guide": "base 4.6, 4.7" }
+    "slotRoles": {
+      "source": "SLOT_ROLES",
+      "house": true,
+      "note": "The 19 jobs a reference asset can be given. Neither guide enumerates roles; this is the house partition that decides which label kind a slot gets and whether it earns a standalone definition line, so it is load-bearing rather than descriptive.",
+      "values": [
+        "first_frame",
+        "last_frame",
+        "keyframe",
+        "storyboard",
+        "identity",
+        "wardrobe",
+        "style",
+        "scene",
+        "prop",
+        "motion",
+        "camera",
+        "performance",
+        "edit_source",
+        "continuation_source",
+        "structure",
+        "voice",
+        "music_style",
+        "sfx",
+        "soundtrack_copy"
+      ]
+    },
+    "frameAnchorRoles": {
+      "source": "FRAME_ANCHOR_ROLES",
+      "house": true,
+      "note": "Which roles make an image a concrete frame anchor, and therefore earn it a standalone <Picture N> entry. Derived from ref 2.2's distinction between an image used as a frame and one used to define a character or style, but the partition itself is ours.",
+      "values": [
+        "first_frame",
+        "last_frame",
+        "keyframe",
+        "storyboard"
+      ]
+    },
+    "subjectContentRoles": {
+      "source": "SUBJECT_CONTENT_ROLES",
+      "house": true,
+      "note": "Roles whose content is cited inside a <Subject N> rather than getting a line of its own. The complement of the frame anchors, same provenance.",
+      "values": [
+        "identity",
+        "wardrobe",
+        "style",
+        "scene",
+        "prop",
+        "motion",
+        "camera",
+        "performance"
+      ]
+    },
+    "videoStructureRoles": {
+      "source": "VIDEO_STRUCTURE_ROLES",
+      "house": true,
+      "note": "Which roles make a video a whole-video relationship and so earn a standalone <Video N>. Ref 2.3 says <Video N> is reserved for editing, continuation and structural reference; the role names implementing that are ours.",
+      "values": [
+        "edit_source",
+        "continuation_source",
+        "structure"
+      ]
+    },
+    "audioRoles": {
+      "source": "AUDIO_ROLES",
+      "house": true,
+      "note": "Which roles give a soundtrack a job, and so create an <Audio N> for a video slot. Ref 2.5 says an ordinary reference video does not create one merely by containing sound; deciding when it does is ours.",
+      "values": [
+        "voice",
+        "music_style",
+        "sfx",
+        "soundtrack_copy"
+      ]
+    },
+    "continuityPhrases": {
+      "source": "CONTINUITY_PHRASES",
+      "guide": "base 4.4",
+      "note": "The four phrasings the guide offers for audio carrying across a cut. Offered to the planner rather than enforced: the guide lists them as options, so a validator matching on them would fire on legitimate prose that said it differently.",
+      "values": [
+        "continues seamlessly across the cut",
+        "continues uninterrupted into the next shot",
+        "carries over from the previous shot",
+        "remains audible across the transition"
+      ]
+    },
+    "dialogueTerminals": {
+      "source": "DIALOGUE_TERMINALS",
+      "guide": "ref 5.4",
+      "values": [
+        ".",
+        "?",
+        "!"
+      ]
+    },
+    "dialogueAllowedPunctuation": {
+      "source": "DIALOGUE_ALLOWED_PUNCTUATION",
+      "guide": "ref 5.4",
+      "note": "Scoped, like the rule that uses it, to dialogue the user did not supply. Base 4.4 preserves supplied punctuation verbatim.",
+      "values": [
+        ",",
+        ".",
+        "?",
+        "!",
+        "'",
+        "-"
+      ]
+    },
+    "dialoguePlaceholder": {
+      "source": "DIALOGUE_PLACEHOLDER",
+      "house": true,
+      "note": "<d/> marks where a spoken line is spliced into prose. A house token in no guide, written by the planner and consumed by the serializer, so it never reaches H3 -- except when a beat carries it with no dialogue, which the validator reports as DIALOGUE_PLACEHOLDER_ORPHAN.",
+      "value": "<d/>"
+    },
+    "notApplicable": {
+      "source": "NOT_APPLICABLE",
+      "value": "N/A",
+      "guide": "base 4.6, 4.7"
+    }
   },
-
   "prompts": {
     "planner": {
       "builder": "src/provider/prompts/planner.ts:buildPlannerSystemPrompt",
       "note": "Blocks are joined in this order. Anything marked conditional is absent when its input is absent. Adding a block means adding it here first; the conformance test fails otherwise.",
       "blocks": [
-        { "heading": "# How to write", "source": "core", "conditional": false },
-        { "heading": "# Recognisable people", "source": "core", "conditional": false, "origin": "house", "note": "Not in either guide. From the Sora prompt architecture and the original engine's own fragment. Carve-out: dialogue text and on-screen text are reproduced verbatim regardless." },
-        { "heading": "# Camera", "source": "core", "conditional": false, "guide": "base 4.3" },
-        { "heading": "# Shots and beats", "source": "core", "conditional": false, "guide": "base 4.2" },
-        { "heading": "# Speech", "source": "core", "conditional": false, "guide": "base 4.4", "note": "Carries the continuity fields the planner schema requires -- crossesCut, cutoff, <scenetrans>, <cutoff> and the four phrasings of base 4.4 -- which no prompt named until a review found that a model doing the right thing produced an unclearable SCENETRANS_UNPAIRED. The punctuation instruction is scoped to lines the planner writes: base 4.4 preserves supplied words verbatim, and rewriting one makes the document stop recognising it as the user's." },
-        { "heading": "# Style", "source": "core", "conditional": false, "guide": "base 4.1", "note": "Says only that style names the medium and finish. Where it is rendered is contract-specific and lives in the mode blocks: base opens Shot 1 with it as a clause (base 4.1), Ref2VA states it in one or two sentences before [Shot 1] (ref 5.2). The core stated the base shape for every mode until a review found it contradicted the Ref2VA golden fixture." },
-        { "heading": "# On-screen text", "source": "core", "conditional": false, "guide": "base 4.5" },
-        { "heading": "# Audio", "source": "core", "conditional": false, "guide": "base 4.6, 4.7" },
-        { "heading": "# Active mode:", "source": "mode-block", "conditional": false, "note": "One per mode; the heading carries the mode name." },
-        { "heading": "# Style direction", "source": "derived:styleDirective", "conditional": true, "note": "From CreativeModeRecord.selection. Absent when no pack resolves." },
-        { "heading": "# Glitch marks", "source": "derived:glitchDirective", "conditional": true, "note": "From CreativeModeRecord.glitch. The planner appends a mode-specific affordance note; the patch prompt does not, because it has no mode." },
-        { "heading": "# Supplied facts", "source": "computed", "conditional": false, "note": "Last on purpose, so the facts have the final word." }
+        {
+          "heading": "# How to write",
+          "source": "core",
+          "conditional": false,
+          "house": true,
+          "note": "Observable-only description, one action at a time, continuity from beat to beat. Neither guide states any of it; base 4.1 says every detail should correspond to something visible or audible, and this is the house reading of what that asks a writer to do."
+        },
+        {
+          "heading": "# Recognisable people",
+          "source": "core",
+          "conditional": false,
+          "note": "Not in either guide. From the Sora prompt architecture and the original engine's own fragment. Carve-out: dialogue text and on-screen text are reproduced verbatim regardless. Neither guide mentions public figures. From the Sora prompt architecture and the original engine's fragment. Carve-out: dialogue text and on-screen text are reproduced verbatim regardless.",
+          "house": true
+        },
+        {
+          "heading": "# Camera",
+          "source": "core",
+          "conditional": false,
+          "guide": "base 4.3"
+        },
+        {
+          "heading": "# Shots and beats",
+          "source": "core",
+          "conditional": false,
+          "guide": "base 4.2",
+          "note": "The cut vocabulary and the no-timestamp-on-Shot-1 rule are the guide's. 'Cut only to reveal genuinely new subject, space, state, viewpoint or time' restates base 4.2's preference; the beat structure around it is house."
+        },
+        {
+          "heading": "# Speech",
+          "source": "core",
+          "conditional": false,
+          "guide": "base 4.4",
+          "note": "Carries the continuity fields the planner schema requires -- crossesCut, cutoff, <scenetrans>, <cutoff> and the four phrasings of base 4.4 -- which no prompt named until a review found that a model doing the right thing produced an unclearable SCENETRANS_UNPAIRED. The punctuation instruction is scoped to lines the planner writes: base 4.4 preserves supplied words verbatim, and rewriting one makes the document stop recognising it as the user's."
+        },
+        {
+          "heading": "# Style",
+          "source": "core",
+          "conditional": false,
+          "guide": "base 4.1",
+          "note": "Says only that style names the medium and finish. Where it is rendered is contract-specific and lives in the mode blocks: base opens Shot 1 with it as a clause (base 4.1), Ref2VA states it in one or two sentences before [Shot 1] (ref 5.2). The core stated the base shape for every mode until a review found it contradicted the Ref2VA golden fixture."
+        },
+        {
+          "heading": "# On-screen text",
+          "source": "core",
+          "conditional": false,
+          "guide": "base 4.5"
+        },
+        {
+          "heading": "# Audio",
+          "source": "core",
+          "conditional": false,
+          "guide": "base 4.6, 4.7"
+        },
+        {
+          "heading": "# Active mode:",
+          "source": "mode-block",
+          "conditional": false,
+          "note": "One per mode; the heading carries the mode name. One block per mode. The keyframe semantics are base 3.1-3.3 and the full-reference differences are ref 5.2; the glitch-mark affordances appended to it are house and marked in notInTheGuides.",
+          "guide": "base 3, ref 5"
+        },
+        {
+          "heading": "# Style direction",
+          "source": "derived:styleDirective",
+          "conditional": true,
+          "note": "From CreativeModeRecord.selection. Absent when no pack resolves. Derived from a CreativeModeRecord. Injects pack directives that no guide mentions; the packs are in notInTheGuides.",
+          "house": true
+        },
+        {
+          "heading": "# Glitch marks",
+          "source": "derived:glitchDirective",
+          "conditional": true,
+          "note": "From CreativeModeRecord.glitch. The planner appends a mode-specific affordance note; the patch prompt does not, because it has no mode. Derived from a CreativeModeRecord's glitch half. Entirely house; it defers to base 4.5 for how a mark is written, rather than restating it.",
+          "house": true
+        },
+        {
+          "heading": "# Supplied facts",
+          "source": "computed",
+          "conditional": false,
+          "note": "Last on purpose, so the facts have the final word. Computed values handed to the model as fact -- duration, latest legal cut, label assignments, budgets -- so it never derives arithmetic. The values trace to the guides; presenting them this way does not.",
+          "house": true
+        }
       ]
     },
     "patch": {
       "builder": "src/provider/prompts/patch.ts:buildPatchSystemPrompt",
       "blocks": [
-        { "heading": "# Rules", "source": "core", "conditional": false },
-        { "heading": "# When you should refuse", "source": "core", "conditional": false },
-        { "heading": "# Active style", "source": "derived:styleDirective", "conditional": true },
-        { "heading": "# Active glitch marks", "source": "derived:glitchDirective", "conditional": true }
+        {
+          "heading": "# Rules",
+          "source": "core",
+          "conditional": false,
+          "house": true,
+          "note": "How a surgical edit behaves: change only what was asked, keep register, preserve continuity. No guide describes editing an existing prompt."
+        },
+        {
+          "heading": "# When you should refuse",
+          "source": "core",
+          "conditional": false,
+          "house": true,
+          "note": "Structural changes a patch cannot express are declined rather than approximated. House."
+        },
+        {
+          "heading": "# Active style",
+          "source": "derived:styleDirective",
+          "conditional": true,
+          "house": true,
+          "note": "Same derivation as the planner's # Style direction, framed as preservation."
+        },
+        {
+          "heading": "# Active glitch marks",
+          "source": "derived:glitchDirective",
+          "conditional": true,
+          "house": true,
+          "note": "Same derivation as the planner's # Glitch marks, framed as preservation, and with no mode note because a patch has no mode."
+        }
       ],
       "parity": "Both prompts derive the style and glitch blocks from the same record through the same function, so an edit cannot drift from what the document was written under. test/creative-integration.test.ts asserts the derived text is identical on both sides."
     }
   },
-
   "invariants": [
-    { "id": "beats-carry-prose", "statement": "The planner writes the sentences; the serializer assembles structure around them and never expands an enum into a sentence.", "enforcedBy": "review, and the absence of any enum-to-prose path in src/core/serialize" },
-    { "id": "prompt-is-derived", "statement": "serialize(doc, ctx) is total and deterministic. Nothing hand-edits prompt text.", "enforcedBy": "test/serialize.test.ts" },
-    { "id": "core-is-pure", "statement": "src/core has no React, DOM, network, SDK or idb.", "enforcedBy": "test/purity.test.ts" },
-    { "id": "errors-only", "statement": "A diagnostic means the document is provably malformed. There is no warning severity.", "enforcedBy": "src/core/validate/types.ts" },
-    { "id": "every-code-controlled", "statement": "Every diagnostic code has a fixture that makes it fire.", "enforcedBy": "test/validate.test.ts control coverage" },
-    { "id": "selections-travel-text-does-not", "statement": "A creative selection and a wildcard roll travel as records; their text is derived at the point of use.", "enforcedBy": "test/creative-integration.test.ts" },
-    { "id": "goldens-are-the-guides", "statement": "The five golden fixtures are the guides' worked examples, byte for byte.", "enforcedBy": "test/guide-fidelity.test.ts" },
-    { "id": "tolerant-ids", "statement": "Stored ids this build does not know resolve to nothing rather than failing to load.", "enforcedBy": "test/creative.test.ts" }
+    {
+      "id": "beats-carry-prose",
+      "statement": "The planner writes the sentences; the serializer assembles structure around them and never expands an enum into a sentence.",
+      "enforcedBy": "review, and the absence of any enum-to-prose path in src/core/serialize"
+    },
+    {
+      "id": "prompt-is-derived",
+      "statement": "serialize(doc, ctx) is total and deterministic. Nothing hand-edits prompt text.",
+      "enforcedBy": "test/serialize.test.ts"
+    },
+    {
+      "id": "core-is-pure",
+      "statement": "src/core has no React, DOM, network, SDK or idb.",
+      "enforcedBy": "test/purity.test.ts"
+    },
+    {
+      "id": "errors-only",
+      "statement": "A diagnostic means the document is provably malformed. There is no warning severity.",
+      "enforcedBy": "src/core/validate/types.ts"
+    },
+    {
+      "id": "every-code-controlled",
+      "statement": "Every diagnostic code has a fixture that makes it fire.",
+      "enforcedBy": "test/validate.test.ts control coverage"
+    },
+    {
+      "id": "selections-travel-text-does-not",
+      "statement": "A creative selection and a wildcard roll travel as records; their text is derived at the point of use.",
+      "enforcedBy": "test/creative-integration.test.ts"
+    },
+    {
+      "id": "goldens-are-the-guides",
+      "statement": "The five golden fixtures are the guides' worked examples, byte for byte.",
+      "enforcedBy": "test/guide-fidelity.test.ts"
+    },
+    {
+      "id": "tolerant-ids",
+      "statement": "Stored ids this build does not know resolve to nothing rather than failing to load.",
+      "enforcedBy": "test/creative.test.ts"
+    }
   ],
-
   "diagnostics": {
     "note": "Every code the validator can emit, with what makes it legitimate. Guide-derived codes cite a section; house codes say so. test/validate.test.ts proves each one can fire; the conformance test proves this list matches the codes the rules actually emit.",
     "codes": {
       "NO_SHOTS": "house: a document with no shots renders nothing",
       "DURATION_NOT_POSITIVE": "house: duration drives every derived timestamp",
-      "MODE_SLOT_MISMATCH": "base 1: each mode's reference requirements",
+      "MODE_SLOT_MISMATCH": "house: base 1 describes what each mode is, not how many references it takes. The cardinalities the rule enforces -- exactly one first-frame image for I2VA, exactly two for FL2VA, no other media -- appear nowhere in either guide. Defensible policy, not contract.",
       "SHOT_INDEX_NOT_SEQUENTIAL": "base 4.2",
       "SHOT_1_HAS_TIMESTAMP": "base 4.2: the first shot carries no timestamp",
       "SHOT_MISSING_TIMESTAMP": "base 4.2",
@@ -251,18 +736,49 @@
       "REF_SPEAKER_IN_RETENTION": "ref 5.4: do not write (Sx) in retention_analysis"
     }
   },
-
   "notInTheGuides": {
     "note": "Everything the compiler does that no guide asks for. An audit should be able to tell contract from house style at a glance.",
     "items": [
-      { "id": "recognisable-people", "where": "planner and patch prompts", "why": "Naming a public figure pulls the frame toward a likeness. From the Sora prompt architecture." },
-      { "id": "creative-packs", "where": "src/core/creative", "why": "Style direction injected into the planner prompt. Never reaches the serializer." },
-      { "id": "glitch-marks", "where": "src/core/creative/glitch.ts", "why": "Anomalous tokenizer strings placed as visible on-screen text. Uses the guide's on-screen text rule rather than a new one." },
-      { "id": "wildcards", "where": "src/core/wildcards", "why": "Content substitution on the idea, before anything is planned. Never touches beat prose or serialized output." },
-      { "id": "frame-grid", "where": "src/core/normalize/duration.ts", "why": "17k+5 at 24fps is a workflow fact, not a guide rule." },
-      { "id": "spoken-word-budget", "where": "src/core/normalize/budgets.ts", "why": "2.5 words per second is an estimate, supplied to the planner as advice." },
-      { "id": "beat-density", "where": "src/core/normalize/budgets.ts", "why": "MS_PER_BEAT, one dominant beat per 2.5 seconds. House judgement. Neither guide contains a density rule, and the comment here attributed one to the guide until an outside audit searched for it." },
-      { "id": "slot-ceilings", "where": "src/core/ir/vocab.ts", "why": "SLOT_CEILINGS, 9 images / 3 videos / 3 audio. Neither guide states any limit on reference assets; marked house in the vocabulary block as well." }
+      {
+        "id": "recognisable-people",
+        "where": "planner and patch prompts",
+        "why": "Naming a public figure pulls the frame toward a likeness. From the Sora prompt architecture."
+      },
+      {
+        "id": "creative-packs",
+        "where": "src/core/creative",
+        "why": "Style direction injected into the planner prompt. Never reaches the serializer."
+      },
+      {
+        "id": "glitch-marks",
+        "where": "src/core/creative/glitch.ts",
+        "why": "Anomalous tokenizer strings placed as visible on-screen text. Uses the guide's on-screen text rule rather than a new one."
+      },
+      {
+        "id": "wildcards",
+        "where": "src/core/wildcards",
+        "why": "Content substitution on the idea, before anything is planned. Never touches beat prose or serialized output."
+      },
+      {
+        "id": "frame-grid",
+        "where": "src/core/normalize/duration.ts",
+        "why": "17k+5 at 24fps is a workflow fact, not a guide rule."
+      },
+      {
+        "id": "spoken-word-budget",
+        "where": "src/core/normalize/budgets.ts",
+        "why": "2.5 words per second is an estimate, supplied to the planner as advice."
+      },
+      {
+        "id": "beat-density",
+        "where": "src/core/normalize/budgets.ts",
+        "why": "MS_PER_BEAT, one dominant beat per 2.5 seconds. House judgement. Neither guide contains a density rule, and the comment here attributed one to the guide until an outside audit searched for it."
+      },
+      {
+        "id": "slot-ceilings",
+        "where": "src/core/ir/vocab.ts",
+        "why": "SLOT_CEILINGS, 9 images / 3 videos / 3 audio. Neither guide states any limit on reference assets; marked house in the vocabulary block as well."
+      }
     ]
   }
 }
