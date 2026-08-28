@@ -1,11 +1,14 @@
 /**
  * Red-proving controls.
  *
- * A check is unverified until it has been shown to go red for the right reason
- * AND green for the right reason. Every diagnostic code below gets a fixture
- * that deliberately breaks exactly that rule, plus the standing evidence from
- * serialize.test.ts that the unbroken official examples produce no errors at
- * all. A rule with only a green path is decoration.
+ * This is the case where a breakage plainly earns itself: a diagnostic nothing
+ * can make fire is decoration, and whether it fires is a question about the
+ * rule reaching a document, not about an assertion reading a value. So every
+ * code below gets a fixture that breaks exactly its rule, against the standing
+ * evidence from serialize.test.ts that the unbroken official examples produce
+ * no errors at all.
+ *
+ * The broader judgement about when to spend a breakage is in CLAUDE.md.
  *
  * The last test in this file is the one that keeps the discipline: it scans the
  * rule sources for emitted codes and fails if any of them has no control here.

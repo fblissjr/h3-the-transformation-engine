@@ -62,7 +62,11 @@ bun run build
 bun run probe       # live API probes; reads GEMINI_API_KEY from .env
 ```
 
-A check is unverified until it has been shown to go red for the right reason *and* green for the right reason. Write the control that makes it fail, run it, then trust it.
+**Break a check where its green could be hollow, and not where it could not.** The question a breakage answers is whether the check reaches its subject — so spend one where a green might come from never arriving: across a schema, a barrel export, an assembly step, a UI path, or beside a second guard that could be carrying the assertion alone. Where the assertion reads the value under test directly, breaking it is a tautology and proves nothing; changing a constant to watch its own equality assertion fail is theatre, and doing it out of habit trains you to read "went red" as "is sound".
+
+That is not a licence to skip it, because this is exactly where the gaps have been. Deleting `if (input.creativeMode) doc.creativeMode = ...` from `compile` left all 400-odd tests green, because it sat past the model call where nothing could reach it. The same for the roll record. `{setting}` and `{setting:random}` drew separately for a while with no control at all, under a describe block whose name claimed the case was covered. And the two prototype guards in `matrix.ts` only go red together, which the breakage has to say out loud or the next reader concludes one of them is dead.
+
+**A red is information about the check, not a pass mark.** An axis check written elsewhere in this repo went red on its first run against nine packs that correctly claim no axis: the failure was the check encoding a property that sounded right rather than the one the table has. Before believing a red, read what it says. A control that fails for a reason you did not predict has told you something about the control.
 
 Storage and crypto tests run against `fake-indexeddb` (a devDependency, not in the bundle) with a `localStorage` stub, so deletes and round-trips are real rather than mocked. What that cannot cover is the browser: **click the thing.** Both bugs that mattered in the storage work — a caller still passing the retired `device` mode, and a vault database wedged at version 1 — passed every unit test and broke the running app. So did the third: a creative picker holding its own copy of the selection, which showed a restored style in its badge but not in its controls and then destroyed it on the first change.
 

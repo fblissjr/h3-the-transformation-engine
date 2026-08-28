@@ -138,9 +138,12 @@ worse than no name, because it borrows authority the thing has not earned.
 - **Deterministic where it can be.** Rerolling a wildcard in place is string
   substitution, not a model call. Seeds are recorded so a result can be had
   again. Spend a call only where judgement is actually required.
-- **Every claim gets a control.** A check is unverified until it has been shown
-  to go red for the right reason. This is how the play stays trustworthy, and it
-  is not optional just because the feature is for fun.
+- **Every claim gets a control, and a control gets read.** A check is unverified
+  until something has shown it reaches its subject, which is a question about
+  wiring rather than a ritual: break it where a green could come from never
+  arriving, not where the assertion reads the value under test. And a red is
+  information about the check, not a pass mark — it can equally mean the check
+  encoded a property that only sounded right.
 - **Delete freely.** One person, no users, no roadmap. That is a licence to keep
   the code small — and the cost of keeping something that does not earn its
   place is paid on every future change.
