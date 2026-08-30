@@ -114,6 +114,20 @@ export function useEngine() {
    * it twice.
    */
   const heylookModelIdRef = useRef<string | null>(null);
+  /**
+   * The in-flight model call, so it can be stopped.
+   *
+   * One controller rather than one per action: `busy` already enforces that at
+   * most one call is running, and a stop button that has to know which kind of
+   * call it is stopping would be a second copy of that fact.
+   *
+   * Stopping is provider-agnostic on purpose. `CallOptions.signal` has been on
+   * the interface since it was extracted and both clients thread it through, so
+   * this needed a control rather than a mechanism. It matters most on the local
+   * server, which serialises generation: an abandoned generation there is not
+   * just a wasted wait, it is the queue everything else is behind.
+   */
+  const abortRef = useRef<AbortController | null>(null);
   const [heylookError, setHeylookError] = useState<string | null>(null);
   const [discovering, setDiscovering] = useState(false);
   /** What is on disk, independent of whether it has been unlocked this session. */
@@ -454,6 +468,35 @@ export function useEngine() {
     [headVersionId],
   );
 
+  /**
+   * An aborted call is a thing the user did, not a thing that went wrong.
+   *
+   * It arrives as an `AbortError` DOMException from `fetch`, or wrapped by the
+   * SDK on the hosted path, so both spellings are recognised. Reporting it as an
+   * error would put a red bar on screen for pressing stop.
+   */
+  const reportOrStopped = useCallback((cause: unknown) => {
+    const aborted =
+      (cause instanceof DOMException && cause.name === 'AbortError') ||
+      (cause instanceof Error && cause.name === 'AbortError');
+    if (aborted) {
+      setNotice('Stopped. Nothing was saved -- a stopped call returns no document.');
+      return;
+    }
+    setError(cause instanceof Error ? cause.message : String(cause));
+  }, []);
+
+  /**
+   * Stop the call in flight.
+   *
+   * Aborting the request is also what tells a local server to give up on the
+   * generation, which is the part that matters when it serialises work: the
+   * queue behind it moves as soon as this returns.
+   */
+  const stop = useCallback(() => {
+    abortRef.current?.abort();
+  }, []);
+
   // --- actions -----------------------------------------------------------
   const generate = useCallback(async () => {
     if (!client) return setError(notReady ?? 'No inference backend is ready.');
@@ -461,8 +504,10 @@ export function useEngine() {
     setBusy('Planning');
     setError(null);
     setNotice(null);
+    const controller = new AbortController();
+    abortRef.current = controller;
     try {
-      const result = await compile(client, input, { id: DOC_ID });
+      const result = await compile(client, input, { id: DOC_ID, signal: controller.signal });
       const style = describeRecord(creative);
       // The seed goes in the label because it is the only record of which roll
       // produced this document; the idea box still holds the template.
@@ -471,11 +516,12 @@ export function useEngine() {
       await commit(result.doc, label);
       setSelectedPaths([]);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      reportOrStopped(cause);
     } finally {
+      abortRef.current = null;
       setBusy(null);
     }
-  }, [client, notReady, effectiveIdea, input, commit, creative, rolled, seed]);
+  }, [client, notReady, effectiveIdea, input, commit, creative, rolled, seed, reportOrStopped]);
 
   const applyDirect = useCallback(
     async (path: string, value: unknown) => {
@@ -498,8 +544,12 @@ export function useEngine() {
       setBusy('Editing');
       setError(null);
       setNotice(null);
+      const controller = new AbortController();
+      abortRef.current = controller;
       try {
-        const result = await edit(client, doc, selectedPaths, instruction);
+        const result = await edit(client, doc, selectedPaths, instruction, {
+          signal: controller.signal,
+        });
         if (result.patch.applied.length === 0) {
           setError(
             result.patch.rejected[0]?.reason ?? 'The model returned no applicable changes.',
@@ -516,12 +566,13 @@ export function useEngine() {
         ];
         if (skipped.length > 0) setNotice(`Applied ${result.patch.applied.length}. Skipped: ${skipped.join('; ')}`);
       } catch (cause) {
-        setError(cause instanceof Error ? cause.message : String(cause));
+        reportOrStopped(cause);
       } finally {
+        abortRef.current = null;
         setBusy(null);
       }
     },
-    [client, notReady, doc, selectedPaths, commit],
+    [client, notReady, doc, selectedPaths, commit, reportOrStopped],
   );
 
   const checkout = useCallback(async (version: StoredVersion) => {
@@ -603,6 +654,7 @@ export function useEngine() {
     versions: versionTree,
     headVersionId,
     busy,
+    stop,
     error,
     setError,
     notice,

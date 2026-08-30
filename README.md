@@ -226,6 +226,10 @@ A fifth was in the tests themselves. The golden fixtures were described as byte-
 
 **Errors only — there is no warning severity.** A diagnostic means the document is provably malformed: a cut outside the video, an undeclared speaker, a retention marker from the wrong vocabulary. Checks that pattern-matched prose for a preference — sentence counts, word targets, whether a camera annotation was echoed in the wording — were removed, because they fired on legitimate output. A check that cries wolf trains you to ignore the ones that matter. That guidance lives in the planner prompt instead, where being wrong costs nothing.
 
+### Stopping a generation
+
+The generate button turns into a running indicator with a stop beside it. Stopping aborts the request, which is also what tells the server to give up on the generation — on heylook that releases the queue rather than merely ending your wait, since it runs one generation at a time. A stopped call saves nothing: these are non-streaming requests, so there is no partial document to keep.
+
 ## Not built yet
 
 - Video and audio reference analysis. Those need a Files API upload, PROCESSING polling and 48h handle expiry, and only the `uri` path is verified working. Those slots take a written description for now.

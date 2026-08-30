@@ -145,6 +145,36 @@ describe('compile hands the planner call its task and its schema', () => {
   });
 });
 
+describe('a stop reaches the provider', () => {
+  // Same class of gap as the task and the schema: the signal is chosen in the
+  // UI, threaded through the pipeline and consumed inside a client, so nothing
+  // between those points would notice it being dropped. A stop button wired to
+  // a signal that never arrives looks identical to one that works, right up
+  // until the generation it was meant to release keeps running.
+  it('carries the abort signal into the planner call', async () => {
+    const client = new RecordingClient(plan);
+    const controller = new AbortController();
+    await compile(client, input, { id: 'doc-1', signal: controller.signal });
+    expect(client.calls[0].signal).toBe(controller.signal);
+  });
+
+  it('carries the abort signal into the patch call', async () => {
+    const client = new RecordingClient({
+      operations: [{ path: 'shots.0.beats.0.prose', value: 'a colder wide shot.', rationale: 'Asked.' }],
+      declined: null,
+    });
+    const controller = new AbortController();
+    await edit(client, docFor(), ['shots.0.beats.0.prose'], 'colder', { signal: controller.signal });
+    expect(client.calls[0].signal).toBe(controller.signal);
+  });
+
+  it('omits the signal rather than sending undefined when nothing can stop it', async () => {
+    const client = new RecordingClient(plan);
+    await compile(client, input, { id: 'doc-1' });
+    expect('signal' in client.calls[0]).toBe(false);
+  });
+});
+
 describe('edit hands the patch call its own task', () => {
   it('names the patch task, which is a different depth from planning', async () => {
     // The two tasks map to different levels on Gemini, so a pipeline that sent

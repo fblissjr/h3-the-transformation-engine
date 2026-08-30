@@ -173,14 +173,36 @@ export function App() {
             appliesToNextGeneration={e.creativeAppliesToNextGeneration}
           />
 
-          <button
-            type="button"
-            onClick={() => void e.generate()}
-            disabled={e.busy != null}
-            className="w-full rounded bg-[var(--color-accent)] px-3 py-2 text-xs font-semibold text-black disabled:opacity-40"
-          >
-            {e.busy ?? (e.doc ? 'Regenerate' : 'Generate')}
-          </button>
+          {/*
+            One control, two states. A separate always-present stop button would
+            be dead weight whenever nothing is running, and a stop that sits
+            beside a disabled generate button reads as though it might start
+            something. Stopping is not provider-specific: both clients take the
+            same signal, and on a server that serialises generation it is what
+            releases the queue rather than merely ending the wait.
+          */}
+          {e.busy ? (
+            <div className="flex w-full gap-2">
+              <span className="flex-1 rounded bg-[var(--color-accent)]/40 px-3 py-2 text-center text-xs font-semibold text-black">
+                {e.busy}
+              </span>
+              <button
+                type="button"
+                onClick={e.stop}
+                className="rounded border border-[var(--color-danger)] px-3 py-2 text-xs font-semibold text-[var(--color-danger)]"
+              >
+                stop
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => void e.generate()}
+              className="w-full rounded bg-[var(--color-accent)] px-3 py-2 text-xs font-semibold text-black disabled:opacity-40"
+            >
+              {e.doc ? 'Regenerate' : 'Generate'}
+            </button>
+          )}
         </aside>
 
         {/* --- document --------------------------------------------------- */}
