@@ -29,9 +29,14 @@ import {
   type PolicyLayers,
   type ProviderType,
   type Sourced,
-} from '../core/policy';
-import { normalizeOrigin } from './heylook/config';
-import type { ProviderId } from './types';
+} from '../core/policy/index.ts';
+// The `.ts` extensions below, and through `core/policy/`, are load-bearing:
+// `vite.config.ts` imports this file and is loaded by Node, whose TypeScript
+// loader does no extension search and no directory index. Dropping them, or
+// shortening the line above to `../core/policy`, breaks the config load.
+// See `allowImportingTsExtensions` in tsconfig.json.
+import { normalizeOrigin } from './heylook/config.ts';
+import type { ProviderId } from './types.ts';
 
 export interface ProviderDescriptor {
   id: ProviderId;

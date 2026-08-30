@@ -29,6 +29,9 @@ All notable changes to this project are documented here. Semantic versioning.
 
 ### Changed
 
+- **The vite config's own module graph now names its files.** `vite.config.ts` imports `src/provider/registry.ts` so that `connect-src` and the client parse the instance list with one function, and that makes the config a Node-loaded module rather than a bundled one. Vite 8.2.2 warns that `configLoader: 'native'` is planned to become the default, and Node's TypeScript loader resolves neither a missing extension nor a directory index, so nine specifiers across `registry.ts` and `src/core/policy/` are now written out in full and `allowImportingTsExtensions` is on. Nothing else changes: the reach is exactly the config's graph, and everything bundled stays extensionless.
+
+  The warning is a proxy, so the property was checked directly -- `vite build --configLoader native` succeeds, and dropping one extension back makes it fail with `ERR_MODULE_NOT_FOUND` rather than a warning. The tsconfig flag carries its reason next to it, because a bare permissive setting is a tightening candidate and turning this one off breaks loading the config.
 - **Three provider rules in the working notes are now scoped to Gemini, because they are false of the other backend.** heylook honours `temperature`, has no `store` concept and no `thinking_level`. The temperature ban was the trap: it reads as a house rule and is not one — both clients omit the field, for different reasons — so it is recorded as a fact about an API rather than a preference. This is the guide-number scoping rule applied one level out.
 - **`THINKING.vision` was dropped.** It had no caller: images ride along with a planner call rather than getting one of their own. Carrying it into the new abstraction would have widened the task union around something nothing passes.
 

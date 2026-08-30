@@ -7,7 +7,7 @@
  * lives.
  */
 
-import type { Policy, ProviderType } from './types';
+import type { Policy, ProviderType } from './types.ts';
 
 /**
  * Applies unless something below says otherwise.

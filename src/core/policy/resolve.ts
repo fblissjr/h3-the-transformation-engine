@@ -9,7 +9,7 @@
  * merging objects positionally.
  */
 
-import { POLICY_KEYS, SCOPES, type Policy, type PolicyLayers, type Scope, type Sourced } from './types';
+import { POLICY_KEYS, SCOPES, type Policy, type PolicyLayers, type Scope, type Sourced } from './types.ts';
 
 /**
  * The effective policy.

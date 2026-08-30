@@ -6,7 +6,24 @@
     "module": "ESNext",
     "skipLibCheck": true,
     "moduleResolution": "bundler",
-    "allowImportingTsExtensions": false,
+    // On, and not a licence to use extensions elsewhere.
+    //
+    // `vite.config.ts` imports `src/provider/registry.ts` so that the CSP and
+    // the client parse the instance list with one function. That config file is
+    // loaded by Node rather than bundled, and Node's TypeScript loader resolves
+    // nothing -- no extension search, no directory index -- so every specifier
+    // reachable from it must be fully specified. Those files are inside
+    // `include`, so tsc has to permit what Node requires.
+    //
+    // The reach is exactly the config's own module graph: `registry.ts` and
+    // `src/core/policy/`. Everything else is bundled and stays extensionless.
+    // Turning this off breaks loading the config, not just a lint preference.
+    //
+    // That reach is a fact checked once, not one that holds by construction.
+    // What would catch a new extensionless import entering the graph: the dev
+    // server warns at startup, and `vite build --configLoader native` fails
+    // outright with ERR_MODULE_NOT_FOUND. Nothing in the suite watches it.
+    "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
