@@ -73,7 +73,9 @@ function refuseUnexpanded(input: CompileInput): void {
 export async function compile(
   client: InferenceClient,
   input: CompileInput,
-  options: { id: string; seed?: number; signal?: AbortSignal } = { id: 'doc-1' },
+  options: { id: string; seed?: number; signal?: AbortSignal; enforceSchema?: boolean } = {
+    id: 'doc-1',
+  },
 ): Promise<CompileResult> {
   refuseUnexpanded(input);
   const ctx = normalize(input);
@@ -84,6 +86,10 @@ export async function compile(
     task: 'planner',
     maxOutputTokens: PLANNER_MAX_OUTPUT_TOKENS,
     schema: plannerJsonSchema(),
+    // Passed through untouched. The pipeline has no opinion on enforcement and
+    // must not grow one: it is the caller's trade, and each client decides what
+    // its own wire calls it.
+    ...(options.enforceSchema != null ? { enforceSchema: options.enforceSchema } : {}),
     images: imagesFor(input),
     ...(options.seed != null ? { seed: options.seed } : {}),
     ...(options.signal ? { signal: options.signal } : {}),
@@ -93,8 +99,8 @@ export async function compile(
   // prompt, zod is what the rest of the code trusts. Parsing again here means a
   // reply the provider accepted but our types disagree with fails loudly at the
   // boundary rather than deep inside the serializer. With a local model that
-  // has no constrained decoding, this is the check doing the real work rather
-  // than a second opinion.
+  // has no constrained decoding -- by preference, not by limitation -- this is
+  // the check doing the real work rather than a second opinion.
   const parsed = PlannerOutputSchema.safeParse(result.parsed);
   if (!parsed.success) {
     throw new PlanError(`Planner output did not match the schema: ${parsed.error.message}`);
@@ -127,7 +133,7 @@ export async function edit(
   doc: H3Document,
   paths: string[],
   instruction: string,
-  options: { seed?: number; signal?: AbortSignal } = {},
+  options: { seed?: number; signal?: AbortSignal; enforceSchema?: boolean } = {},
 ): Promise<EditResult> {
   if (paths.length === 0) throw new PlanError('An edit needs at least one target path.');
 
@@ -137,6 +143,7 @@ export async function edit(
     task: 'patch',
     maxOutputTokens: PATCH_MAX_OUTPUT_TOKENS,
     schema: patchJsonSchema(),
+    ...(options.enforceSchema != null ? { enforceSchema: options.enforceSchema } : {}),
     ...(options.seed != null ? { seed: options.seed } : {}),
     ...(options.signal ? { signal: options.signal } : {}),
   });

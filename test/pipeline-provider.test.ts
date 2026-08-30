@@ -74,6 +74,7 @@ const input: CompileInput = {
  */
 class RecordingClient implements InferenceClient {
   readonly providerId = 'gemini' as const;
+  readonly canEnforceSchema = true;
   readonly calls: CallOptions[] = [];
 
   constructor(private readonly reply: unknown) {}
@@ -142,6 +143,35 @@ describe('compile hands the planner call its task and its schema', () => {
     const client = new RecordingClient(plan);
     await compile(client, input, { id: 'doc-1' });
     expect(client.calls[0].images).toEqual([]);
+  });
+});
+
+describe('the enforcement choice reaches the provider unchanged', () => {
+  // Same wiring gap as task, schema and signal: chosen in the UI, threaded
+  // through the pipeline, consumed inside a client. Nothing in between would
+  // notice it being dropped, and a toggle that silently does nothing looks
+  // exactly like one that works.
+  it('carries enforceSchema: false into the planner call', async () => {
+    const client = new RecordingClient(plan);
+    await compile(client, input, { id: 'doc-1', enforceSchema: false });
+    expect(client.calls[0].enforceSchema).toBe(false);
+  });
+
+  it('carries enforceSchema: false into the patch call', async () => {
+    const client = new RecordingClient({
+      operations: [{ path: 'shots.0.beats.0.prose', value: 'colder.', rationale: 'Asked.' }],
+      declined: null,
+    });
+    await edit(client, docFor(), ['shots.0.beats.0.prose'], 'colder', { enforceSchema: false });
+    expect(client.calls[0].enforceSchema).toBe(false);
+  });
+
+  it('says nothing when the caller has no opinion, leaving the client its default', async () => {
+    // Sending `undefined` explicitly would be the pipeline having an opinion it
+    // was told not to have.
+    const client = new RecordingClient(plan);
+    await compile(client, input, { id: 'doc-1' });
+    expect('enforceSchema' in client.calls[0]).toBe(false);
   });
 });
 

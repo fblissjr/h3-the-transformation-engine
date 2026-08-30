@@ -34,9 +34,4 @@ function normalizeOrigin(raw: string | undefined): string {
   return trimmed.replace(/\/+$/, '');
 }
 
-export const HEYLOOK_ORIGIN = normalizeOrigin(import.meta.env?.VITE_HEYLOOK_ORIGIN);
-
-/** True when the origin is the built-in default rather than something configured. */
-export const HEYLOOK_ORIGIN_IS_DEFAULT = HEYLOOK_ORIGIN === FALLBACK_ORIGIN;
-
 export { FALLBACK_ORIGIN, normalizeOrigin };

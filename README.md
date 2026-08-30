@@ -173,7 +173,7 @@ Verified against `@google/genai` types or probed live, not read from docs:
 
 A local server on your own network — MLX and gguf models over an endpoint that conforms to Anthropic's Messages API. Read from the wire reference and the live server, not assumed from an Anthropic SDK habit:
 
-- **No constrained decoding, on either wire.** There is no `responseSchema` equivalent; asking for one is not an error, it is simply absent. The schema is appended to the system prompt by the client and the reply is parsed defensively — fence stripping, then the longest balanced object that parses. Longest, not first: a preamble saying "the schema uses `{}` for an empty object" makes first-match hand back valid JSON that is the wrong object.
+- **No constrained decoding, on either wire — and that suits this app.** There is no `responseSchema` equivalent; asking for one is not an error, it is simply absent. That is not a gap being tolerated: grammar-constrained generation buys shape conformance by distorting the token distribution as the model writes, and the whole premise here is that beats carry real prose because H3 conditions on descriptive quality. Leaving generation unconstrained is the trade this project wants. It does raise a question running the other way, currently unmeasured: whether the Gemini path's `response_format` schema is costing prose quality for the same reason. The schema is appended to the system prompt by the client and the reply is parsed defensively — fence stripping, then the candidate object carrying the most of the keys that were asked for, with length only as a tie-break. Resemblance rather than size, because the trailer hands the model the schema and a reply that echoes it back offers an object far longer than any document written against it; picking the biggest returns the schema, confidently.
 - **Model ids are install-local.** The registry is override-only, so the roster changes when a model is downloaded, with no config edit and no restart. There is nothing sensible to hard-code: the list comes from `/v1/models` at runtime and the picker shows what the server is actually serving.
 - **Capabilities are per-model, and `capabilities` is not `modalities`.** MLX strips audio towers at load, so a checkpoint can declare a modality it will never serve. Vision is gated on `capabilities` — and the refusal is still handled, because that field is read from the model directory's config while the refusal is decided from the model as loaded, so it can over-report.
 - **Non-streaming on purpose, and it has one real cost.** Once a stream's headers have flushed the status is already 200, so a late refusal arrives in-band as an `error` event and a naive reader renders a diagnostic as model output. Off the stream the same refusal is a plain 400. The cost, measured rather than assumed: a non-streaming request cannot be cancelled. Aborting the client leaves the server generating to the end, while aborting a stream stops it at once — see [Stopping a generation](#stopping-a-generation).
@@ -190,7 +190,7 @@ A local server on your own network — MLX and gguf models over an endpoint that
 ```
 bun install
 bun run dev         # http://localhost:5173
-bun run test        # 583 tests
+bun run test        # 648 tests
 bun run typecheck
 bun run build
 bun run probe       # live API probes (reads GEMINI_API_KEY from .env)
@@ -226,13 +226,35 @@ A fifth was in the tests themselves. The golden fixtures were described as byte-
 
 **Errors only — there is no warning severity.** A diagnostic means the document is provably malformed: a cut outside the video, an undeclared speaker, a retention marker from the wrong vocabulary. Checks that pattern-matched prose for a preference — sentence counts, word targets, whether a camera annotation was echoed in the wording — were removed, because they fired on legitimate output. A check that cries wolf trains you to ignore the ones that matter. That guidance lives in the planner prompt instead, where being wrong costs nothing.
 
+### More than one machine
+
+`VITE_HEYLOOK_INSTANCES` takes a comma-separated list of `name=origin`. Every listed host goes into `connect-src` and a picker appears in the header; switching re-runs discovery, because a different machine serves a different roster. A single `VITE_HEYLOOK_ORIGIN` still works and is treated as one unnamed instance.
+
+Origins are build-time and the behaviour attached to them is not, which is a security split rather than a taste one: **which hosts may be contacted** is what the CSP decides, so it has to be fixed when the policy is generated; **how to treat a machine** — how long to queue for it, how slow it is — is a runtime setting where a wrong value costs a slow call.
+
+Both halves come from one parse. They did not at first: `connect-src` was generated from the instance list while the client still read `VITE_HEYLOOK_ORIGIN` directly, so pointing the list at another host produced a policy naming one machine and a client fetching another — refused by the browser with no status and no body, which looks exactly like the server being down. The list is now resolved once in `vite.config.ts` and injected into the bundle, because the config and the browser read environment variables through *different* mechanisms and a variable given on the command line reached one and not the other. `test/registry.test.ts` asserts every origin a client can be built with is one the policy names.
+
+### Enforcing the schema, or not
+
+A checkbox beside the provider picker. On — the default, and what has always happened on Gemini — the reply is produced under constrained decoding, so the planner's nested document parses by construction. Off, the shape is asked for in the system prompt and the reply is parsed defensively, which is what the local provider does at all times because neither of its wires can constrain decoding.
+
+It is a toggle rather than a constant because the trade runs both ways and the interesting direction is unmeasured. Constrained decoding buys shape conformance by distorting the token distribution *while the model is writing*, and the prose is the product here — so it is possible the hosted path has been paying for parseability in exactly the currency this project cares about. Nobody has measured it. The toggle is the instrument.
+
+The setting is provider-agnostic on purpose: it describes how you want the document produced, not who produces it. A backend that cannot enforce shows the control disabled and marked `n/a` rather than hiding it, so its absence is never mistaken for a Gemini-only feature — and it is the same flag if a local server ever gains a grammar. `enforceSchema` is the name at every layer; only `src/provider/gemini.ts` knows it is called `response_format` on the wire.
+
 ### Stopping a generation
 
 The generate button turns into a running indicator with a stop beside it. Stopping aborts the request and returns the UI to you. A stopped call saves nothing — there is no partial document to keep.
 
-**It does not stop the generation on the server**, and an earlier version of this paragraph claimed it did. Measured on heylook with a 73-second generation: abort the client at 5 seconds, and the next call still waits 57.9 seconds — the remainder. The server never notices the client has gone, because on a non-streaming request it is not writing anything to the connection until it is finished.
+**On heylook it also stops the generation, as of server 1.79.44** — but by asking, not by hanging up. This paragraph has been wrong in both directions and the history is the useful part.
 
-The same experiment on a streaming request returns in **0.1 seconds**, so the generation really is cancelled there. Real cancellation is therefore available and costs a switch to streaming, which is [deliberately not how this client works](#heylook). On a server that runs one generation at a time, that is the difference between freeing the GPU and merely freeing yourself, and it is worth knowing which one the button does.
+It first claimed the abort released the server's queue. That was inferred and false: measured with a 73-second generation, aborting the client at 5 seconds left the next call waiting 57.9 — the remainder. Nothing is written to a non-streaming connection until the run finishes, so the server never learns the client has gone. (Aborting a *stream* did free it in 0.1 seconds, which is why streaming looked like the only route.)
+
+heylook then added `DELETE /v1/requests/{id}`, keyed on the `X-Request-ID` this client already sent. The stop button now calls it. Re-measured through the client: a 9.0-second generation stopped at 3.2 seconds, and the next call returned in **0.4 seconds** against a 5.9-second remainder. On a machine that runs one generation at a time, that is the difference between freeing the GPU and merely freeing yourself.
+
+Against an older server the DELETE fails harmlessly and you get the original behaviour — your wait ends, the generation does not. Gemini has no equivalent, so there the button ends the wait and the interaction is billed regardless.
+
+One wire detail worth knowing if you read the traffic: a cancelled run reports `stop_reason: max_tokens`, because Anthropic's vocabulary has no cancellation value. That is indistinguishable from a genuine truncation, so the client tracks its own cancel flag rather than believing the wire — otherwise pressing stop would tell you to raise your token ceiling.
 
 ## Not built yet
 

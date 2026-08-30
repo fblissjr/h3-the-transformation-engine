@@ -21,13 +21,24 @@
  *  - **503 is normal.** The server serialises generation for one user, so
  *    queueing behind a long request is expected operation, not an outage. It is
  *    retried on `Retry-After` rather than surfaced.
+ *  - **Cancelling needs an explicit call.** Hanging up does NOT stop a
+ *    non-streaming generation: measured, a 73.1s run aborted at 5.0s left the
+ *    next request waiting 57.9s, because nothing is written to the connection
+ *    until the run finishes and the server never learns the client has gone.
+ *    `DELETE /v1/requests/{id}` (server 1.79.44+) is the thing that actually
+ *    stops it, keyed on the `X-Request-ID` this client already sends. On a
+ *    machine that runs one generation at a time, that is the difference between
+ *    freeing the GPU and merely freeing the user.
  *  - **`max_tokens` is optional here**, unlike Anthropic's required field.
  *    Absent means the server's sampler cascade decides. The planner and patch
  *    ceilings are real opinions so they are sent; nothing else is invented.
  *  - **`thinking` is a bool**, not Anthropic's config object -- it is the local
  *    template's `enable_thinking` switch, a different mechanism with the same
- *    name. Depth is `reasoning_effort`, whose accepted values are per-model, so
- *    it is only sent when the row advertises the capability.
+ *    name. It is sent as false, and only to models whose row advertises the
+ *    capability. Depth (`reasoning_effort`) is NOT sent at all: measured across
+ *    low/medium/high/xhigh on a 27B gguf, every level produced a worse planner
+ *    document than omitting the field, so there is nothing to gate. This
+ *    paragraph previously described gating that no line of this file performed.
  *  - **A thinking model returns a `thinking` block beside `text`.** Only `text`
  *    blocks are joined; joining everything puts the model's reasoning into the
  *    planner's JSON and nothing parses.
@@ -40,6 +51,7 @@
 
 import {
   BackpressureError,
+  extractUsage,
   ProviderError,
   TruncatedError,
   type CallOptions,
@@ -48,12 +60,21 @@ import {
   type InferenceClient,
   type ProviderId,
 } from '../types';
-import { HEYLOOK_ORIGIN } from './config';
-import { extractJsonObject, withShapeTrailer } from './json';
+import { HEYLOOK_INSTANCES } from '../registry';
+import { extractJsonObject, requiredKeys, withShapeTrailer } from '../shape';
 import { canServe, type HeylookModel } from './models';
 import { resizeAll } from './images';
 
-/** Anthropic's vocabulary; only `end_turn` and `max_tokens` occur in practice. */
+/**
+ * Anthropic's vocabulary; only `end_turn` and `max_tokens` occur in practice.
+ *
+ * A CANCELLED run also reports `max_tokens`, because Anthropic's spec has no
+ * cancellation value and that is the closest "stopped early, not by the model's
+ * own choice". So `stop_reason` cannot distinguish a cancellation from a budget
+ * exhaustion, and this client must not try: it reads its own cancel flag
+ * instead. Getting that wrong would report "raise maxOutputTokens" to someone
+ * who pressed stop.
+ */
 const STOP_TRUNCATED = 'max_tokens';
 
 /**
@@ -75,8 +96,36 @@ const MAX_RETRY_MS = 15_000;
 const MIN_RETRY_MS = 1000;
 
 export interface HeylookClientConfig {
-  /** Defaults to the build-time origin, which is also what the CSP names. */
+  /**
+   * Where to send requests.
+   *
+   * Should come from `instanceFor()` in the registry, which is the only source
+   * of origins the CSP is generated from. The default here is the first
+   * configured instance rather than `HEYLOOK_ORIGIN`, because reading that
+   * variable directly is what let the policy and the client name different
+   * hosts.
+   */
   origin?: string;
+  /**
+   * The transport, injectable so the retry loop can be driven without a server.
+   *
+   * It had no test at all: `post` is private, nothing constructed a client, and
+   * the only thing exercised was the pure `retryAfterMs` helper. So the
+   * MIN_RETRY_MS floor, the backoff and the deadline were three unreached
+   * lines, and deleting the deadline check would have turned a busy server into
+   * an infinite retry with the whole suite still green.
+   */
+  fetchImpl?: typeof fetch;
+  /**
+   * How long to keep queueing behind a busy server, in milliseconds.
+   *
+   * Comes from the resolved policy (`retryTimeoutMs`), which is why it is a
+   * parameter rather than the constant it used to be: five minutes is right for
+   * a machine whose generations take minutes and wrong for one that answers in
+   * seconds, and that is a fact about the machine. Falls back to the module
+   * default so a client constructed with no policy still behaves.
+   */
+  backpressureBudgetMs?: number;
   /**
    * The model to call, with the capability row it was discovered with.
    *
@@ -138,16 +187,56 @@ export function buildRequest(
 
 export class HeylookClient implements InferenceClient {
   readonly providerId: ProviderId = 'heylook';
+  /**
+   * Neither wire has a `responseSchema` equivalent, so `enforceSchema` is
+   * accepted and has no effect here: the shape is always asked for in the
+   * prompt. Declared false so the UI can say so rather than offer a control
+   * that silently does nothing.
+   */
+  readonly canEnforceSchema = false;
   readonly origin: string;
   readonly model: HeylookModel | null;
+  private readonly fetchImpl: typeof fetch;
+  private readonly backpressureBudgetMs: number;
 
   constructor(config: HeylookClientConfig = {}) {
-    this.origin = config.origin ?? HEYLOOK_ORIGIN;
+    this.origin = config.origin ?? HEYLOOK_INSTANCES[0].origin;
     this.model = config.model ?? null;
+    this.fetchImpl = config.fetchImpl ?? ((...args) => fetch(...args));
+    this.backpressureBudgetMs = config.backpressureBudgetMs ?? BACKPRESSURE_BUDGET_MS;
   }
 
   async call<T = unknown>(options: CallOptions): Promise<CallResult<T>> {
     const started = Date.now();
+
+    // One id for the whole call, reused across backpressure retries: only one
+    // attempt is ever in flight, so a cancel by this id is unambiguous.
+    const requestId = newRequestId();
+    let cancelled = false;
+    const onAbort = () => {
+      cancelled = true;
+      // Deliberately not awaited. The caller is waiting on the aborted fetch,
+      // not on this, and a cancel that fails changes nothing they can act on --
+      // the run either stops or finishes on its own.
+      void this.cancel(requestId);
+    };
+    options.signal?.addEventListener('abort', onAbort, { once: true });
+    try {
+      return await this.run<T>(options, requestId, started, () => cancelled);
+    } finally {
+      // `once: true` removes it on fire; this covers the path where the call
+      // completed and nothing ever aborted.
+      options.signal?.removeEventListener('abort', onAbort);
+    }
+  }
+
+  /** The call itself, separated so `call` can own the cancel listener's lifetime. */
+  private async run<T>(
+    options: CallOptions,
+    requestId: string,
+    started: number,
+    wasCancelled: () => boolean,
+  ): Promise<CallResult<T>> {
     const rawImages = options.images ?? [];
 
     // Gate on what the server says it will serve. This does not make the
@@ -163,9 +252,24 @@ export class HeylookClient implements InferenceClient {
       );
     }
 
+    if (options.model != null && options.model !== this.model?.id) {
+      // Refused rather than ignored. Gemini resolves `options.model`, so a
+      // caller setting it would silently get the requested model on one backend
+      // and a different one here -- the exact divergence the shared interface
+      // exists to prevent. This client deliberately carries a whole capability
+      // row rather than an id, so honouring a bare string would mean gating
+      // vision against the wrong model's row.
+      throw new ProviderError(
+        `This client is bound to ${this.model?.id ?? 'no model'} and cannot switch to ` +
+          `${options.model} per call: the capability row it gates on is chosen at construction. ` +
+          'Construct another client instead.',
+        'unsupported',
+      );
+    }
+
     const images = await resizeAll(rawImages);
     const request = buildRequest(options, images, this.model);
-    const body = await this.post(request, options.signal);
+    const body = await this.post(request, requestId, options.signal);
 
     const status = String(body.stop_reason ?? 'end_turn');
     const text = joinTextBlocks(body.content);
@@ -173,13 +277,21 @@ export class HeylookClient implements InferenceClient {
     const usage = extractUsage(body);
 
     if (status === STOP_TRUNCATED) {
+      // Our own flag, never the wire: a cancelled run is indistinguishable from
+      // a truncated one in `stop_reason`, and telling someone who pressed stop
+      // to raise their token ceiling would be nonsense.
+      if (wasCancelled()) throw new DOMException('Aborted', 'AbortError');
       throw new TruncatedError(text, status, messageId);
     }
 
     let parsed: T | null = null;
     if (options.schema) {
-      // The whole cost of having no constrained decoding lands here.
-      const slice = extractJsonObject(text);
+      // The whole cost of asking for a shape rather than constraining it lands
+      // here. The schema's own required keys are handed to the extractor so it
+      // can tell the document from anything else the model wrapped around it --
+      // notably a copy of the schema, which the trailer makes likely and which
+      // is longer than any document written against it.
+      const slice = extractJsonObject(text, requiredKeys(options.schema));
       if (slice == null) {
         throw new ProviderError(
           `No JSON object found in the reply from ${this.model?.id ?? 'heylook'}. This model ` +
@@ -196,6 +308,30 @@ export class HeylookClient implements InferenceClient {
   }
 
   /**
+   * Ask the server to stop a run.
+   *
+   * Best effort by design. A 404 means the id is not in flight -- almost always
+   * because it already finished -- which is "too late", not a failure, and
+   * nothing the caller can do anything about. The reply is a COUNT rather than
+   * a boolean (`{"cancelled": N}`) because client-supplied ids are not assumed
+   * unique server-side.
+   */
+  async cancel(requestId: string): Promise<number> {
+    try {
+      const response = await this.fetchImpl(`${this.origin}/v1/requests/${requestId}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) return 0;
+      const body = (await response.json()) as { cancelled?: unknown };
+      return typeof body.cancelled === 'number' ? body.cancelled : 0;
+    } catch {
+      // The server may be gone, or this build may predate the endpoint. Either
+      // way the generation stops or it does not, and the user has their UI back.
+      return 0;
+    }
+  }
+
+  /**
    * One HTTP round trip, with the queue retried and the status codes kept apart.
    *
    * The 400/500 split is deliberate on the server's side and worth honouring:
@@ -204,11 +340,12 @@ export class HeylookClient implements InferenceClient {
    */
   private async post(
     request: Record<string, unknown>,
+    requestId: string,
     signal?: AbortSignal,
   ): Promise<Record<string, unknown>> {
-    const deadline = Date.now() + BACKPRESSURE_BUDGET_MS;
+    const deadline = Date.now() + this.backpressureBudgetMs;
     for (let attempt = 0; ; attempt += 1) {
-      const response = await this.send(request, signal);
+      const response = await this.send(request, requestId, signal);
 
       if (response.status === 503) {
         // Backoff, with the header as a floor rather than as the whole answer.
@@ -220,9 +357,9 @@ export class HeylookClient implements InferenceClient {
         );
         if (Date.now() + wait >= deadline) {
           throw new BackpressureError(
-            `heylook was still busy after ${Math.round(BACKPRESSURE_BUDGET_MS / 60_000)} minutes ` +
-              `and ${attempt + 1} attempts. It runs one generation at a time, so something else ` +
-              'is using it -- another tab, or another tool pointed at the same server.',
+            `heylook was still busy after ${Math.round(this.backpressureBudgetMs / 1000)}s and ` +
+              `${attempt + 1} attempts. It runs one generation at a time, so something else is ` +
+              'using it -- another tab, or another tool pointed at the same server.',
             wait,
           );
         }
@@ -245,14 +382,18 @@ export class HeylookClient implements InferenceClient {
     }
   }
 
-  private async send(request: Record<string, unknown>, signal?: AbortSignal): Promise<Response> {
+  private async send(
+    request: Record<string, unknown>,
+    requestId: string,
+    signal?: AbortSignal,
+  ): Promise<Response> {
     try {
-      return await fetch(`${this.origin}/v1/messages`, {
+      return await this.fetchImpl(`${this.origin}/v1/messages`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           // Echoed back, and how a request is correlated with the server's logs.
-          'X-Request-ID': requestId(),
+          'X-Request-ID': requestId,
         },
         body: JSON.stringify(request),
         ...(signal ? { signal } : {}),
@@ -359,12 +500,6 @@ async function readDetail(response: Response): Promise<string> {
   return '';
 }
 
-function extractUsage(body: Record<string, unknown>): Record<string, unknown> {
-  const usage = body.usage;
-  if (!usage || typeof usage !== 'object') return {};
-  return Object.fromEntries(Object.entries(usage as object).filter(([, v]) => v != null));
-}
-
 function delay(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) return reject(new DOMException('Aborted', 'AbortError'));
@@ -380,6 +515,13 @@ function delay(ms: number, signal?: AbortSignal): Promise<void> {
   });
 }
 
-function requestId(): string {
+/**
+ * The handle a cancel is issued against.
+ *
+ * Sent as `X-Request-ID`, which the server honours as of 1.79.44 -- before that
+ * it generated its own and ignored the header, so the id a client thought it
+ * held did not exist server-side.
+ */
+function newRequestId(): string {
   return `h3-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }

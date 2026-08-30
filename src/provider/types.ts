@@ -49,6 +49,27 @@ export interface CallOptions {
   maxOutputTokens?: number;
   /** JSON Schema. When present the reply must be JSON of this shape. */
   schema?: Record<string, unknown>;
+  /**
+   * Whether to make the backend ENFORCE that shape, where it can.
+   *
+   * One name, all the way down, and it stays this name until a client turns it
+   * into whatever its own wire calls the thing -- `response_format` on Gemini,
+   * nothing at all on heylook today. The UI, the engine state, the pipeline and
+   * this interface all say `enforceSchema`, so adding a third backend that
+   * calls it `grammar` or `json_schema` adds one mapping at that client rather
+   * than a fourth vocabulary for everyone upstream to learn.
+   *
+   * Independent of `schema`: the schema says what shape, this says how hard to
+   * insist. With it off, a client asks for the shape in the prompt and parses
+   * defensively -- see `../shape.ts`. A client whose `canEnforceSchema` is
+   * false ignores this and always takes that path.
+   *
+   * It is a per-call choice rather than a setting because the trade is real in
+   * both directions: constrained decoding distorts the token distribution while
+   * the model writes, which costs prose quality, and prose quality is what this
+   * project exists to produce.
+   */
+  enforceSchema?: boolean;
   /** Makes a rerun that differs a real difference rather than sampling noise. */
   seed?: number;
   images?: ImageAttachment[];
@@ -74,6 +95,16 @@ export interface CallResult<T = unknown> {
 export interface InferenceClient {
   /** Names the backend for error messages and the UI. */
   readonly providerId: ProviderId;
+  /**
+   * Whether this backend can constrain decoding to a schema at all.
+   *
+   * Declared rather than inferred from `providerId`, so the UI can offer the
+   * toggle honestly instead of holding a list of which providers support what.
+   * A client that says false is not obliged to fail when `enforceSchema` is
+   * set -- it asks in the prompt instead, which is a weaker guarantee and a
+   * working call.
+   */
+  readonly canEnforceSchema: boolean;
   call<T = unknown>(options: CallOptions): Promise<CallResult<T>>;
 }
 
@@ -141,4 +172,19 @@ export function dataUrlToAttachment(dataUrl: string): ImageAttachment | null {
   const m = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
   if (!m) return null;
   return { mimeType: m[1], base64: m[2] };
+}
+
+/**
+ * Non-null usage fields, whatever the backend called the container.
+ *
+ * One implementation because there was nearly two: an identical copy of this
+ * had been written into each client, differing only in how `usage` was reached.
+ * The house rule that caught it says a change to how usage is normalized would
+ * otherwise land in one copy and the two providers would start reporting
+ * differently, with both looking correct in isolation.
+ */
+export function extractUsage(container: unknown): Record<string, unknown> {
+  const usage = (container as { usage?: unknown })?.usage;
+  if (!usage || typeof usage !== 'object') return {};
+  return Object.fromEntries(Object.entries(usage as object).filter(([, v]) => v != null));
 }

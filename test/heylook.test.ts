@@ -25,17 +25,16 @@ import {
   buildRequest,
   canResize,
   canServe,
-  extractJsonObject,
   joinTextBlocks,
-  jsonShapeTrailer,
   normalizeOrigin,
   pickDefaultModel,
   resizeAll,
   resizeAttachment,
   retryAfterMs,
-  withShapeTrailer,
+  HeylookClient,
   type HeylookModel,
 } from '../src/provider/heylook';
+import { extractJsonObject, jsonShapeTrailer, withShapeTrailer } from '../src/provider/shape';
 import type { CallOptions } from '../src/provider/types';
 import { plannerJsonSchema } from '../src/core/ir/schema';
 import { buildPlannerSystemPrompt } from '../src/provider/prompts/planner';
@@ -234,6 +233,48 @@ describe('finding JSON in a reply that was only asked nicely for it', () => {
     expect(extractJsonObject('Here is the plan:\n\n{"a":1}')).toBe('{"a":1}');
   });
 
+  it('finds the document nested inside a wrapper object', () => {
+    // The case the skip used to defeat. A model that answers
+    // {"result": {...}} offers a wrapper that resembles nothing; the document
+    // is inside it, so a scan that skipped past every match never saw it and
+    // returned the wrapper. Both old behaviours got this wrong -- longest-match
+    // for the same reason.
+    const doc = '{"style":"s","shots":[],"speakers":[]}';
+    const wrapped = `{"result": ${doc}}`;
+    expect(extractJsonObject(wrapped, ['style', 'shots', 'speakers'])).toBe(doc);
+  });
+
+  it('prefers a partial top-level document over the schema properties map', () => {
+    // The two reply shapes pull opposite ways, and this is the one that made
+    // an earlier rule wrong. An echoed schema contains a `properties` object
+    // whose keys ARE the field names being looked for, so it resembles the
+    // request perfectly -- better than a document that omits optional fields.
+    // Score alone therefore returns the schema. A nested object has to be a
+    // fallback rather than a competitor to a plausible top-level answer.
+    const schema = JSON.stringify(plannerJsonSchema(), null, 2);
+    const partial = '{"style":"s","shots":[],"speakers":[]}';
+    const keys = ['style', 'shots', 'speakers', 'subjects', 'soundscape', 'music'];
+    expect(schema).toContain('"properties"');
+    expect(extractJsonObject(`${schema}\n${partial}`, keys)).toBe(partial);
+  });
+
+  it('still prefers a top-level match over descending needlessly', () => {
+    // The common case must not get slower or change answer: a document at the
+    // top level resembles the request, so the scan stops rather than walking
+    // its own children looking for a better one.
+    const doc = '{"style":"s","shots":[{"beats":[]}]}';
+    expect(extractJsonObject(doc, ['style', 'shots'])).toBe(doc);
+  });
+
+  it('scores an object that has none of the wanted keys below one that has them', () => {
+    const wanted = ['style', 'shots'];
+    const decoy = '{"explanation":"the document follows","note":"see below"}';
+    const doc = '{"style":"s","shots":[]}';
+    expect(extractJsonObject(`${decoy}\n${doc}`, wanted)).toBe(doc);
+    // And the decoy wins when it is the only object, rather than returning null.
+    expect(extractJsonObject(decoy, wanted)).toBe(decoy);
+  });
+
   it('skips a brace in the preamble that closes on its own', () => {
     // The reason candidates are walked rather than the first `{` taken. A model
     // asked to emit a schema-shaped object talks about braces.
@@ -259,14 +300,33 @@ describe('finding JSON in a reply that was only asked nicely for it', () => {
     expect(extractJsonObject('{"a":1')).toBeNull();
   });
 
-  it('gives up after a bounded number of false starts', () => {
-    // A reply that is prose all the way down must cost a bounded scan, not a
-    // quadratic one. Twenty-five unclosed braces, then real JSON: the object is
-    // past the cap and is deliberately NOT found.
-    const noise = '{ '.repeat(25);
-    expect(extractJsonObject(`${noise}\n{"a":1}`)).toBeNull();
-    // Under the cap, the same shape resolves.
-    expect(extractJsonObject(`${'{ '.repeat(3)}\n{"a":1}`)).toBe('{"a":1}');
+  it('gives up after a bounded number of FAILED starts, not successful ones', () => {
+    // Prose all the way down must cost a bounded scan, since an unbalanced `{`
+    // scans to the end of the string. Twenty-five unclosed braces exhausts it.
+    expect(extractJsonObject(`${'{ '.repeat(25)}\nnope`)).toBeNull();
+    // But any number of REAL objects must stay reachable. Counting successes
+    // toward the same cap made a document unreachable behind twenty valid
+    // objects, which is the bug this pair now pins from both sides.
+    const doc = '{"style":"s","shots":[]}';
+    const many = Array.from({ length: 50 }, (_, n) => `{"n":${n}}`).join('\n');
+    expect(extractJsonObject(`${many}\n${doc}`, ['style', 'shots'])).toBe(doc);
+  });
+
+  it('prefers the object that resembles what was asked for, not the biggest one', () => {
+    // The failure this replaces: the trailer hands the model the serialized
+    // schema, so echoing it back is a plausible reply -- and the schema is far
+    // longer than any document written against it, so "longest wins" returned
+    // the schema with confidence. Size was never the discriminator; carrying
+    // the requested keys is.
+    const schema = JSON.stringify(plannerJsonSchema(), null, 2);
+    const doc = '{"style":"s","shots":[],"speakers":[]}';
+    expect(schema.length).toBeGreaterThan(doc.length * 100);
+
+    const echoed = `Here is the schema I will follow:\n${schema}\n${doc}`;
+    expect(extractJsonObject(echoed, ['style', 'shots', 'speakers'])).toBe(doc);
+    // Without the keys there is nothing to resemble, so length still decides --
+    // the old behaviour, kept for callers that ask for no particular shape.
+    expect(extractJsonObject(echoed)).toBe(schema);
   });
 });
 
@@ -307,6 +367,215 @@ describe('503 is a queue, not a failure', () => {
     expect(retryAfterMs(null)).toBeGreaterThan(0);
     expect(retryAfterMs('soon please')).toBeGreaterThan(0);
     expect(retryAfterMs('-1')).toBeGreaterThan(0);
+  });
+});
+
+describe('the retry loop itself, not just the header arithmetic', () => {
+  // Previously unreachable: `post` is private, nothing built a client, and only
+  // the pure `retryAfterMs` helper was exercised. The floor, the backoff and
+  // the deadline were three lines no test could touch.
+  const busyThen = (busyCount: number, retryAfter = '1') => {
+    let calls = 0;
+    const impl = (async () => {
+      calls += 1;
+      if (calls <= busyCount) {
+        return new Response(JSON.stringify({ error: { code: 'model_overloaded' } }), {
+          status: 503,
+          headers: { 'Retry-After': retryAfter },
+        });
+      }
+      return new Response(
+        JSON.stringify({ id: 'msg_1', content: [{ type: 'text', text: 'ok' }], stop_reason: 'end_turn' }),
+        { status: 200 },
+      );
+    }) as unknown as typeof fetch;
+    return { impl, calls: () => calls };
+  };
+
+  it('retries a 503 and returns the eventual success', async () => {
+    const { impl, calls } = busyThen(2);
+    const client = new HeylookClient({ origin: 'http://x', model: TEXT_MODEL, fetchImpl: impl });
+    const result = await client.call({ ...base, maxOutputTokens: 8 });
+    expect(result.text).toBe('ok');
+    expect(calls()).toBe(3);
+  });
+
+  it('does not busy-loop on Retry-After: 0', async () => {
+    // The floor exists for exactly this: a server answering "retry immediately"
+    // must not be polled as fast as the event loop allows.
+    const { impl } = busyThen(1, '0');
+    const client = new HeylookClient({ origin: 'http://x', model: TEXT_MODEL, fetchImpl: impl });
+    const started = Date.now();
+    await client.call({ ...base, maxOutputTokens: 8 });
+    expect(Date.now() - started).toBeGreaterThanOrEqual(900);
+  });
+
+  it('refuses a per-call model switch rather than silently ignoring it', async () => {
+    // Gemini resolves CallOptions.model; this client is bound to a capability
+    // row at construction, so honouring a bare id would gate vision against the
+    // wrong model. Refusing is the only option that does not diverge silently
+    // between backends -- and it had no test until the transport became
+    // injectable in the same change that made this reachable.
+    const never = (async () => new Response('{}', { status: 200 })) as unknown as typeof fetch;
+    const client = new HeylookClient({ origin: 'http://x', model: TEXT_MODEL, fetchImpl: never });
+    await expect(
+      client.call({ ...base, model: 'some-other-model' }),
+    ).rejects.toThrow(/cannot switch to some-other-model/);
+  });
+
+  it('accepts a per-call model that names the one it is already bound to', async () => {
+    const ok = (async () =>
+      new Response(
+        JSON.stringify({ id: 'm', content: [{ type: 'text', text: 'ok' }], stop_reason: 'end_turn' }),
+        { status: 200 },
+      )) as unknown as typeof fetch;
+    const client = new HeylookClient({ origin: 'http://x', model: TEXT_MODEL, fetchImpl: ok });
+    await expect(client.call({ ...base, model: TEXT_MODEL.id })).resolves.toMatchObject({ text: 'ok' });
+  });
+
+  it('gives up as backpressure rather than retrying forever', async () => {
+    // Deleting the deadline check would hang here instead of throwing, which is
+    // what makes this the assertion that the deadline exists.
+    const alwaysBusy = (async () =>
+      new Response('{}', { status: 503, headers: { 'Retry-After': '3600' } })) as unknown as typeof fetch;
+    const client = new HeylookClient({
+      origin: 'http://x',
+      model: TEXT_MODEL,
+      fetchImpl: alwaysBusy,
+      // A budget the test can wait for. The default is five minutes, matched to
+      // a server whose generations run for minutes -- which is exactly why this
+      // path had never been executed by anything.
+      backpressureBudgetMs: 1200,
+    });
+    await expect(client.call({ ...base, maxOutputTokens: 8 })).rejects.toThrow(/still busy/);
+  });
+
+  it('does not retry a 400, which is not backpressure', async () => {
+    const refuse = (async () =>
+      new Response(JSON.stringify({ detail: 'no such model' }), { status: 400 })) as unknown as typeof fetch;
+    const client = new HeylookClient({ origin: 'http://x', model: TEXT_MODEL, fetchImpl: refuse });
+    await expect(client.call({ ...base, maxOutputTokens: 8 })).rejects.toThrow(/refused the request/);
+  });
+});
+
+describe('cancelling takes an explicit call, because hanging up does not work', () => {
+  // Measured on a live server: a 73.1s non-streaming run aborted at 5.0s left
+  // the next request waiting 57.9s. Nothing is written to the connection until
+  // the run finishes, so the server never learns the client left. DELETE is the
+  // only thing that actually stops it, and on a box that runs one generation at
+  // a time that is the difference between freeing the GPU and freeing the user.
+
+  it('sends the request id it will later cancel by', async () => {
+    const seen: string[] = [];
+    const impl = (async (_url: string, init: RequestInit) => {
+      seen.push((init.headers as Record<string, string>)['X-Request-ID']);
+      return new Response(
+        JSON.stringify({ id: 'msg_1', content: [{ type: 'text', text: 'ok' }], stop_reason: 'end_turn' }),
+        { status: 200 },
+      );
+    }) as unknown as typeof fetch;
+    const client = new HeylookClient({ origin: 'http://x', model: TEXT_MODEL, fetchImpl: impl });
+    await client.call({ ...base, maxOutputTokens: 8 });
+    // Present and non-empty: the server honours this header as of 1.79.44, and
+    // before that generated its own, so a client that omitted it held a handle
+    // that did not exist.
+    expect(seen[0]).toMatch(/^h3-/);
+  });
+
+  it('issues DELETE against that id when the signal aborts', async () => {
+    const deletes: string[] = [];
+    const impl = (async (url: string, init: RequestInit) => {
+      if (init.method === 'DELETE') {
+        deletes.push(url);
+        return new Response(JSON.stringify({ cancelled: 1, request_id: 'x' }), { status: 200 });
+      }
+      // A generation that never returns on its own, so only the abort ends it.
+      // The fake has to honour the signal the way real fetch does, or the call
+      // hangs and the test measures the fake rather than the client.
+      return new Promise<Response>((_resolve, reject) => {
+        init.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), {
+          once: true,
+        });
+      });
+    }) as unknown as typeof fetch;
+
+    const controller = new AbortController();
+    const client = new HeylookClient({ origin: 'http://x', model: TEXT_MODEL, fetchImpl: impl });
+    const call = client.call({ ...base, maxOutputTokens: 8, signal: controller.signal });
+    await new Promise((r) => setTimeout(r, 10));
+    controller.abort();
+    await call.catch(() => {});
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(deletes).toHaveLength(1);
+    expect(deletes[0]).toMatch(/^http:\/\/x\/v1\/requests\/h3-/);
+  });
+
+  it('treats a 404 from the cancel as too late, not as a failure', async () => {
+    // Ids are tracked only while in flight, so 404 almost always means the run
+    // already finished. Nothing the caller can act on.
+    const impl = (async () => new Response('not found', { status: 404 })) as unknown as typeof fetch;
+    const client = new HeylookClient({ origin: 'http://x', model: TEXT_MODEL, fetchImpl: impl });
+    await expect(client.cancel('h3-gone')).resolves.toBe(0);
+  });
+
+  it('reports the count, because ids are not assumed unique server-side', async () => {
+    const impl = (async () =>
+      new Response(JSON.stringify({ cancelled: 2, request_id: 'dup' }), { status: 200 })) as unknown as typeof fetch;
+    const client = new HeylookClient({ origin: 'http://x', model: TEXT_MODEL, fetchImpl: impl });
+    await expect(client.cancel('dup')).resolves.toBe(2);
+  });
+
+  it('survives a server with no cancel endpoint at all', async () => {
+    // Older builds predate it. A cancel that cannot be delivered must not throw
+    // into a stop button.
+    const impl = (async () => {
+      throw new TypeError('fetch failed');
+    }) as unknown as typeof fetch;
+    const client = new HeylookClient({ origin: 'http://x', model: TEXT_MODEL, fetchImpl: impl });
+    await expect(client.cancel('h3-x')).resolves.toBe(0);
+  });
+
+  it('does not tell someone who pressed stop to raise their token ceiling', async () => {
+    // A cancelled run reports stop_reason: max_tokens, because Anthropic's
+    // vocabulary has no cancellation value. The wire cannot distinguish cancel
+    // from truncation, so the client reads its own flag.
+    //
+    // NAMED PROXY: this fake deliberately does NOT honour the signal, unlike
+    // the one above -- real fetch would reject with AbortError first and the
+    // guard would never be reached. So this exercises a narrow race (the
+    // response landing before the abort propagates) rather than the path the
+    // stop button takes, which ends in AbortError from fetch itself. Keep the
+    // guard, but read a failure here as being about the race, not the button.
+    const controller = new AbortController();
+    const impl = (async (_url: string, init: RequestInit) => {
+      if (init.method === 'DELETE') return new Response(JSON.stringify({ cancelled: 1 }), { status: 200 });
+      controller.abort();
+      return new Response(
+        JSON.stringify({ id: 'm', content: [{ type: 'text', text: '{"partial":' }], stop_reason: 'max_tokens' }),
+        { status: 200 },
+      );
+    }) as unknown as typeof fetch;
+
+    const client = new HeylookClient({ origin: 'http://x', model: TEXT_MODEL, fetchImpl: impl });
+    await expect(
+      client.call({ ...base, maxOutputTokens: 8, signal: controller.signal }),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+  });
+
+  it('still reports a genuine truncation as truncation', async () => {
+    // The other side of the same branch: nothing cancelled, so max_tokens means
+    // what it says and the partial text has to survive for the caller.
+    const impl = (async () =>
+      new Response(
+        JSON.stringify({ id: 'm', content: [{ type: 'text', text: 'partial' }], stop_reason: 'max_tokens' }),
+        { status: 200 },
+      )) as unknown as typeof fetch;
+    const client = new HeylookClient({ origin: 'http://x', model: TEXT_MODEL, fetchImpl: impl });
+    await expect(client.call({ ...base, maxOutputTokens: 8 })).rejects.toMatchObject({
+      name: 'TruncatedError',
+      partialText: 'partial',
+    });
   });
 });
 
@@ -375,6 +644,17 @@ describe('the planner is told when there is nothing to reference', () => {
     const prompt = buildPlannerSystemPrompt(normalize(bare), bare);
     expect(prompt).toContain('citesSlots');
     expect(prompt).toContain('subjects as an empty array');
+  });
+
+  it('names subjects on the ref contract too, where the registry actually exists', () => {
+    // Ref2VA with no slots is reachable -- the mode select offers every mode
+    // regardless of what is attached -- and it is the one contract with a
+    // subject registry, so it is where an unfilled silence does the most harm.
+    // The first version of this instruction covered only the base contract.
+    const ref: CompileInput = { ...bare, mode: 'Ref2VA' };
+    const prompt = buildPlannerSystemPrompt(normalize(ref), ref);
+    expect(prompt).toContain('subjects as an empty array');
+    expect(prompt).toContain('citesSlots');
   });
 
   it('asks for an empty array, never for a subject with no sources', () => {

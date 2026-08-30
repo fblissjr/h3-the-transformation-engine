@@ -6,10 +6,9 @@
  * image resize -- and each is a separate concern with its own reasoning.
  */
 
-export { HEYLOOK_ORIGIN, HEYLOOK_ORIGIN_IS_DEFAULT, normalizeOrigin } from './config';
+export { normalizeOrigin } from './config';
 export { HeylookClient, buildRequest, joinTextBlocks, retryAfterMs } from './client';
 export type { HeylookClientConfig } from './client';
 export { canServe, listModels, pickDefaultModel, DiscoveryError } from './models';
 export type { HeylookModel } from './models';
-export { extractJsonObject, jsonShapeTrailer, withShapeTrailer } from './json';
 export { canResize, resizeAll, resizeAttachment, MAX_EDGE } from './images';

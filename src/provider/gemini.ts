@@ -30,6 +30,7 @@
 
 import { GoogleGenAI } from '@google/genai';
 import {
+  extractUsage,
   ProviderError,
   TruncatedError,
   type CallOptions,
@@ -41,6 +42,8 @@ import {
 
 export type { ImageAttachment } from './types';
 export { dataUrlToAttachment } from './types';
+
+import { extractJsonObject, requiredKeys, withShapeTrailer } from './shape';
 
 /** The one host this client contacts. Named here so the CSP can be read against it. */
 export const GEMINI_ORIGIN = 'https://generativelanguage.googleapis.com';
@@ -119,7 +122,11 @@ export function buildRequest(options: CallOptions, defaultModel: string): Record
     // Not configurable. See above.
     store: false,
     // Interaction-scoped: omitting it on any call runs with no system prompt.
-    system_instruction: options.systemInstruction,
+    // When enforcement is off the shape has to be asked for in words instead,
+    // and it is the same trailer the local client uses -- see ./shape.ts.
+    system_instruction: enforcing(options)
+      ? options.systemInstruction
+      : withShapeTrailer(options.systemInstruction, options.schema),
     generation_config: {
       // Always stated. Unset bills thinking at the output rate.
       thinking_level: THINKING[options.task],
@@ -129,10 +136,13 @@ export function buildRequest(options: CallOptions, defaultModel: string): Record
     },
   };
 
-  if (options.schema) {
-    // Constrained decoding. This is what makes the planner's large nested
-    // document parse reliably, and it is exactly what heylook has no equivalent
-    // of -- see the shape trailer in the heylook client.
+  if (enforcing(options)) {
+    // Constrained decoding, and now only when asked for. It makes the planner's
+    // large nested document parse by construction, at a cost this project cares
+    // about: it distorts the token distribution while the model is writing, and
+    // the prose is the product. `response_format` is where the interface's
+    // provider-neutral `enforceSchema` becomes this wire's own word for it, and
+    // that translation happens here and nowhere earlier.
     request.response_format = {
       type: 'text',
       mime_type: 'application/json',
@@ -143,8 +153,15 @@ export function buildRequest(options: CallOptions, defaultModel: string): Record
   return request;
 }
 
+/** Enforcement needs both a shape to enforce and permission to enforce it. */
+function enforcing(options: CallOptions): boolean {
+  return options.schema != null && options.enforceSchema !== false;
+}
+
 export class GeminiClient implements InferenceClient {
   readonly providerId: ProviderId = 'gemini';
+  /** `response_format` with a schema is genuinely enforced here, unlike heylook. */
+  readonly canEnforceSchema = true;
   private readonly ai: GoogleGenAI;
   private readonly defaultModel: string;
 
@@ -183,25 +200,36 @@ export class GeminiClient implements InferenceClient {
 
     let parsed: T | null = null;
     if (options.schema) {
-      try {
-        parsed = JSON.parse(text) as T;
-      } catch (cause) {
-        throw new ProviderError(
-          `Reply was not valid JSON despite a response schema: ${
-            cause instanceof Error ? cause.message : String(cause)
-          }`,
-          status,
-          interactionId,
-        );
+      if (enforcing(options)) {
+        // Decoding was constrained, so anything but clean JSON is the API
+        // breaking its own guarantee and deserves to be loud.
+        try {
+          parsed = JSON.parse(text) as T;
+        } catch (cause) {
+          throw new ProviderError(
+            `Reply was not valid JSON despite a response schema: ${
+              cause instanceof Error ? cause.message : String(cause)
+            }`,
+            status,
+            interactionId,
+          );
+        }
+      } else {
+        // Asked rather than enforced, so the same defensive read the local
+        // client uses. A model free to write prose will sometimes wrap it.
+        const slice = extractJsonObject(text, requiredKeys(options.schema));
+        if (slice == null) {
+          throw new ProviderError(
+            'No JSON object found in the reply. Schema enforcement is switched off for this ' +
+              `call, so the shape was requested in the prompt rather than imposed. Reply began: ${text.slice(0, 200)}`,
+            status,
+            interactionId,
+          );
+        }
+        parsed = JSON.parse(slice) as T;
       }
     }
 
     return { text, parsed, status, interactionId, usage, durationMs: Date.now() - started };
   }
-}
-
-function extractUsage(interaction: unknown): Record<string, unknown> {
-  const usage = (interaction as { usage?: unknown }).usage;
-  if (!usage || typeof usage !== 'object') return {};
-  return Object.fromEntries(Object.entries(usage as object).filter(([, v]) => v != null));
 }

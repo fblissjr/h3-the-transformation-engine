@@ -793,8 +793,8 @@
       },
       {
         "id": "json-shape-trailer",
-        "where": "src/provider/heylook/json.ts",
-        "why": "The only text sent to a model that no prompt builder wrote, and the only place this spec does not describe the string the model receives. Gemini's response_format constrains decoding, so the planner's document parses by construction; heylook has no equivalent on either wire, so the client appends the serialized JSON Schema to the system prompt after buildPlannerSystemPrompt has returned. That lands AFTER '# Supplied facts', which prompts.planner.blocks places last so the facts have the final word -- accepted because a format instruction is a different axis from the craft guidance that note is about, and because it must be the last thing read before the model emits. Invisible to test/contract.test.ts, which indexes into the builder's output rather than the sent string; asserted in test/heylook.test.ts instead, and the breakage confirming contract.test.ts stays green while that one goes red was run."
+        "where": "src/provider/shape.ts",
+        "why": "The only text sent to a model that no prompt builder wrote, and the only place this spec does not describe the string the model receives. When schema enforcement is off -- a per-call choice now, not a property of the backend -- the client appends the serialized JSON Schema to the system prompt after buildPlannerSystemPrompt has returned, and parses the reply defensively. That applies to every provider: heylook always, since neither of its wires can constrain decoding, and Gemini whenever enforceSchema is false. It lands AFTER '# Supplied facts', which prompts.planner.blocks places last so the facts have the final word -- accepted because a format instruction is a different axis from the craft guidance that note is about, and because it must be the last thing read before the model emits. Invisible to test/contract.test.ts, which indexes into the builder's output rather than the sent string; asserted in test/heylook.test.ts instead, and the breakage confirming contract.test.ts stays green while that one goes red was run."
       }
     ]
   }

@@ -68,6 +68,40 @@ describe('sampling parameters', () => {
   });
 });
 
+describe('schema enforcement is a choice, and only this file knows its wire name', () => {
+  // The interface says `enforceSchema` and keeps saying it all the way down.
+  // `response_format` appears here and nowhere upstream -- that is the whole
+  // point of the field, so a second provider adds one mapping rather than a
+  // second vocabulary.
+  const schema = { type: 'object', required: ['style', 'shots'] };
+
+  it('enforces by default, which is what this client has always done', () => {
+    expect(build({ schema }).response_format).toMatchObject({ mime_type: 'application/json' });
+  });
+
+  it('does not enforce when told not to', () => {
+    expect(build({ schema, enforceSchema: false })).not.toHaveProperty('response_format');
+  });
+
+  it('asks for the shape in words when it is not enforcing it', () => {
+    // Otherwise switching enforcement off would send no shape guidance at all
+    // and the reply would be free-form prose. The trailer is shared with the
+    // local client rather than reimplemented here.
+    const unenforced = String(build({ schema, enforceSchema: false }).system_instruction);
+    expect(unenforced.startsWith(base.systemInstruction)).toBe(true);
+    expect(unenforced).toContain(JSON.stringify(schema, null, 2));
+  });
+
+  it('does not add the trailer when it IS enforcing, which would be saying it twice', () => {
+    expect(build({ schema }).system_instruction).toBe(base.systemInstruction);
+  });
+
+  it('has nothing to enforce without a schema, whatever the flag says', () => {
+    expect(build({ enforceSchema: true })).not.toHaveProperty('response_format');
+    expect(build({ enforceSchema: true }).system_instruction).toBe(base.systemInstruction);
+  });
+});
+
 describe('request shape', () => {
   it('puts media before the question', () => {
     const input = build({

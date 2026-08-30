@@ -23,11 +23,19 @@ import { GeminiClient } from '../provider/gemini';
 import type { InferenceClient, ProviderId } from '../provider/types';
 import {
   HeylookClient,
-  HEYLOOK_ORIGIN,
   listModels,
   pickDefaultModel,
   type HeylookModel,
 } from '../provider/heylook';
+import {
+  explainFor,
+  heylookPolicyConfig,
+  instanceFor,
+  policyFor,
+  HEYLOOK_INSTANCES,
+  PROVIDERS,
+} from '../provider/registry';
+import type { Policy } from '../core/policy';
 import {
   API_KEY_NAME,
   DEFAULT_KEY_MODE,
@@ -58,6 +66,17 @@ const DOC_ID = 'workspace';
  */
 const PROVIDER_SETTING = 'provider';
 const HEYLOOK_MODEL_SETTING = 'heylook-model';
+/**
+ * Whether to let the backend enforce the reply's shape.
+ *
+ * Stored provider-agnostically and deliberately NOT per provider: it is a
+ * property of how you want the document produced, not of who produces it, and
+ * a per-provider copy would be four settings to keep in step the moment a third
+ * backend arrives. A client that cannot enforce ignores it.
+ */
+const ENFORCE_SCHEMA_SETTING = 'enforce-schema';
+/** Which configured machine to talk to. Origins are build-time; the choice is not. */
+const HEYLOOK_INSTANCE_SETTING = 'heylook-instance';
 
 export interface EngineState {
   apiKey: string | null;
@@ -117,9 +136,13 @@ export function useEngine() {
   /**
    * The in-flight model call, so it can be stopped.
    *
-   * One controller rather than one per action: `busy` already enforces that at
-   * most one call is running, and a stop button that has to know which kind of
-   * call it is stopping would be a second copy of that fact.
+   * One controller rather than one per action, which is only sound because
+   * `generate` and `applyAssisted` both return early while `busy` is set. That
+   * was asserted here before it was true: the edit button was disabled while
+   * busy but the Enter key beside it was not, so a second call could overwrite
+   * this ref and leave the first generation running with nothing able to stop
+   * it. The guard now lives in the actions rather than in the markup, because a
+   * guard per call site is one someone eventually forgets to copy.
    *
    * Stopping is provider-agnostic on purpose. `CallOptions.signal` has been on
    * the interface since it was extracted and both clients thread it through, so
@@ -136,6 +159,16 @@ export function useEngine() {
   const abortRef = useRef<AbortController | null>(null);
   const [heylookError, setHeylookError] = useState<string | null>(null);
   const [discovering, setDiscovering] = useState(false);
+  /**
+   * On by default, which is what Gemini has always done.
+   *
+   * Off is the interesting setting and the reason this exists: constrained
+   * decoding distorts the token distribution while the model writes, so it may
+   * be costing the prose quality this project is built around. That is
+   * unmeasured, and a toggle is the instrument for measuring it.
+   */
+  const [enforceSchema, setEnforceSchemaState] = useState(true);
+  const [instanceId, setInstanceIdState] = useState<string>(HEYLOOK_INSTANCES[0].id);
   /** What is on disk, independent of whether it has been unlocked this session. */
   const [storedKeyMode, setStoredKeyMode] = useState<KeyMode | null>(null);
   const [idea, setIdea] = useState('');
@@ -199,6 +232,14 @@ export function useEngine() {
       const storedModel = await getSetting<string | null>(HEYLOOK_MODEL_SETTING, null);
       heylookModelIdRef.current = storedModel;
       setHeylookModelId(storedModel);
+      setEnforceSchemaState(await getSetting<boolean>(ENFORCE_SCHEMA_SETTING, true));
+      const storedInstance = await getSetting<string | null>(HEYLOOK_INSTANCE_SETTING, null);
+      // Honoured only if this build still configures it: instance origins are
+      // build-time, so a stored id can name a machine that is no longer in the
+      // policy, and talking to one the CSP does not name is a silent refusal.
+      if (storedInstance && HEYLOOK_INSTANCES.some((i) => i.id === storedInstance)) {
+        setInstanceIdState(storedInstance);
+      }
 
       const stored = await loadDocument(DOC_ID);
       if (stored) {
@@ -361,11 +402,20 @@ export function useEngine() {
    * edit and no restart. There is nothing sensible to hard-code, so the list is
    * always the live one and a stored id is only honoured if it is still there.
    */
+  /** The machine being talked to. The only source of a heylook origin. */
+  const instance = useMemo(() => instanceFor(instanceId), [instanceId]);
+
   const refreshHeylookModels = useCallback(async () => {
     setDiscovering(true);
     setHeylookError(null);
     try {
-      const models = await listModels();
+      // A bounded wait, because the only control that could retry is disabled
+      // while this runs. An origin that resolves but never answers -- a machine
+      // that is up with nothing listening on the port -- otherwise leaves the
+      // panel saying "asking ..." with no way out but a reload. The post path
+      // has had a budget for this class of failure since backpressure; this had
+      // none.
+      const models = await listModels(instance.origin, AbortSignal.timeout(20_000));
       setHeylookModels(models);
 
       const current = heylookModelIdRef.current;
@@ -383,20 +433,35 @@ export function useEngine() {
         }
         heylookModelIdRef.current = replacement;
         setHeylookModelId(replacement);
+        // Persisted, or the stored row keeps naming the model that has gone:
+        // every reload would re-discover it missing and show the same notice
+        // again, and a first-time user's auto-picked model was never remembered
+        // at all. `setHeylookModel` was the only writer and only the picker
+        // reached it.
+        if (replacement != null) void setSetting(HEYLOOK_MODEL_SETTING, replacement);
       }
       if (models.length === 0) {
         setHeylookError(
-          `heylook at ${HEYLOOK_ORIGIN} is running but serving no models. Point it at a model ` +
+          `heylook at ${instance.origin} is running but serving no models. Point it at a model ` +
             'folder, or download one.',
         );
       }
     } catch (cause) {
       setHeylookModels([]);
-      setHeylookError(cause instanceof Error ? cause.message : String(cause));
+      const timedOut = cause instanceof DOMException && cause.name === 'TimeoutError';
+      setHeylookError(
+        timedOut
+          ? `heylook at ${instance.origin} accepted the connection but did not answer within 20 ` +
+              'seconds. The address is reachable, so this is more likely the wrong port than the ' +
+              'wrong host.'
+          : cause instanceof Error
+            ? cause.message
+            : String(cause),
+      );
     } finally {
       setDiscovering(false);
     }
-  }, []);
+  }, [instance]);
 
   // Discover on switching to heylook, and once on load if that is the stored
   // choice. Not on an interval: the roster only changes when the owner does
@@ -410,6 +475,17 @@ export function useEngine() {
     setProviderState(next);
     setError(null);
     void setSetting(PROVIDER_SETTING, next);
+  }, []);
+
+  const setInstanceId = useCallback((next: string) => {
+    setInstanceIdState(next);
+    setHeylookModels(null); // a different machine serves a different roster
+    void setSetting(HEYLOOK_INSTANCE_SETTING, next);
+  }, []);
+
+  const setEnforceSchema = useCallback((next: boolean) => {
+    setEnforceSchemaState(next);
+    void setSetting(ENFORCE_SCHEMA_SETTING, next);
   }, []);
 
   const setHeylookModel = useCallback((id: string) => {
@@ -431,20 +507,38 @@ export function useEngine() {
    * with a model chosen on it. Each says so in its own words rather than
    * sharing one message that fits neither.
    */
+  /**
+   * The effective policy for the active backend.
+   *
+   * Resolved through the cascade rather than read from any one place, so a
+   * value can be stated wherever it is actually known -- language globally,
+   * retry budget per provider type, concurrency per machine -- without every
+   * layer having to state all of it.
+   */
+  const policy = useMemo<Policy>(() => policyFor(provider), [provider]);
+
   const client = useMemo<InferenceClient | null>(() => {
     if (provider === 'heylook') {
-      return heylookModel ? new HeylookClient({ model: heylookModel }) : null;
+      return heylookModel
+        ? new HeylookClient({
+            origin: instance.origin,
+            model: heylookModel,
+            // Mapped by a pure function in the registry rather than inline,
+            // so the join between policy and client is reachable by a test.
+            ...heylookPolicyConfig(policy),
+          })
+        : null;
     }
     return apiKey ? new GeminiClient({ apiKey }) : null;
-  }, [provider, apiKey, heylookModel]);
+  }, [provider, apiKey, heylookModel, policy, instance]);
 
   /** Why the generate button cannot fire, in this provider's terms. */
   const notReady = useMemo(() => {
     if (client) return null;
     if (provider === 'gemini') return 'Add a Gemini API key first.';
     if (discovering) return 'Still asking heylook what it is serving.';
-    return heylookError ?? `Choose a model on heylook at ${HEYLOOK_ORIGIN} first.`;
-  }, [client, provider, discovering, heylookError]);
+    return heylookError ?? `Choose a model on heylook at ${instance.origin} first.`;
+  }, [client, provider, discovering, heylookError, instance]);
 
   // --- persistence of a new document state --------------------------------
   const commit = useCallback(
@@ -504,6 +598,7 @@ export function useEngine() {
 
   // --- actions -----------------------------------------------------------
   const generate = useCallback(async () => {
+    if (busy) return;
     if (!client) return setError(notReady ?? 'No inference backend is ready.');
     if (effectiveIdea.trim() === '') return setError('Describe what you want before generating.');
     setBusy('Planning');
@@ -512,7 +607,11 @@ export function useEngine() {
     const controller = new AbortController();
     abortRef.current = controller;
     try {
-      const result = await compile(client, input, { id: DOC_ID, signal: controller.signal });
+      const result = await compile(client, input, {
+        id: DOC_ID,
+        signal: controller.signal,
+        enforceSchema,
+      });
       const style = describeRecord(creative);
       // The seed goes in the label because it is the only record of which roll
       // produced this document; the idea box still holds the template.
@@ -526,7 +625,7 @@ export function useEngine() {
       abortRef.current = null;
       setBusy(null);
     }
-  }, [client, notReady, effectiveIdea, input, commit, creative, rolled, seed, reportOrStopped]);
+  }, [busy, client, notReady, effectiveIdea, input, commit, creative, rolled, seed, reportOrStopped, enforceSchema]);
 
   const applyDirect = useCallback(
     async (path: string, value: unknown) => {
@@ -543,6 +642,12 @@ export function useEngine() {
 
   const applyAssisted = useCallback(
     async (instruction: string) => {
+      // Enforced here rather than at the call sites. The button was disabled
+      // while busy and the Enter handler beside it was not, so a second call
+      // could start, overwrite the single `abortRef`, and leave the first
+      // generation running with nothing able to stop it -- falsifying the
+      // invariant `abortRef`'s own comment claims.
+      if (busy) return;
       if (!client) return setError(notReady ?? 'No inference backend is ready.');
       if (!doc) return;
       if (selectedPaths.length === 0) return setError('Select something to edit first.');
@@ -554,6 +659,7 @@ export function useEngine() {
       try {
         const result = await edit(client, doc, selectedPaths, instruction, {
           signal: controller.signal,
+          enforceSchema,
         });
         if (result.patch.applied.length === 0) {
           setError(
@@ -577,7 +683,7 @@ export function useEngine() {
         setBusy(null);
       }
     },
-    [client, notReady, doc, selectedPaths, commit, reportOrStopped],
+    [busy, client, notReady, doc, selectedPaths, commit, reportOrStopped, enforceSchema],
   );
 
   const checkout = useCallback(async (version: StoredVersion) => {
@@ -625,12 +731,27 @@ export function useEngine() {
     storedKeyMode,
     provider,
     setProvider,
-    heylookOrigin: HEYLOOK_ORIGIN,
+    heylookOrigin: instance.origin,
+    instanceId,
+    setInstanceId,
+    instances: HEYLOOK_INSTANCES,
     heylookModels,
     heylookModelId,
     setHeylookModel,
     heylookError,
     discovering,
+    enforceSchema,
+    setEnforceSchema,
+    /** The effective policy, and where each value came from. */
+    policy,
+    policyExplained: explainFor(provider),
+    /**
+     * Whether the active backend can honour it. Read from the provider rather
+     * than from a constructed client, which does not exist before a key is
+     * unlocked or a model chosen -- and reporting "cannot constrain decoding"
+     * in that state was both wrong and the most-seen state in the app.
+     */
+    canEnforceSchema: PROVIDERS[provider].canEnforceSchema,
     refreshHeylookModels,
     /** Null when a call can be made; otherwise why not, in this provider's terms. */
     notReady,

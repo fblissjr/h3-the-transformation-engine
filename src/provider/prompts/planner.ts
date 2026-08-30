@@ -291,12 +291,21 @@ function suppliedFacts(ctx: NormalizedContext, input: CompileInput): string {
     // `subjects.0.sources: too_small`. The schema's own description is the
     // accurate statement: subjects are Ref2VA only, an empty array everywhere
     // else. Hence the condition is the contract rather than the slot count.
+    //
+    // Both branches have to name subjects, and the first version of the ref
+    // branch did not. Ref2VA is the one contract that HAS a subject registry,
+    // and a subject requires at least one source, so a Ref2VA job with no slots
+    // -- reachable, since the mode select offers every mode regardless of what
+    // is attached -- left exactly the silence this whole block exists to fill,
+    // in the one place where the wrong guess is most likely.
     lines.push('');
     lines.push(
       ctx.contract === 'base'
         ? 'There are no reference assets, and this contract has no subject registry: return ' +
             'subjects as an empty array, and cite nothing in citesSlots.'
-        : 'There are no reference assets for this job. Cite nothing in citesSlots.',
+        : 'There are no reference assets for this job. A subject is built from a reference, so ' +
+            'with none attached there is nothing to build one from: return subjects as an empty ' +
+            'array, and cite nothing in citesSlots.',
     );
   }
 

@@ -13,7 +13,7 @@
  * feature is gated on the row rather than on the backend.
  */
 
-import { HEYLOOK_ORIGIN } from './config';
+import { HEYLOOK_INSTANCES } from '../registry';
 
 export interface HeylookModel {
   id: string;
@@ -48,14 +48,20 @@ export class DiscoveryError extends Error {
  * thing to look at, and an empty roster is a thing to download a model for.
  */
 export async function listModels(
-  origin: string = HEYLOOK_ORIGIN,
+  origin: string = HEYLOOK_INSTANCES[0].origin,
   signal?: AbortSignal,
 ): Promise<HeylookModel[]> {
   let response: Response;
   try {
     response = await fetch(`${origin}/v1/models`, signal ? { signal } : {});
   } catch (cause) {
-    if (cause instanceof DOMException && cause.name === 'AbortError') throw cause;
+    // Both spellings pass through. `AbortSignal.timeout()` rejects with a
+    // DOMException named `TimeoutError`, NOT `AbortError` -- so rethrowing only
+    // the latter buried every timeout in the generic three-way message below,
+    // and the caller's TimeoutError branch was unreachable.
+    if (cause instanceof DOMException && (cause.name === 'AbortError' || cause.name === 'TimeoutError')) {
+      throw cause;
+    }
     // Three different problems arrive here identically, as a TypeError with no
     // status and no response, so the message names all three rather than
     // guessing. Blaming the server is the wrong default: it is the only one of
@@ -64,7 +70,7 @@ export async function listModels(
     throw new DiscoveryError(
       `Could not reach heylook at ${origin}, and the failure carries no status -- which means ` +
         'one of three things. The server is not running there; or the page policy refused it, ' +
-        'because connect-src is generated from VITE_HEYLOOK_ORIGIN at build time and a changed ' +
+        'because connect-src is generated from the instance list at build time and a changed ' +
         'origin needs a restart; or the server answered without CORS headers for this page, ' +
         'which a curl check cannot see because curl does not enforce CORS. The browser network ' +
         'tab tells the three apart: no request at all is the policy, a failed OPTIONS preflight ' +

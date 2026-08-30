@@ -50,6 +50,12 @@ export function App() {
           discovering={e.discovering}
           error={e.heylookError}
           onRefresh={() => void e.refreshHeylookModels()}
+          enforceSchema={e.enforceSchema}
+          onEnforceSchemaChange={e.setEnforceSchema}
+          canEnforceSchema={e.canEnforceSchema}
+          instances={e.instances}
+          instanceId={e.instanceId}
+          onInstanceChange={e.setInstanceId}
         />
         {/*
           The key panel is hidden on the local provider rather than disabled.
@@ -199,6 +205,16 @@ export function App() {
             <button
               type="button"
               onClick={() => void e.generate()}
+              /*
+                `notReady` is the reason a call cannot be made, in the active
+                provider's own words. It was computed and exported but never
+                read here, so the button looked live with no key or no model
+                chosen and only explained itself after a click -- while still
+                carrying the disabled: variant class that styles for the state
+                it no longer entered.
+              */
+              disabled={e.notReady != null}
+              title={e.notReady ?? undefined}
               className="w-full rounded bg-[var(--color-accent)] px-3 py-2 text-xs font-semibold text-black disabled:opacity-40"
             >
               {e.doc ? 'Regenerate' : 'Generate'}
@@ -283,7 +299,10 @@ export function App() {
                 value={instruction}
                 onChange={(ev) => setInstruction(ev.target.value)}
                 onKeyDown={(ev) => {
-                  if (ev.key === 'Enter' && instruction.trim()) {
+                  // Gated on busy like the button beside it. Without this the
+                  // guard added in useEngine turned Enter-while-busy into a
+                  // silent discard: the box cleared and nothing happened.
+                  if (ev.key === 'Enter' && instruction.trim() && e.busy == null) {
                     void e.applyAssisted(instruction);
                     setInstruction('');
                   }

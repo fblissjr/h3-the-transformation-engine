@@ -15,10 +15,18 @@
  */
 
 import type { HeylookModel } from '../provider/heylook';
+import type { Instance } from '../provider/registry';
 import type { ProviderId } from '../provider/types';
 
 interface Props {
   provider: ProviderId;
+  enforceSchema: boolean;
+  onEnforceSchemaChange: (next: boolean) => void;
+  /** False when the active backend has no way to constrain decoding. */
+  canEnforceSchema: boolean;
+  instances: Instance[];
+  instanceId: string;
+  onInstanceChange: (id: string) => void;
   onProviderChange: (provider: ProviderId) => void;
   origin: string;
   models: HeylookModel[] | null;
@@ -37,6 +45,12 @@ const PROVIDER_LABEL: Record<ProviderId, string> = {
 
 export function ProviderPanel({
   provider,
+  enforceSchema,
+  onEnforceSchemaChange,
+  canEnforceSchema,
+  instances,
+  instanceId,
+  onInstanceChange,
   onProviderChange,
   origin,
   models,
@@ -67,6 +81,27 @@ export function ProviderPanel({
 
       {provider === 'heylook' && (
         <>
+          {/*
+            Shown only when there is a choice. Origins are fixed at build time
+            because the page's connect-src is generated from them, so this
+            picks among configured machines rather than naming a new one --
+            and with one configured there is nothing to pick.
+          */}
+          {instances.length > 1 && (
+            <select
+              value={instanceId}
+              onChange={(event) => onInstanceChange(event.target.value)}
+              className="rounded border border-[var(--color-edge)] bg-transparent px-1 py-0.5"
+              title="Which configured machine to talk to. Each has its own model roster."
+            >
+              {instances.map((instance) => (
+                <option key={instance.id} value={instance.id}>
+                  {instance.id}
+                </option>
+              ))}
+            </select>
+          )}
+
           {discovering && <span>asking {origin}…</span>}
 
           {!discovering && models != null && models.length > 0 && (
@@ -101,6 +136,36 @@ export function ProviderPanel({
           </button>
         </>
       )}
+
+      {/*
+        Shown for every provider, never only for the one that supports it. The
+        setting describes how you want the document produced, not who produces
+        it, so hiding it on a local backend would teach that it is a Gemini
+        feature -- and it is the same flag if heylook ever gains a grammar.
+
+        A backend that cannot honour it says so here instead of the control
+        vanishing, because a disappearing checkbox reads as a bug and a silently
+        ignored one is worse.
+      */}
+      <label
+        className={`flex items-center gap-1 ${canEnforceSchema ? '' : 'opacity-40'}`}
+        title={
+          canEnforceSchema
+            ? 'Constrain decoding to the schema. Off asks for the shape in the prompt instead, ' +
+              'which leaves the prose unconstrained -- the trade this project cares about.'
+            : `${provider} cannot constrain decoding, so the shape is always requested in the ` +
+              'prompt. The setting is kept because it travels with you to a backend that can.'
+        }
+      >
+        <input
+          type="checkbox"
+          checked={enforceSchema}
+          disabled={!canEnforceSchema}
+          onChange={(event) => onEnforceSchemaChange(event.target.checked)}
+        />
+        enforce schema
+        {!canEnforceSchema && <span className="ml-0.5">(n/a)</span>}
+      </label>
     </div>
   );
 }
