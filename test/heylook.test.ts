@@ -338,6 +338,64 @@ describe('capabilities decide what is offered, modalities do not', () => {
   });
 });
 
+describe('the planner is told when there is nothing to reference', () => {
+  // Measured, not supposed. Against a local 27B with no constrained decoding,
+  // a T2VA job with no slots repeatedly came back with a subject sourced from
+  // reference slot 0, which `assemble` refuses. The block said nothing about
+  // references at all in that case, and an unconstrained model fills a silence.
+  //
+  // Anchored on the field names the instruction has to name -- those are
+  // structural and appear in the schema -- rather than on the sentence around
+  // them, so rewording it for clarity does not fail this.
+  const bare: CompileInput = {
+    idea: 'A baker opens up before dawn.',
+    mode: 'T2VA',
+    durationFrames: 192,
+    slots: [],
+  };
+
+  const withSlot: CompileInput = {
+    ...bare,
+    mode: 'I2VA',
+    slots: [
+      {
+        id: 's1',
+        order: 0,
+        kind: 'image',
+        roles: ['first_frame'],
+        filename: 'ref.png',
+        mimeType: 'image/png',
+        dataUrl: 'data:image/png;base64,AAAA',
+        description: '',
+      },
+    ],
+  };
+
+  it('says the absence out loud when no slot is attached', () => {
+    const prompt = buildPlannerSystemPrompt(normalize(bare), bare);
+    expect(prompt).toContain('citesSlots');
+    expect(prompt).toContain('subjects as an empty array');
+  });
+
+  it('asks for an empty array, never for a subject with no sources', () => {
+    // The first version of this instruction said "leave subjects[].sources
+    // empty", which the schema forbids -- a subject requires at least one
+    // source -- and a run of `subjects.0.sources: too_small` followed. Asking
+    // for an invalid document is worse than saying nothing, so the wrong
+    // phrasing is pinned as forbidden rather than left to a reviewer to catch.
+    const prompt = buildPlannerSystemPrompt(normalize(bare), bare);
+    expect(prompt).not.toContain('subjects[].sources');
+  });
+
+  it('says the opposite when a slot is attached, rather than both', () => {
+    // The failure this guards against is the two branches drifting into saying
+    // there is nothing to cite in a job that has something to cite.
+    const prompt = buildPlannerSystemPrompt(normalize(withSlot), withSlot);
+    expect(prompt).toContain('Reference assets, already labelled');
+    expect(prompt).not.toContain('There are no reference assets');
+  });
+});
+
 describe('image downscaling degrades rather than fails', () => {
   it('reports that this runtime cannot resize, instead of pretending it did', () => {
     // A PROXY, named because it has to be. `createImageBitmap` and

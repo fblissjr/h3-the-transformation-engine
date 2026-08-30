@@ -270,6 +270,34 @@ function suppliedFacts(ctx: NormalizedContext, input: CompileInput): string {
       '',
       'Slot order is 0-based and matches the order above. Refer to slots by that order number in citesSlots.',
     );
+  } else {
+    // State the absence rather than leaving it implicit.
+    //
+    // With no slots this block used to say nothing about references at all, and
+    // a model that is not being decoded against a schema fills that silence:
+    // measured repeatedly on a local 27B, it invents a subject sourced from
+    // reference slot 0 in a job that has none, which `assemble` refuses. A
+    // hosted model with constrained decoding never showed it, so the gap was
+    // invisible until there was a second provider.
+    //
+    // This is the planner prompt's own rule about absence turned on itself:
+    // # What the frame can show says a missing thing has to be written down as
+    // something positive rather than left out, because nothing renders an
+    // absence. The same is true of an instruction.
+    //
+    // The wording matters and the first attempt got it wrong. Saying "leave
+    // subjects[].sources empty" asks for something the schema forbids -- a
+    // subject requires at least one source -- and it duly produced a run of
+    // `subjects.0.sources: too_small`. The schema's own description is the
+    // accurate statement: subjects are Ref2VA only, an empty array everywhere
+    // else. Hence the condition is the contract rather than the slot count.
+    lines.push('');
+    lines.push(
+      ctx.contract === 'base'
+        ? 'There are no reference assets, and this contract has no subject registry: return ' +
+            'subjects as an empty array, and cite nothing in citesSlots.'
+        : 'There are no reference assets for this job. Cite nothing in citesSlots.',
+    );
   }
 
   if (input.suppliedDialogue && input.suppliedDialogue.length > 0) {
