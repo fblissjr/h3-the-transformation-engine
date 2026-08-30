@@ -8,7 +8,19 @@
 
       This page holds a user-supplied API key in localStorage, so the thing that
       matters most is `connect-src`: script running here can only reach the
-      Gemini endpoint and this origin.
+      Gemini endpoint, the configured heylook server, and this origin.
+
+      __HEYLOOK_ORIGIN__ is not a literal. It is replaced at build time with the
+      normalized value of VITE_HEYLOOK_ORIGIN by the `heylookCsp` plugin in
+      vite.config.ts, which is the SAME value src/provider/heylook/config.ts
+      exposes to the app. There is one origin, read once, so the policy and the
+      base URL cannot disagree -- and a base URL the policy does not name is
+      refused by the browser with no status and no response, which is the worst
+      failure shape available. The build fails outright if this token is gone.
+
+      Note that no policy can help with mixed content: a plain `http://` origin
+      that is not localhost is blocked when this page is served over https,
+      whatever connect-src says. Over the http dev server both work.
 
       `style-src` allows inline because Tailwind injects a <style> element.
       `script-src` does not, so an injected <script> or inline handler is
@@ -33,7 +45,7 @@
         img-src 'self' data: blob:;
         media-src 'self' data: blob:;
         font-src 'self' data:;
-        connect-src 'self' https://generativelanguage.googleapis.com;
+        connect-src 'self' https://generativelanguage.googleapis.com __HEYLOOK_ORIGIN__;
         object-src 'none';
         base-uri 'none';
         form-action 'none';

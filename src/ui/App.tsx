@@ -10,6 +10,7 @@
 import { useState } from 'react';
 import { useEngine } from './useEngine';
 import { KeyPanel } from './KeyPanel';
+import { ProviderPanel } from './ProviderPanel';
 import { DataPanel } from './DataPanel/DataPanel';
 import { SlotManager } from './SlotManager/SlotManager';
 import { DocumentEditor } from './DocumentEditor/DocumentEditor';
@@ -39,13 +40,31 @@ export function App() {
           prompts as data &middot; MiniMax H3
         </span>
         <div className="flex-1" />
-        <KeyPanel
-          apiKey={e.apiKey}
-          storedKeyMode={e.storedKeyMode}
-          onSave={e.saveApiKey}
-          onUnlock={e.unlockApiKey}
-          onForget={e.forgetApiKey}
+        <ProviderPanel
+          provider={e.provider}
+          onProviderChange={e.setProvider}
+          origin={e.heylookOrigin}
+          models={e.heylookModels}
+          modelId={e.heylookModelId}
+          onModelChange={e.setHeylookModel}
+          discovering={e.discovering}
+          error={e.heylookError}
+          onRefresh={() => void e.refreshHeylookModels()}
         />
+        {/*
+          The key panel is hidden on the local provider rather than disabled.
+          heylook needs no key, and a key field beside it invites pasting a
+          Google key into something that would never send it.
+        */}
+        {e.provider === 'gemini' && (
+          <KeyPanel
+            apiKey={e.apiKey}
+            storedKeyMode={e.storedKeyMode}
+            onSave={e.saveApiKey}
+            onUnlock={e.unlockApiKey}
+            onForget={e.forgetApiKey}
+          />
+        )}
         <DataPanel onErased={e.resetAfterErase} />
       </header>
 

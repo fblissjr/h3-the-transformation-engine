@@ -10,7 +10,7 @@
  * screen cannot disagree with the document behind it.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CompileInput, H3Document, ReferenceSlot } from '../core/ir/types';
 import type { H3Mode } from '../core/ir/vocab';
 import type { CreativeModeRecord } from '../core/creative';
@@ -20,6 +20,14 @@ import { contextFor, framesToSeconds } from '../core/normalize';
 import { inferMode } from '../core/normalize/mode';
 import { compile, edit, editDirect, inspect } from '../pipeline';
 import { GeminiClient } from '../provider/gemini';
+import type { InferenceClient, ProviderId } from '../provider/types';
+import {
+  HeylookClient,
+  HEYLOOK_ORIGIN,
+  listModels,
+  pickDefaultModel,
+  type HeylookModel,
+} from '../provider/heylook';
 import {
   API_KEY_NAME,
   DEFAULT_KEY_MODE,
@@ -31,10 +39,25 @@ import {
   type WritableKeyMode,
 } from '../crypto/secureStore';
 import { buildTree, flattenTree, listVersions, recordVersion } from '../db/versions';
-import { loadDocument, saveDocument, type StoredVersion } from '../db/db';
+import { getSetting, loadDocument, saveDocument, setSetting, type StoredVersion } from '../db/db';
 import type { EraseScope } from '../db/wipe';
 
 const DOC_ID = 'workspace';
+
+/**
+ * Which backend to use, and which local model.
+ *
+ * Settings rather than component state: the choice has to survive a reload, and
+ * a build that came back on Gemini after the user had picked a local model
+ * would spend a paid call on what they thought was a free one.
+ *
+ * The model id is stored on its own, not the whole capability row. A roster is
+ * whatever the server has today, so a stored row could describe a model that no
+ * longer exists or whose capabilities have changed; the id is re-resolved
+ * against the live roster and dropped if it is not there.
+ */
+const PROVIDER_SETTING = 'provider';
+const HEYLOOK_MODEL_SETTING = 'heylook-model';
 
 export interface EngineState {
   apiKey: string | null;
@@ -69,6 +92,30 @@ const EMPTY_RECORD = { mode: 'directed', selection: { strength: 'full' } } as co
 
 export function useEngine() {
   const [apiKey, setApiKey] = useState<string | null>(null);
+  /**
+   * Which backend the next call goes to.
+   *
+   * Gemini stays the default because it needs no server running. The choice is
+   * explicit rather than inferred from what is reachable: a silent fallback to
+   * a paid hosted API because the local server was down is exactly the surprise
+   * this app should not spring on anyone.
+   */
+  const [provider, setProviderState] = useState<ProviderId>('gemini');
+  /** The live roster, or null before discovery has been attempted. */
+  const [heylookModels, setHeylookModels] = useState<HeylookModel[] | null>(null);
+  const [heylookModelId, setHeylookModelId] = useState<string | null>(null);
+  /**
+   * The same id, readable without becoming a dependency.
+   *
+   * Discovery has to know which model was selected in order to say that it has
+   * gone, but taking it as a dependency would make choosing a model re-trigger
+   * the discovery effect that chose it. Reading it inside the state updater is
+   * the other wrong answer: an updater must be pure, and React is free to run
+   * it twice.
+   */
+  const heylookModelIdRef = useRef<string | null>(null);
+  const [heylookError, setHeylookError] = useState<string | null>(null);
+  const [discovering, setDiscovering] = useState(false);
   /** What is on disk, independent of whether it has been unlocked this session. */
   const [storedKeyMode, setStoredKeyMode] = useState<KeyMode | null>(null);
   const [idea, setIdea] = useState('');
@@ -124,6 +171,14 @@ export function useEngine() {
           setNotice('The stored API key could not be decrypted on this browser. Paste it again.');
         }
       }
+
+      const storedProvider = await getSetting<ProviderId>(PROVIDER_SETTING, 'gemini');
+      if (storedProvider === 'heylook' || storedProvider === 'gemini') {
+        setProviderState(storedProvider);
+      }
+      const storedModel = await getSetting<string | null>(HEYLOOK_MODEL_SETTING, null);
+      heylookModelIdRef.current = storedModel;
+      setHeylookModelId(storedModel);
 
       const stored = await loadDocument(DOC_ID);
       if (stored) {
@@ -218,6 +273,15 @@ export function useEngine() {
     setModeOverride(null);
     setCreative(null);
     setSeed(null);
+    // The provider choice and the model id live in the `settings` store, which
+    // the erase deletes on both scopes. Leaving them on screen would be the
+    // creative-picker bug again: a header claiming a selection that storage no
+    // longer holds, which a reload then silently drops back to the default.
+    setProviderState('gemini');
+    setHeylookModels(null);
+    heylookModelIdRef.current = null;
+    setHeylookModelId(null);
+    setHeylookError(null);
     if (scope === 'everything') {
       setApiKey(null);
       setStoredKeyMode(null);
@@ -269,7 +333,98 @@ export function useEngine() {
     };
   }, [effectiveIdea, idea, seed, mode, durationFrames, durationSeconds, slots, creative]);
 
-  const client = useMemo(() => (apiKey ? new GeminiClient({ apiKey }) : null), [apiKey]);
+  /**
+   * Ask the server what it is serving.
+   *
+   * Model ids are install-local -- heylook serves whatever is under a scanned
+   * folder, so the roster changes when a model is downloaded, with no config
+   * edit and no restart. There is nothing sensible to hard-code, so the list is
+   * always the live one and a stored id is only honoured if it is still there.
+   */
+  const refreshHeylookModels = useCallback(async () => {
+    setDiscovering(true);
+    setHeylookError(null);
+    try {
+      const models = await listModels();
+      setHeylookModels(models);
+
+      const current = heylookModelIdRef.current;
+      if (current == null || !models.some((m) => m.id === current)) {
+        const replacement = pickDefaultModel(models)?.id ?? null;
+        // The roster is whatever the server has today, so a stored id can
+        // simply be gone -- renamed, moved out of a scanned folder, deleted.
+        // Substituting another one silently would mean the next generation ran
+        // on a model the user never chose, and the picker would agree with
+        // itself while disagreeing with what they last set.
+        if (current != null) {
+          setNotice(
+            `heylook is no longer serving ${current}. Selected ${replacement ?? 'nothing'} instead.`,
+          );
+        }
+        heylookModelIdRef.current = replacement;
+        setHeylookModelId(replacement);
+      }
+      if (models.length === 0) {
+        setHeylookError(
+          `heylook at ${HEYLOOK_ORIGIN} is running but serving no models. Point it at a model ` +
+            'folder, or download one.',
+        );
+      }
+    } catch (cause) {
+      setHeylookModels([]);
+      setHeylookError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setDiscovering(false);
+    }
+  }, []);
+
+  // Discover on switching to heylook, and once on load if that is the stored
+  // choice. Not on an interval: the roster only changes when the owner does
+  // something, and there is a refresh button for that.
+  useEffect(() => {
+    if (provider !== 'heylook' || heylookModels != null) return;
+    void refreshHeylookModels();
+  }, [provider, heylookModels, refreshHeylookModels]);
+
+  const setProvider = useCallback((next: ProviderId) => {
+    setProviderState(next);
+    setError(null);
+    void setSetting(PROVIDER_SETTING, next);
+  }, []);
+
+  const setHeylookModel = useCallback((id: string) => {
+    heylookModelIdRef.current = id;
+    setHeylookModelId(id);
+    void setSetting(HEYLOOK_MODEL_SETTING, id);
+  }, []);
+
+  const heylookModel = useMemo(
+    () => heylookModels?.find((m) => m.id === heylookModelId) ?? null,
+    [heylookModels, heylookModelId],
+  );
+
+  /**
+   * The client the pipeline gets, or null when this provider is not ready.
+   *
+   * Null is what the generate button reads, and the two backends are not ready
+   * for the same reasons: Gemini needs a key, heylook needs a reachable server
+   * with a model chosen on it. Each says so in its own words rather than
+   * sharing one message that fits neither.
+   */
+  const client = useMemo<InferenceClient | null>(() => {
+    if (provider === 'heylook') {
+      return heylookModel ? new HeylookClient({ model: heylookModel }) : null;
+    }
+    return apiKey ? new GeminiClient({ apiKey }) : null;
+  }, [provider, apiKey, heylookModel]);
+
+  /** Why the generate button cannot fire, in this provider's terms. */
+  const notReady = useMemo(() => {
+    if (client) return null;
+    if (provider === 'gemini') return 'Add a Gemini API key first.';
+    if (discovering) return 'Still asking heylook what it is serving.';
+    return heylookError ?? `Choose a model on heylook at ${HEYLOOK_ORIGIN} first.`;
+  }, [client, provider, discovering, heylookError]);
 
   // --- persistence of a new document state --------------------------------
   const commit = useCallback(
@@ -301,7 +456,7 @@ export function useEngine() {
 
   // --- actions -----------------------------------------------------------
   const generate = useCallback(async () => {
-    if (!client) return setError('Add a Gemini API key first.');
+    if (!client) return setError(notReady ?? 'No inference backend is ready.');
     if (effectiveIdea.trim() === '') return setError('Describe what you want before generating.');
     setBusy('Planning');
     setError(null);
@@ -320,7 +475,7 @@ export function useEngine() {
     } finally {
       setBusy(null);
     }
-  }, [client, effectiveIdea, input, commit, creative, rolled, seed]);
+  }, [client, notReady, effectiveIdea, input, commit, creative, rolled, seed]);
 
   const applyDirect = useCallback(
     async (path: string, value: unknown) => {
@@ -337,7 +492,7 @@ export function useEngine() {
 
   const applyAssisted = useCallback(
     async (instruction: string) => {
-      if (!client) return setError('Add a Gemini API key first.');
+      if (!client) return setError(notReady ?? 'No inference backend is ready.');
       if (!doc) return;
       if (selectedPaths.length === 0) return setError('Select something to edit first.');
       setBusy('Editing');
@@ -366,7 +521,7 @@ export function useEngine() {
         setBusy(null);
       }
     },
-    [client, doc, selectedPaths, commit],
+    [client, notReady, doc, selectedPaths, commit],
   );
 
   const checkout = useCallback(async (version: StoredVersion) => {
@@ -412,6 +567,17 @@ export function useEngine() {
   return {
     apiKey,
     storedKeyMode,
+    provider,
+    setProvider,
+    heylookOrigin: HEYLOOK_ORIGIN,
+    heylookModels,
+    heylookModelId,
+    setHeylookModel,
+    heylookError,
+    discovering,
+    refreshHeylookModels,
+    /** Null when a call can be made; otherwise why not, in this provider's terms. */
+    notReady,
     saveApiKey,
     unlockApiKey,
     forgetApiKey,

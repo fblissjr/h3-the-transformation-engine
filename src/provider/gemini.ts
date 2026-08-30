@@ -11,7 +11,8 @@
  *
  *  - `temperature` is in the type and is silently ignored (accepted with a
  *    `completed` status and no effect). It is never sent, and there is no
- *    temperature control in the UI.
+ *    temperature control in the UI. This is a fact about THIS API, not a house
+ *    rule: heylook honours temperature, so the ban does not travel.
  *  - Thinking runs by DEFAULT and bills at the output rate. An unset
  *    `thinking_level` is the EXPENSIVE path, so every call states one. The SDK's
  *    level union is broader than any one model accepts -- see ThinkingLevel.
@@ -28,6 +29,21 @@
  */
 
 import { GoogleGenAI } from '@google/genai';
+import {
+  ProviderError,
+  TruncatedError,
+  type CallOptions,
+  type CallResult,
+  type InferenceClient,
+  type ProviderId,
+  type Task,
+} from './types';
+
+export type { ImageAttachment } from './types';
+export { dataUrlToAttachment } from './types';
+
+/** The one host this client contacts. Named here so the CSP can be read against it. */
+export const GEMINI_ORIGIN = 'https://generativelanguage.googleapis.com';
 
 /**
  * Thinking levels this model accepts.
@@ -53,85 +69,25 @@ export const DEFAULT_MODEL = 'models/gemini-3.7-flash';
  * Per-task thinking levels.
  *
  * Planning is the only stage that genuinely benefits from deliberation. Patches
- * are narrow rewrites of a named field, and vision descriptions are close to
- * transcription, so both sit at the floor.
+ * are narrow rewrites of a named field, so they sit at the floor.
  *
  * Thinking is not free even at the floor: probed at 48 thought tokens for
  * "17 * 23" at `low` versus 153 at `high`, billed at the output rate and
  * reported under `usage.total_thought_tokens`.
+ *
+ * This lives inside the Gemini client now rather than on the shared options,
+ * because the mapping from a task to a depth is a per-backend decision and the
+ * spellings do not line up: heylook takes a boolean plus a per-model
+ * `reasoning_effort` vocabulary.
  */
-export const THINKING: Record<'planner' | 'patch' | 'vision', ThinkingLevel> = {
+export const THINKING: Record<Task, ThinkingLevel> = {
   planner: 'medium',
   patch: 'low',
-  vision: 'low',
 };
 
 const TERMINAL_OK = 'completed';
 const TERMINAL_TRUNCATED = 'incomplete';
 const TERMINAL_FAILED = new Set(['failed', 'cancelled', 'budget_exceeded']);
-
-export class ProviderError extends Error {
-  constructor(
-    message: string,
-    readonly status: string,
-    readonly interactionId?: string,
-  ) {
-    super(message);
-    this.name = 'ProviderError';
-  }
-}
-
-/**
- * Truncation gets its own error carrying the partial text.
- *
- * Throwing a bare failure here would discard both the partial output and the
- * interaction id, and the interaction is billed by then. Callers that can use a
- * partial result, or want to retry with a higher ceiling, need both.
- */
-export class TruncatedError extends ProviderError {
-  constructor(
-    readonly partialText: string,
-    interactionId?: string,
-  ) {
-    super(
-      `Model output was truncated at max_output_tokens (${partialText.length} chars returned). ` +
-        'Raise maxOutputTokens or narrow the request.',
-      TERMINAL_TRUNCATED,
-      interactionId,
-    );
-    this.name = 'TruncatedError';
-  }
-}
-
-export interface ImageAttachment {
-  /** Raw base64, without the `data:` prefix. */
-  base64: string;
-  mimeType: string;
-}
-
-export interface CallOptions {
-  systemInstruction: string;
-  prompt: string;
-  thinkingLevel: ThinkingLevel;
-  maxOutputTokens?: number;
-  /** JSON Schema. When present the reply is forced to conform. */
-  schema?: Record<string, unknown>;
-  /** Makes a rerun that differs a real difference rather than sampling noise. */
-  seed?: number;
-  /** Images travel inline as base64; nothing is uploaded and nothing is left behind. */
-  images?: ImageAttachment[];
-  model?: string;
-  signal?: AbortSignal;
-}
-
-export interface CallResult<T = unknown> {
-  text: string;
-  parsed: T | null;
-  status: string;
-  interactionId?: string;
-  usage: Record<string, unknown>;
-  durationMs: number;
-}
 
 export interface GeminiClientConfig {
   apiKey: string;
@@ -166,7 +122,7 @@ export function buildRequest(options: CallOptions, defaultModel: string): Record
     system_instruction: options.systemInstruction,
     generation_config: {
       // Always stated. Unset bills thinking at the output rate.
-      thinking_level: options.thinkingLevel,
+      thinking_level: THINKING[options.task],
       ...(options.maxOutputTokens != null ? { max_output_tokens: options.maxOutputTokens } : {}),
       ...(options.seed != null ? { seed: options.seed } : {}),
       // temperature is deliberately absent -- accepted and silently ignored.
@@ -174,6 +130,9 @@ export function buildRequest(options: CallOptions, defaultModel: string): Record
   };
 
   if (options.schema) {
+    // Constrained decoding. This is what makes the planner's large nested
+    // document parse reliably, and it is exactly what heylook has no equivalent
+    // of -- see the shape trailer in the heylook client.
     request.response_format = {
       type: 'text',
       mime_type: 'application/json',
@@ -184,7 +143,8 @@ export function buildRequest(options: CallOptions, defaultModel: string): Record
   return request;
 }
 
-export class GeminiClient {
+export class GeminiClient implements InferenceClient {
+  readonly providerId: ProviderId = 'gemini';
   private readonly ai: GoogleGenAI;
   private readonly defaultModel: string;
 
@@ -209,7 +169,7 @@ export class GeminiClient {
     const usage = extractUsage(interaction);
 
     if (status === TERMINAL_TRUNCATED) {
-      throw new TruncatedError(text, interactionId);
+      throw new TruncatedError(text, status, interactionId);
     }
     if (TERMINAL_FAILED.has(status)) {
       throw new ProviderError(`Interaction ${status}. No output was produced.`, status, interactionId);
@@ -244,11 +204,4 @@ function extractUsage(interaction: unknown): Record<string, unknown> {
   const usage = (interaction as { usage?: unknown }).usage;
   if (!usage || typeof usage !== 'object') return {};
   return Object.fromEntries(Object.entries(usage as object).filter(([, v]) => v != null));
-}
-
-/** Split a `data:image/png;base64,...` URL into the parts the API wants. */
-export function dataUrlToAttachment(dataUrl: string): ImageAttachment | null {
-  const m = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
-  if (!m) return null;
-  return { mimeType: m[1], base64: m[2] };
 }

@@ -14,7 +14,11 @@ import { applyPatch, type PatchResult } from './core/patch/apply';
 import { serialize, type SerializeResult } from './core/serialize';
 import { validate, type ValidationResult } from './core/validate';
 import { placeholdersIn } from './core/wildcards';
-import { dataUrlToAttachment, GeminiClient, THINKING, type ImageAttachment } from './provider/gemini';
+import {
+  dataUrlToAttachment,
+  type ImageAttachment,
+  type InferenceClient,
+} from './provider/types';
 import {
   buildPlannerSystemPrompt,
   buildPlannerUserPrompt,
@@ -67,7 +71,7 @@ function refuseUnexpanded(input: CompileInput): void {
 }
 
 export async function compile(
-  client: GeminiClient,
+  client: InferenceClient,
   input: CompileInput,
   options: { id: string; seed?: number; signal?: AbortSignal } = { id: 'doc-1' },
 ): Promise<CompileResult> {
@@ -77,7 +81,7 @@ export async function compile(
   const result = await client.call({
     systemInstruction: buildPlannerSystemPrompt(ctx, input),
     prompt: buildPlannerUserPrompt(input),
-    thinkingLevel: THINKING.planner,
+    task: 'planner',
     maxOutputTokens: PLANNER_MAX_OUTPUT_TOKENS,
     schema: plannerJsonSchema(),
     images: imagesFor(input),
@@ -85,9 +89,12 @@ export async function compile(
     ...(options.signal ? { signal: options.signal } : {}),
   });
 
-  // The API enforces the schema, but zod is what the rest of the code trusts.
-  // Parsing again here means a schema the API accepted but our types disagree
-  // with fails loudly at the boundary rather than deep inside the serializer.
+  // Whether the schema was enforced by the backend or merely asked for in the
+  // prompt, zod is what the rest of the code trusts. Parsing again here means a
+  // reply the provider accepted but our types disagree with fails loudly at the
+  // boundary rather than deep inside the serializer. With a local model that
+  // has no constrained decoding, this is the check doing the real work rather
+  // than a second opinion.
   const parsed = PlannerOutputSchema.safeParse(result.parsed);
   if (!parsed.success) {
     throw new PlanError(`Planner output did not match the schema: ${parsed.error.message}`);
@@ -116,7 +123,7 @@ export interface EditResult extends CompileResult {
  * The mechanism, the guard rails and the audit trail are identical.
  */
 export async function edit(
-  client: GeminiClient,
+  client: InferenceClient,
   doc: H3Document,
   paths: string[],
   instruction: string,
@@ -127,7 +134,7 @@ export async function edit(
   const result = await client.call({
     systemInstruction: buildPatchSystemPrompt(doc.creativeMode),
     prompt: buildPatchUserPrompt(doc, paths, instruction),
-    thinkingLevel: THINKING.patch,
+    task: 'patch',
     maxOutputTokens: PATCH_MAX_OUTPUT_TOKENS,
     schema: patchJsonSchema(),
     ...(options.seed != null ? { seed: options.seed } : {}),

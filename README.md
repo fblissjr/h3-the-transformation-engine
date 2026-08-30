@@ -12,7 +12,7 @@ Everything runs in your browser. There is no account, no backend, and no server 
 
 - **Your API key** sits in `localStorage`, encrypted with AES-GCM. By default the encryption key is one the browser generates and will not hand back, so the stored blob cannot be opened on another browser or machine. It does not stop anyone using *this* browser profile, since the app has to be able to decrypt it. Passphrase mode covers that case.
 - **Your documents and their version history** sit in IndexedDB, unencrypted. Browser storage is scoped to one origin in one browser profile on this machine, and there is no server, so what can read it is whatever can use this browser profile or run script on this origin.
-- **Your prompts** go to Google's Gemini endpoint, and what Google keeps is governed by the terms attached to your key rather than by anything in this code. Free-tier terms permit Google to use prompts and responses to improve its products.
+- **Your prompts** go wherever the provider picker in the header points. On Gemini they go to Google's endpoint, and what Google keeps is governed by the terms attached to your key rather than by anything in this code — free-tier terms permit Google to use prompts and responses to improve its products. On **heylook** they go to a server on your own network and nowhere else, which is the reason that provider exists. There is no automatic fallback between the two: a local server that is down is an error, never a silent hosted call.
 - **Erasing it** is the `local data` button in the header. Two scopes: documents and history, or that plus the stored key. It reports counts re-read from storage afterwards.
 
 That shape suits a personal tool on a machine you control. It is the wrong shape for anything shared, multi-user, or public. If the contents of your prompts matter, use passphrase mode and a paid-tier key.
@@ -33,7 +33,7 @@ Sora 2 and Veo 3.1 have no formal output contract, so tools for them are prompt 
 Nearly all of that is machine-checkable, so it is checked in code rather than asked for in a prompt, and stated once in [a spec the tests enforce](#the-contract).
 
 ```
-input -> normalize (TS) -> plan (one Gemini call) -> validate (TS) -> [patch] -> serialize (TS) -> prompt
+input -> normalize (TS) -> plan (one model call) -> validate (TS) -> [patch] -> serialize (TS) -> prompt
 ```
 
 ## The design decision that matters most
@@ -55,7 +55,7 @@ src/core/        pure TypeScript, no React, no DOM, no network (enforced by a te
   patch/         path-scoped patch application
   creative/      style packs, anchors, strength scoring, glitch marks
   wildcards/     {category} substitution on the idea, and the experiment matrix
-src/provider/    Gemini Interactions client and the planner/patch prompts
+src/provider/    the client interface, a Gemini and a heylook client, and the planner/patch prompts
 src/crypto/      at-rest storage for the API key, three modes
 src/db/          IndexedDB, three stores, immutable version tree, erase-and-verify
 src/ui/          slot manager, document editor, prompt view, diagnostics, history, local data
@@ -154,6 +154,12 @@ Every applied edit creates an immutable version with a parent pointer and the op
 
 ## Provider notes
 
+Two backends, chosen in the header. They are not interchangeable and the code does not pretend they are: the seam between them is `InferenceClient` in `src/provider/types.ts`, which is one method taking one options bag, and every difference below is a difference the pipeline never sees.
+
+The one that shapes the design: **`schema` on that interface is a request for JSON, not a claim about how it is obtained.** Gemini honours it with constrained decoding. heylook has no equivalent on either wire, so it honours the same field by appending the serialized schema to the system prompt and parsing the reply defensively. `compile` and `edit` never branch on which backend they hold, and `PlannerOutputSchema.safeParse` stays the single trust boundary — on the local path it is doing the real work rather than offering a second opinion.
+
+### Gemini
+
 Verified against `@google/genai` types or probed live, not read from docs:
 
 - `temperature` is accepted and silently ignored. Never sent; there is no temperature control.
@@ -163,12 +169,27 @@ Verified against `@google/genai` types or probed live, not read from docs:
 - `system_instruction` and `generation_config` are interaction-scoped. Omitting them on a follow-up runs with neither, so both go on every call.
 - `status: "incomplete"` means truncated at `max_output_tokens`. Terminal, distinct from failure, and the likeliest failure mode for a JSON planner. It raises a typed error carrying the partial text.
 
+### heylook
+
+A local server on your own network — MLX and gguf models over an endpoint that conforms to Anthropic's Messages API. Read from the wire reference and the live server, not assumed from an Anthropic SDK habit:
+
+- **No constrained decoding, on either wire.** There is no `responseSchema` equivalent; asking for one is not an error, it is simply absent. The schema is appended to the system prompt by the client and the reply is parsed defensively — fence stripping, then the longest balanced object that parses. Longest, not first: a preamble saying "the schema uses `{}` for an empty object" makes first-match hand back valid JSON that is the wrong object.
+- **Model ids are install-local.** The registry is override-only, so the roster changes when a model is downloaded, with no config edit and no restart. There is nothing sensible to hard-code: the list comes from `/v1/models` at runtime and the picker shows what the server is actually serving.
+- **Capabilities are per-model, and `capabilities` is not `modalities`.** MLX strips audio towers at load, so a checkpoint can declare a modality it will never serve. Vision is gated on `capabilities` — and the refusal is still handled, because that field is read from the model directory's config while the refusal is decided from the model as loaded, so it can over-report.
+- **Non-streaming on purpose.** Once a stream's headers have flushed the status is already 200, so a late refusal arrives in-band as an `error` event and a naive reader renders a diagnostic as model output. Off the stream the same refusal is a plain 400.
+- **503 is normal operation.** The server serialises generation for one user, so queueing behind a long request is expected. It is retried on `Retry-After` rather than surfaced as a failure. A negative or unreadable `Retry-After` falls back rather than waiting zero — `Date.parse("-1")` succeeds as a year, which turned a queue into a busy loop until a test caught it.
+- **`max_tokens` is optional here**, unlike Anthropic's required field. Absent means the server's sampler cascade decides, so a client-side default carried over from Anthropic code would silently override the model's configured floor on every request that had no opinion. Only the planner and patch ceilings are sent.
+- **A thinking model returns a `thinking` block beside `text`**, and the thinking block carries its content under *both* `thinking` and `text`. Only `text` blocks are joined; a reader that maps every block's `text` picks up the reasoning while looking like it filtered.
+- **Images are resized client-side.** `/v1/messages` has no resize parameter — Messages clients are expected to do it. Longest edge 2048, JPEG at 0.85, PNG kept as PNG, EXIF orientation honoured. Gemini downscales server-side, so an unresized image only costs anything on the local path, where it is paid for twice: in visual tokens and in prefill, on one machine with one GPU.
+- **`temperature` is not sent, for a different reason than on Gemini.** heylook honours it. It is absent because this app has no temperature control, and a value invented by the client would override the model's own configured default.
+- **No API key is sent.** heylook's key gate is opt-in, off by default, and exempt for loopback traffic. If you set `HEYLOOK_API_KEY` on the server and reach it from another machine, this build will get a 401 and say so; it has no second secret to send.
+
 ## Commands
 
 ```
 bun install
 bun run dev         # http://localhost:5173
-bun run test        # 544 tests
+bun run test        # 583 tests
 bun run typecheck
 bun run build
 bun run probe       # live API probes (reads GEMINI_API_KEY from .env)
@@ -184,7 +205,10 @@ bun run probe       # live API probes (reads GEMINI_API_KEY from .env)
 - Every one of the 36 diagnostic codes has a control fixture that makes it fire, plus the standing evidence that the unbroken examples produce none of them.
 - A meta-test scans the rule sources and fails if any emitted code has no control, so a new rule cannot ship without one. That meta-test has itself been shown to go red.
 - A purity test fails if `src/core` imports React, the SDK, the DB layer, the DOM, or `fetch`.
-- The request properties described in [Under the hood](#under-the-hood) — `store: false`, no `temperature`, an explicit `thinking_level` — are asserted in `test/provider.test.ts`.
+- The Gemini request properties described in [Under the hood](#under-the-hood) — `store: false`, no `temperature`, an explicit `thinking_level` — are asserted in `test/provider.test.ts`. None of them travel to the other provider, and the test says so: heylook honours `temperature`, has no `store` concept, and has no interaction to chain from.
+- The heylook wire properties are asserted in `test/heylook.test.ts`, against `buildRequest`, which is pure — no server, no network. Among them the ones that would otherwise be comments: the system prompt is top-level rather than a message, the image block uses the nested `source` spelling, `max_tokens` is omitted rather than defaulted, and a `thinking` block's text never reaches the JSON parser.
+- **The shape trailer is the one string sent to a model that no prompt builder wrote**, and `test/contract.test.ts` cannot see it — that test indexes into `buildPlannerSystemPrompt`'s output, while the trailer is appended after it by the client. Deleting the trailer was run as a deliberate breakage: two assertions in `test/heylook.test.ts` went red and all 88 in `test/contract.test.ts` stayed green, which is what says the edge is real and which check is watching it. It is recorded in `contract.json` under `notInTheGuides`.
+- `test/pipeline-provider.test.ts` drives `compile` and `edit` against a recording client, which closes a standing gap: everything past the model call was unreachable, and the only tests that drove `compile` were the wildcard refusals, which assert the client is *never* called. It watches that the task and the schema chosen in the pipeline are the ones that arrive — a `task` that failed to arrive would leave Gemini sending no `thinking_level`, which is the expensive path, silently.
 - The creative modes are checked at both ends: the derivations in `test/creative.test.ts`, and the wiring in `test/creative-integration.test.ts` — that both the planner and the patch prompt derive the same directive from the same record, that a creative mode survives a patch, that it changes nothing in the serialized prompt, and that a selection round-trips through the stored-document schema to the same prompt text. Ten deliberate breakages were used to confirm those go red for the right reason.
 - The glitch marks add eighteen more, among them the one an object schema makes invisible: dropping the `glitch` key strips it on load with no issue raised anywhere, and only the storage round trip notices. The wildcards add ten, including a placeholder being deleted rather than left in place, a seed that never reaches the draw, and a mood word entering the library.
 - The stored-document schema is checked on load and reports rather than gates. It is exercised against all five golden fixtures, so a drift between the schema and the type shows up as a failing test rather than as a document that will not open.
@@ -216,20 +240,22 @@ What the code does:
   - `origin`, the default. A random AES-GCM-256 key generated with `extractable: false`, kept as a `CryptoKey` in IndexedDB `H3KeyVault`. `exportKey` on it rejects, so its bytes never exist in JavaScript and the ciphertext can only be opened from this origin in this browser profile. The key is generated on your machine at first use; no key material is in this repo.
   - `passphrase`, PBKDF2-HMAC-SHA256 at 310,000 iterations over what you type. The only mode that does not depend on the machine.
   - `device`, legacy and decrypt-only. Derived from `navigator.userAgent + navigator.language`, which is not a secret; it was the old default. Existing values still open so nobody loses a stored key, writing it now throws, and the next save upgrades to `origin`.
-- **Key in transit** — sent as an `x-goog-api-key` header, not in a URL, on every call this app makes. `generativelanguage.googleapis.com` is the only host it contacts.
+- **Key in transit** — the Gemini key is sent as an `x-goog-api-key` header, not in a URL. On that provider `generativelanguage.googleapis.com` is the only host contacted; on heylook it is the configured origin and nothing else. No key is sent to heylook at all.
 - **Erasing local data** — `local data` in the header. `src/db/wipe.ts` closes the cached connection, deletes the databases, clears every `localStorage` key under the `h3-secure:` prefix, then re-opens storage and counts what is left. The panel shows those before-and-after counts and turns red if anything remains, including when another open tab blocks the delete.
 - **No stored interactions** — `store: false` on every request, no setting to change it, enforced by `test/provider.test.ts`. Chosen because `interactions.delete` returns 501, so a stored interaction could not be removed later.
-- **CSP** — `connect-src 'self' https://generativelanguage.googleapis.com`, `script-src 'self'`. Bare `ws:`/`wss:` are deliberately absent: they match any host, which would hand a compromised dependency a socket to anywhere. `frame-ancestors` is absent because it is ignored in a `<meta>` tag — set it as a response header if you deploy this.
+- **CSP** — `connect-src 'self' https://generativelanguage.googleapis.com <the heylook origin>`, `script-src 'self'`. The heylook entry is a literal host, never a scheme-wide source, and it is **generated at build time from `VITE_HEYLOOK_ORIGIN`** by a plugin in `vite.config.ts` that reads the same `normalizeOrigin` the app does. There is one origin value, so the policy and the base URL cannot drift apart — which matters because a base URL the policy does not name is refused by the browser with no status and no response, and would look exactly like the server being down. The build fails outright if the placeholder is missing from `index.html`. Bare `ws:`/`wss:` remain deliberately absent: they match any host, which would hand a compromised dependency a socket to anywhere. `frame-ancestors` is absent because it is ignored in a `<meta>` tag — set it as a response header if you deploy this.
+- **Mixed content is a separate limit no policy lifts.** A plain `http://` heylook origin that is not `localhost` is blocked by the browser when this page is served over https, whatever `connect-src` says. Over the http dev server both work.
 - **No logging of its own** — zero `console.*` in `src/`, no analytics, telemetry, or error reporting.
 
 What that does not cover:
 
+- **The local provider moves the trust boundary, it does not remove it.** On heylook the prompt reaches a server you run, so none of the Gemini retention paragraph below applies to it. What replaces it is whatever that server does — its own logs, its conversation store, and anyone else who can reach the port. `HEYLOOK_API_KEY` is off by default and loopback-exempt, so on a home network the port is open to the network.
 - **`store: false` is not a retention guarantee.** It opts out of Interactions conversation-state storage. Google still logs prompts and responses for a period to enforce the Prohibited Use Policy, and free-tier terms permit using prompts and responses to improve its products. Zero data retention is a paid, approved-project posture. ([abuse monitoring](https://ai.google.dev/gemini-api/docs/usage-policies), [terms](https://ai.google.dev/gemini-api/terms), [ZDR](https://ai.google.dev/gemini-api/docs/zdr)) Which tier issued your key matters more here than anything in this repo.
 - **Nothing stops script running on this origin.** This is the ceiling, and no storage scheme moves it. Script on this origin can call `getSecret` exactly as the app does, or read the key out of memory once it is unlocked. `origin` mode makes a stolen `localStorage` dump useless on another machine; it does nothing about an attacker already executing here.
 - **Documents are not encrypted.** IndexedDB `H3TransformationEngine`, stores `documents`, `versions`, `settings`, all in the clear. Anything with access to the browser profile can read them.
 - **Give it its own origin if you host it.** Browser storage is partitioned by origin, not by path, so a deploy that shares a hostname with other pages shares this app's storage with them.
 - **Erasing is local only.** It clears what this app wrote. Browser history, the disk cache, OS-level backups, and anything already sent to Google are all outside it.
-- **Dependencies are trusted, not audited.** Five packages reach the bundle: `react`, `react-dom`, `zod`, `idb`, `@google/genai`. Nothing in the build points at a third-party host, but that describes the versions pinned in `bun.lock`, not a property anyone enforces.
+- **Dependencies are trusted, not audited.** Five packages reach the bundle: `react`, `react-dom`, `zod`, `idb`, `@google/genai`. The heylook client adds none — it is `fetch` against a documented wire. Nothing in the build points at a third-party host, but that describes the versions pinned in `bun.lock`, not a property anyone enforces.
 
 **Test it yourself.** The above was checked by hand, in one browser, on one machine, by one person — a small sample, not a security audit. The CSP claims in particular take a few minutes to reproduce: serve a page carrying the same policy, listen for `securitypolicyviolation`, and try a `fetch` and a `WebSocket` at some host that is not on the list. Both should be refused, and the fetch case is what tells you the probe can go red at all. For the storage claims, open devtools, watch `localStorage` and both IndexedDB databases, and press the erase button.
 

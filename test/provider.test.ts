@@ -1,20 +1,25 @@
 /**
- * The request body's privacy-critical properties.
+ * The Gemini request body's privacy-critical properties.
  *
  * These are the claims the README makes to a user about what leaves their
  * browser. A claim nothing checks is a claim that quietly stops being true, so
  * each one is asserted here rather than left to a comment.
  *
  * `buildRequest` is pure, so none of this needs a network call or a key.
+ *
+ * Everything here is scoped to Gemini and none of it travels: heylook honours
+ * `temperature`, has no `store` concept and no interaction to chain from. Its
+ * own request properties are in `test/heylook.test.ts`.
  */
 
 import { describe, expect, it } from 'vitest';
-import { buildRequest, DEFAULT_MODEL, THINKING, type CallOptions } from '../src/provider/gemini';
+import { buildRequest, DEFAULT_MODEL, THINKING } from '../src/provider/gemini';
+import type { CallOptions } from '../src/provider/types';
 
 const base: CallOptions = {
   systemInstruction: 'You expand a creative request.',
   prompt: 'A baker opens the shutters.',
-  thinkingLevel: 'medium',
+  task: 'planner',
 };
 
 const build = (extra: Partial<CallOptions> = {}) =>
@@ -44,9 +49,12 @@ describe('sampling parameters', () => {
   });
 
   it('always states a thinking level, because unset bills at the output rate', () => {
-    for (const level of Object.values(THINKING)) {
-      const config = build({ thinkingLevel: level }).generation_config as Record<string, unknown>;
-      expect(config.thinking_level).toBe(level);
+    // The level is no longer passed in -- the interface names a task and this
+    // client maps it -- so the property is now that EVERY task maps to a level,
+    // with no path that leaves the field off.
+    for (const task of Object.keys(THINKING) as (keyof typeof THINKING)[]) {
+      const config = build({ task }).generation_config as Record<string, unknown>;
+      expect(config.thinking_level, task).toBe(THINKING[task]);
     }
   });
 
