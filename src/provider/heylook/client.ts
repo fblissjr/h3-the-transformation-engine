@@ -240,9 +240,14 @@ export class HeylookClient implements InferenceClient {
       });
     } catch (cause) {
       if (cause instanceof DOMException && cause.name === 'AbortError') throw cause;
+      // Same three-way ambiguity as discovery, and the same reason not to
+      // default to blaming the server. Discovery runs first and reports it in
+      // full, so this one stays short and points there.
       throw new ProviderError(
-        `Could not reach heylook at ${this.origin}. Check that the server is running and that ` +
-          "the origin is the one this build's connect-src names.",
+        `Could not reach heylook at ${this.origin}, with no status to say why. The server may ` +
+          'be down, the page policy may have refused the origin, or the server may have ' +
+          'answered without CORS headers for this page. Press refresh beside the model picker ' +
+          'to run discovery, which reports the three separately.',
         'unreachable',
       );
     }

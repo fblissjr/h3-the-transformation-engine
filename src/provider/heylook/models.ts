@@ -56,10 +56,19 @@ export async function listModels(
     response = await fetch(`${origin}/v1/models`, signal ? { signal } : {});
   } catch (cause) {
     if (cause instanceof DOMException && cause.name === 'AbortError') throw cause;
+    // Three different problems arrive here identically, as a TypeError with no
+    // status and no response, so the message names all three rather than
+    // guessing. Blaming the server is the wrong default: it is the only one of
+    // the three that `curl` can confirm, which makes it the one most likely to
+    // have been ruled out already.
     throw new DiscoveryError(
-      `Could not reach heylook at ${origin}. Start the server on that machine, or check ` +
-        'VITE_HEYLOOK_ORIGIN. A refusal with no status is usually the page policy: the ' +
-        'origin has to be in connect-src, which is generated from that same variable at build time.',
+      `Could not reach heylook at ${origin}, and the failure carries no status -- which means ` +
+        'one of three things. The server is not running there; or the page policy refused it, ' +
+        'because connect-src is generated from VITE_HEYLOOK_ORIGIN at build time and a changed ' +
+        'origin needs a restart; or the server answered without CORS headers for this page, ' +
+        'which a curl check cannot see because curl does not enforce CORS. The browser network ' +
+        'tab tells the three apart: no request at all is the policy, a failed OPTIONS preflight ' +
+        'is CORS, and a connection error is the server.',
       cause,
     );
   }
