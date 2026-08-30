@@ -178,8 +178,9 @@ export function App() {
             be dead weight whenever nothing is running, and a stop that sits
             beside a disabled generate button reads as though it might start
             something. Stopping is not provider-specific: both clients take the
-            same signal, and on a server that serialises generation it is what
-            releases the queue rather than merely ending the wait.
+            same signal. It ends the wait rather than the generation -- a
+            non-streaming request cannot be cancelled, which is measured and
+            written up in the README.
           */}
           {e.busy ? (
             <div className="flex w-full gap-2">

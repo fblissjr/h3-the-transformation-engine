@@ -123,9 +123,15 @@ export function useEngine() {
    *
    * Stopping is provider-agnostic on purpose. `CallOptions.signal` has been on
    * the interface since it was extracted and both clients thread it through, so
-   * this needed a control rather than a mechanism. It matters most on the local
-   * server, which serialises generation: an abandoned generation there is not
-   * just a wasted wait, it is the queue everything else is behind.
+   * this needed a control rather than a mechanism.
+   *
+   * What it does NOT do, measured rather than assumed: it does not stop the
+   * generation on the server. A non-streaming request writes nothing to the
+   * connection until it is finished, so the server never learns the client has
+   * gone. Aborting a 73-second heylook generation at 5 seconds left the next
+   * call waiting 57.9 -- the remainder. The identical abort on a streaming
+   * request freed the server in 0.1s, so cancellation is real but costs
+   * streaming, which this client deliberately does not do.
    */
   const abortRef = useRef<AbortController | null>(null);
   const [heylookError, setHeylookError] = useState<string | null>(null);
@@ -489,9 +495,8 @@ export function useEngine() {
   /**
    * Stop the call in flight.
    *
-   * Aborting the request is also what tells a local server to give up on the
-   * generation, which is the part that matters when it serialises work: the
-   * queue behind it moves as soon as this returns.
+   * Ends the wait and returns the UI. On a local server that serialises work the
+   * generation carries on to the end regardless -- see the note on `abortRef`.
    */
   const stop = useCallback(() => {
     abortRef.current?.abort();
