@@ -23,12 +23,15 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildRequest,
+  canResize,
   canServe,
   extractJsonObject,
   joinTextBlocks,
   jsonShapeTrailer,
   normalizeOrigin,
   pickDefaultModel,
+  resizeAll,
+  resizeAttachment,
   retryAfterMs,
   withShapeTrailer,
   type HeylookModel,
@@ -332,6 +335,37 @@ describe('capabilities decide what is offered, modalities do not', () => {
     expect(pickDefaultModel([embedding, TEXT_MODEL])?.id).toBe(TEXT_MODEL.id);
     expect(pickDefaultModel([embedding])).toBeNull();
     expect(pickDefaultModel([])).toBeNull();
+  });
+});
+
+describe('image downscaling degrades rather than fails', () => {
+  it('reports that this runtime cannot resize, instead of pretending it did', () => {
+    // A PROXY, named because it has to be. `createImageBitmap` and
+    // `OffscreenCanvas` do not exist under vitest's node environment, so this
+    // asserts the fallback branch is the one taken here -- it does NOT check
+    // that resizing works, which is only reachable in a browser. A green here
+    // says the no-canvas path is safe, nothing more.
+    expect(canResize()).toBe(false);
+  });
+
+  it('returns the attachment untouched when it cannot resize', async () => {
+    // The property that matters: a runtime without canvas still sends a working
+    // image. Failing here would mean a Node script or a test could not send one
+    // at all, and an oversized image is strictly better than no image.
+    const attachment = { base64: 'AAAA', mimeType: 'image/png' };
+    expect(await resizeAttachment(attachment)).toBe(attachment);
+    expect(await resizeAll([attachment])).toEqual([attachment]);
+  });
+
+  it('keeps the list aligned, so a caller cannot mismatch images to slots', async () => {
+    const many = [
+      { base64: 'AAAA', mimeType: 'image/png' },
+      { base64: 'BBBB', mimeType: 'image/jpeg' },
+      { base64: 'CCCC', mimeType: 'image/webp' },
+    ];
+    const out = await resizeAll(many);
+    expect(out).toHaveLength(3);
+    expect(out.map((a) => a.base64)).toEqual(['AAAA', 'BBBB', 'CCCC']);
   });
 });
 
