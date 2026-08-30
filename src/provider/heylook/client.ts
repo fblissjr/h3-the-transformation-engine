@@ -56,12 +56,23 @@ import { resizeAll } from './images';
 /** Anthropic's vocabulary; only `end_turn` and `max_tokens` occur in practice. */
 const STOP_TRUNCATED = 'max_tokens';
 
-/** A queued request is retried this many times before it becomes an error. */
-const MAX_RETRIES = 3;
+/**
+ * How long a queued request keeps queueing, as wall-clock rather than attempts.
+ *
+ * An attempt count was the wrong unit, and the live server said so: it answers
+ * `Retry-After: 1` with the message "is generating -- wait for it to finish",
+ * which is an instruction to poll every second, not a claim that it will be
+ * free in one. Three retries against that header gave up after four seconds,
+ * while the generation it was queued behind ran for two minutes. That is a
+ * spurious failure on the one condition the server documents as normal.
+ */
+const BACKPRESSURE_BUDGET_MS = 5 * 60_000;
 /** Used when a 503 arrives without a usable `Retry-After`. */
 const DEFAULT_RETRY_MS = 2000;
-/** Nothing waits longer than this for one attempt, however large `Retry-After` is. */
-const MAX_RETRY_MS = 30_000;
+/** Nothing waits longer than this between polls, however large `Retry-After` is. */
+const MAX_RETRY_MS = 15_000;
+/** A server that says "retry immediately" still should not be polled in a tight loop. */
+const MIN_RETRY_MS = 1000;
 
 export interface HeylookClientConfig {
   /** Defaults to the build-time origin, which is also what the CSP names. */
@@ -195,15 +206,23 @@ export class HeylookClient implements InferenceClient {
     request: Record<string, unknown>,
     signal?: AbortSignal,
   ): Promise<Record<string, unknown>> {
+    const deadline = Date.now() + BACKPRESSURE_BUDGET_MS;
     for (let attempt = 0; ; attempt += 1) {
       const response = await this.send(request, signal);
 
       if (response.status === 503) {
-        const wait = retryAfterMs(response.headers.get('Retry-After'));
-        if (attempt >= MAX_RETRIES) {
+        // Backoff, with the header as a floor rather than as the whole answer.
+        // Polling every second for the full budget is 300 requests; backing off
+        // reaches the same deadline in roughly twenty.
+        const wait = Math.min(
+          Math.max(retryAfterMs(response.headers.get('Retry-After')), MIN_RETRY_MS) * 2 ** attempt,
+          MAX_RETRY_MS,
+        );
+        if (Date.now() + wait >= deadline) {
           throw new BackpressureError(
-            `heylook is still busy after ${MAX_RETRIES + 1} attempts. It runs one generation at ` +
-              'a time, so something else is using it. Try again shortly.',
+            `heylook was still busy after ${Math.round(BACKPRESSURE_BUDGET_MS / 60_000)} minutes ` +
+              `and ${attempt + 1} attempts. It runs one generation at a time, so something else ` +
+              'is using it -- another tab, or another tool pointed at the same server.',
             wait,
           );
         }

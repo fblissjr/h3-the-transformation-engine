@@ -285,8 +285,17 @@ describe('503 is a queue, not a failure', () => {
   });
 
   it('never waits longer than the cap, whatever the header says', () => {
-    expect(retryAfterMs('99999')).toBe(30_000);
-    expect(retryAfterMs(new Date(Date.now() + 86_400_000).toUTCString())).toBe(30_000);
+    expect(retryAfterMs('99999')).toBe(15_000);
+    expect(retryAfterMs(new Date(Date.now() + 86_400_000).toUTCString())).toBe(15_000);
+  });
+
+  it('reads the live server\'s own header as a poll interval, not a completion estimate', () => {
+    // Probed against heylook 1.79.42 while a generation was running: the reply
+    // is `Retry-After: 1` with "is generating -- wait for it to finish". One
+    // second is how often to ask, not how long it will take, so the retry
+    // budget is wall-clock rather than a count of attempts. Three retries on
+    // this header gave up after four seconds against a two-minute generation.
+    expect(retryAfterMs('1')).toBe(1000);
   });
 
   it('falls back rather than waiting zero on a header it cannot read', () => {

@@ -1,7 +1,7 @@
 import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
-import { normalizeOrigin } from './src/provider/heylook/config';
+import { normalizeOrigin } from './src/provider/heylook/config.ts';
 
 /**
  * Write the configured heylook origin into the page's `connect-src`.

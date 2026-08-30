@@ -19,6 +19,7 @@ All notable changes to this project are documented here. Semantic versioning.
 
 ### Fixed
 
+- **The backpressure retry gave up on the one condition the server documents as normal.** Three attempts against a `Retry-After: 1` header is four seconds, and the live server sends that header with the message "is generating -- wait for it to finish" while a generation runs for minutes. The header is a poll interval, not a completion estimate. The budget is now five minutes of wall-clock with exponential backoff and the header as a floor. Found by probing a running server, not by reading the code, and confirmed by occupying it and watching a second call queue for 107 seconds and then succeed.
 - **A negative `Retry-After` turned a queue into a busy loop.** `Date.parse("-1")` succeeds as a year, so a numeric header that failed the seconds check fell through to the date branch and became a zero wait against a server that had just said it was saturated. A numeric header is now decided by the numeric branch alone. Found by a test written to assert the fallback, not by reading the code.
 - **JSON extraction took the first parseable object rather than the longest.** A preamble saying "the schema uses `{}` for an empty object" in front of a real reply yields `{}` — valid JSON, parses cleanly, and then fails `PlannerOutputSchema.safeParse` with a message about a missing field rather than about the wrong object having been picked. A document is always the longest object in a reply about a document.
 
