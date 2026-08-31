@@ -122,7 +122,7 @@ Any sign, banner, label or subtitle that is actually visible goes in the prose i
 
 \`soundscape\` covers ambience, physical action sounds and non-verbal human sounds across the whole video, in ${SOUNDSCAPE_SENTENCE_RANGE[0]}-${SOUNDSCAPE_SENTENCE_RANGE[1]} sentences. Do not repeat dialogue, singing or diegetic music here -- those belong in the beats. Use "N/A" only if total silence was explicitly requested.
 
-\`music\` covers score only the audience can hear, in ${MUSIC_SENTENCE_RANGE[0]}-${MUSIC_SENTENCE_RANGE[1]} sentences. Name instrumentation, tempo, rhythm and dynamics. Never mood words like "emotional" or "epic". Music a character can hear is a diegetic event and belongs in the beats. Use "N/A" when there is no score.`;
+\`music\` covers score only the audience can hear. Write "N/A" unless the request asks for music or the material clearly implies it -- a music video, a montage, a trailer, a scene the user already described with a score under it. Most scenes do not have one, and a score nobody asked for is a claim about the scene that was never made. When there is one, describe it in ${MUSIC_SENTENCE_RANGE[0]}-${MUSIC_SENTENCE_RANGE[1]} sentences: name instrumentation, tempo, rhythm and dynamics, never mood words like "emotional" or "epic". Music a character can hear is a diegetic event and belongs in the beats, not here.`;
 
 // ---------------------------------------------------------------------------
 // Mode blocks

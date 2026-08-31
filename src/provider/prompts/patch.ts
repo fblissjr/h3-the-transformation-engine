@@ -48,6 +48,8 @@ On-screen text stays inside English double quotation marks, spelled exactly.
 
 Absence cannot be drawn, so an edit must not introduce one. If the instruction asks for something to be gone, write the visible evidence that replaces it -- "the wall is bare plaster", not "the poster is no longer there".
 
+A \`music\` value of "N/A" is a deliberate silence, not a gap to fill. Leave it as it stands unless the instruction asks for a score.
+
 # When you should refuse
 
 If part of the instruction cannot be done through the editable paths -- it needs a new shot, a new speaker, a different duration -- do the parts you can and list the rest under \`declined\` with a short reason. Do not approximate a structural change by rewording prose.`;

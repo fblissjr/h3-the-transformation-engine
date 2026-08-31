@@ -479,6 +479,54 @@ describe('prompt blocks match the spec', () => {
 });
 
 // ---------------------------------------------------------------------------
+// non_diegetic_music
+// ---------------------------------------------------------------------------
+
+/**
+ * base 4.7 permits `N/A` when there is no score. Leaning to it when the request
+ * is silent is house preference, declared as `music-default` in notInTheGuides,
+ * and it has to hold in both prompts: `music` is on PATCHABLE_LEAVES, so an
+ * assisted edit can put a score over an N/A the planner chose.
+ *
+ * The patch assertion is the load-bearing one. That prompt said nothing about
+ * music at all, so its green here comes from text that had to be written; the
+ * planner already named the field and would half-pass on the old wording. The
+ * lean itself has no structural anchor -- it is a preference expressed in
+ * prose -- so the last assertion below is a wording proxy and is marked as one.
+ */
+describe('the music default reaches both prompts', () => {
+  const planner = buildPlannerSystemPrompt(normalize(input), input);
+  const patch = buildPatchSystemPrompt();
+
+  it('states the sentence range from vocab rather than a second copy', () => {
+    const [lo, hi] = vocab.MUSIC_SENTENCE_RANGE;
+    expect(planner).toContain(`${lo}-${hi} sentences`);
+  });
+
+  it('tells the patch prompt that an N/A is deliberate', () => {
+    expect(patch).toMatch(/music/);
+    expect(patch).toContain('"N/A"');
+  });
+
+  it('declares the lean as house rather than as the guide', () => {
+    const ids = contract.notInTheGuides.items.map((i) => i.id);
+    expect(ids).toContain('music-default');
+    const audio = contract.prompts.planner.blocks.find((b) => b.heading === '# Audio');
+    expect(audio?.guide).toBe('base 4.6, 4.7');
+    expect(audio?.note, '# Audio is now part house and must say so').toEqual(expect.any(String));
+  });
+
+  // Wording proxy: a failure here is a fact about this assertion, not about the
+  // prompt, unless the lean itself was removed. There is no rendered shape or
+  // field name that distinguishes "default to N/A" from base 4.7's conditional
+  // "use N/A when there is no score", so this reads the word.
+  it('leans to N/A in the planner (wording proxy)', () => {
+    expect(planner).toMatch(/Write "N\/A" unless/);
+  });
+});
+
+
+// ---------------------------------------------------------------------------
 // Diagnostics
 // ---------------------------------------------------------------------------
 
