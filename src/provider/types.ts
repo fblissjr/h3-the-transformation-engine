@@ -152,10 +152,17 @@ export class TruncatedError extends ProviderError {
  * The server is busy, not broken.
  *
  * Distinct from `ProviderError` because the response is different in kind: a
- * local single-user server serialises generation and answers 503 with
- * `Retry-After` when something else is already running. That is a queue, and
- * the client retries it. Collapsing it into a failure would surface normal
- * operation as an error the user is asked to act on.
+ * local single-user server answers 503 with `Retry-After` when something else
+ * is already using it, and the right response is to wait rather than to report
+ * a failure. Collapsing it into a failure would surface normal operation as an
+ * error the user is asked to act on.
+ *
+ * Deliberately not called a queue any more. Measured against heylook, the 503
+ * that actually occurs is a REFUSAL -- `code: "model_overloaded"`, "cannot make
+ * room ... is generating" -- issued because another model holds the GPU, not a
+ * position in a line. Retrying is still correct, and the server says so, but a
+ * caller reading "queue" would expect to be served in turn without asking
+ * again. See the header note in `./heylook/client.ts`.
  */
 export class BackpressureError extends ProviderError {
   constructor(

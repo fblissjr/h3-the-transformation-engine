@@ -10,6 +10,17 @@
  * It reads a buffer that was recording before it was opened, so the usual
  * order -- do the thing, then wonder what it did -- works. See `src/debug/bus.ts`
  * for why that buffer is bounded and why it is never written to storage.
+ *
+ * HOW THIS IS VERIFIED, stated because the answer is "by hand" and an unstated
+ * gap reads as an oversight. The buffer, the redaction, the eviction and the
+ * tail key all have controls in `test/debug.test.ts`. The RENDERING has one
+ * manual pass: a live 76.4s planner generation on 2026-08-31 with all four
+ * channels in one sequence, rows expanding, payloads intact. There is no
+ * automated render check and this is a deliberate choice rather than a todo --
+ * it would need a renderer this project does not depend on, and a broken panel
+ * costs the one person who runs it a reload. Re-verify by hand after changing
+ * this file; the sequence to look for is state.generate through
+ * storage.saveDocument.
  */
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
@@ -65,6 +76,21 @@ function haystackFor(event: DebugEvent): string {
   const lowered = text.toLowerCase();
   haystacks.set(event, lowered);
   return lowered;
+}
+
+/**
+ * The value the tail-follow effect keys on.
+ *
+ * Extracted and exported ONLY so it can be tested. Inside the component this
+ * was `shown.length`, which is wrong in exactly one state and that state is the
+ * one that matters: once the buffer is at `MAX_EVENTS` or `MAX_BYTES` every new
+ * event evicts an old one, the length stops changing, and a length-keyed effect
+ * stops firing -- the panel silently stops following the tail precisely when
+ * the log is busiest. The newest event's `seq` is monotonic, so it distinguishes
+ * states that the length cannot.
+ */
+export function tailKey(events: readonly DebugEvent[]): number {
+  return events.length === 0 ? 0 : events[events.length - 1].seq;
 }
 
 function levelColor(level: DebugEvent['level']): string | undefined {
@@ -163,7 +189,7 @@ function Drawer({ events, onClose }: { events: readonly DebugEvent[]; onClose: (
   // changing and a length-keyed effect stops firing -- the panel would silently
   // stop following the tail exactly when the log is busiest, which is the one
   // moment it is being watched.
-  const newest = shown.length === 0 ? 0 : shown[shown.length - 1].seq;
+  const newest = tailKey(shown);
   useEffect(() => {
     const list = listRef.current;
     if (list && stick.current) list.scrollTop = list.scrollHeight;

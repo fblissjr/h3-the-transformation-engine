@@ -213,6 +213,13 @@ export function useEngine() {
    *
    * Clearing (`setError(null)`) deliberately stays a bare setter: an empty bar
    * is not an event.
+   *
+   * NO AUTOMATED CONTROL. The property -- one event per occurrence, including
+   * a repeat of an identical message -- is a fact about React's bail-out on an
+   * identical `setState`, and asserting it needs a renderer this project does
+   * not have as a dependency. It was verified by reasoning plus one browser
+   * pass, and it is written down here rather than left to look tested, because
+   * the thing that made the old version wrong was that it looked tested too.
    */
   const fail = useCallback((message: string) => {
     trace('state', 'state.error', message, { error: message }, { level: 'error' });

@@ -36,6 +36,7 @@ import {
   trace,
   type DebugEvent,
 } from '../src/debug';
+import { tailKey } from '../src/ui/DebugConsole/DebugConsole';
 import { compile, edit } from '../src/pipeline';
 import { assemble } from '../src/core/assemble';
 import { normalize } from '../src/core/normalize';
@@ -155,6 +156,30 @@ describe('the buffer is bounded, so a long session cannot grow without limit', (
     clearLog();
     expect(snapshot()).toEqual([]);
     expect(retainedBytes()).toBe(0);
+  });
+});
+
+describe('the panel follows the tail once the buffer stops growing', () => {
+  it('changes its key when the length does not', () => {
+    // The whole bug in one assertion. At either bound every new event evicts an
+    // old one, so `shown.length` is constant from then on and a length-keyed
+    // effect never fires again -- the panel stops following exactly when the
+    // log is busiest. Driven through the real buffer rather than a hand-built
+    // array, so it is the eviction behaviour under test and not arithmetic.
+    for (let i = 0; i < MAX_EVENTS; i += 1) trace('state', `state.f${i}`, 'f');
+    const before = snapshot();
+    expect(before).toHaveLength(MAX_EVENTS);
+    const keyBefore = tailKey(before);
+
+    trace('state', 'state.next', 'next');
+    const after = snapshot();
+    expect(after).toHaveLength(MAX_EVENTS);
+    expect(after.length).toBe(before.length);
+    expect(tailKey(after)).not.toBe(keyBefore);
+  });
+
+  it('is zero for an empty list rather than throwing', () => {
+    expect(tailKey([])).toBe(0);
   });
 });
 

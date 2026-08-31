@@ -6,8 +6,8 @@
  * image and downscales it server-side, so the reference images in a slot are
  * whatever the user dropped in, at whatever a phone camera produces. Sent
  * unchanged to a local vision tower that is one machine with one GPU, that is
- * paid for twice: in visual tokens and in prefill time, on a server that
- * serialises generation.
+ * paid for twice: in visual tokens and in prefill time, on a server that runs
+ * one generation at a time for this app.
  *
  * The targets match what heylook's own frontend does: longest edge around
  * 2048px, photos re-encoded to JPEG at 0.85, PNG kept as PNG, EXIF orientation

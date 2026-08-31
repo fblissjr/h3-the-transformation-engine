@@ -18,9 +18,25 @@
  *    same refusal is a plain 400. The Gemini client does not stream either, and
  *    nothing in this app renders tokens as they arrive, so streaming would buy
  *    complexity and no feature.
- *  - **503 is normal.** The server serialises generation for one user, so
- *    queueing behind a long request is expected operation, not an outage. It is
- *    retried on `Retry-After` rather than surfaced.
+ *  - **503 is normal, and retrying it is right.** Measured on this machine
+ *    against an mlx model: only ONE mlx model is resident at a time, and asking
+ *    for a second one while the first is generating is refused rather than
+ *    queued -- `503`, `code: "model_overloaded"`, body "cannot make room --
+ *    ['<other model>'] is generating. Stop the generation or wait for it to
+ *    finish." The headers carry `retry-after: 1`, `x-ratelimit-limit: 1`,
+ *    `x-ratelimit-remaining: 0`. The refusal arrived 0.58s into a 5.77s
+ *    generation, so that `1` is a literal and not an estimate of the work
+ *    remaining -- do not tune backoff to it, which is why `retryAfterMs` treats
+ *    it as a floor. The server's own message says to wait, so this client's
+ *    retry loop is doing the right thing with it.
+ *
+ *    What is NOT established, and was previously asserted here as "the server
+ *    serialises generation for one user": whether the mlx generation gate is
+ *    process-global or per-provider. Two different mlx models cannot be
+ *    co-resident on this box -- loading one evicts the other, timed at 1.6s to
+ *    reload an evicted model against 0.0014s for a resident one -- so the
+ *    experiment that would separate those has no reachable setup here. It does
+ *    not matter to this client: the app is single-flight regardless.
  *  - **Cancelling needs an explicit call.** Hanging up does NOT stop a
  *    non-streaming generation: measured, a 73.1s run aborted at 5.0s left the
  *    next request waiting 57.9s, because nothing is written to the connection
