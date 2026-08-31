@@ -55,6 +55,72 @@ function Field({ path, label, value, rows = 2, selected, onSelect, onCommit }: F
   );
 }
 
+/**
+ * What a blurred cut-time draft should write, or null for "write nothing".
+ *
+ * Exported because this is the whole of the decision and the UI around it is
+ * unreachable from the suite. Two traps live here. `Number('')` is 0, so a
+ * cleared field parsed with a bare `Number` writes a cut at zero rather than
+ * leaving the value alone. And the comparison must read the stored value, not
+ * the `?? 0` the input displays: a shot after the first with no cut time is a
+ * live `SHOT_MISSING_TIMESTAMP`, and typing 0 into it is a real change.
+ *
+ * Range and ordering are not checked here. `validate/rules/timeline.ts` owns
+ * them, and a second opinion in the editor would be a warning severity wearing
+ * a different hat.
+ */
+export function cutCommit(draft: string, current: number | null): number | null {
+  const trimmed = draft.trim();
+  if (trimmed === '') return null;
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed)) return null;
+  return parsed === current ? null : parsed;
+}
+
+interface CutFieldProps {
+  value: number | null;
+  onCommit: (ms: number) => void;
+}
+
+/**
+ * The cut time, committed on blur for the reason `Field` commits on blur.
+ *
+ * It wrote on every keystroke, so a four-digit value left four versions in the
+ * history -- measured in the running app rather than reasoned about: seven
+ * versions before typing `6300` one digit at a time into shot 2, eleven after,
+ * the four new ones all labelled `Edited shots[1].cutAtMs`.
+ *
+ * The draft is a string so that backspacing to empty is representable; a
+ * numeric draft turns an empty field into 0 and fights whoever is typing.
+ */
+function CutField({ value, onCommit }: CutFieldProps) {
+  const [draft, setDraft] = useState(String(value ?? 0));
+  useEffect(() => setDraft(String(value ?? 0)), [value]);
+
+  return (
+    <label className="flex items-center gap-1 text-[10px] text-[var(--color-muted)]">
+      cut at
+      <input
+        type="number"
+        step={100}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        // Enter blurs rather than committing directly, so blur stays the one
+        // path a commit can come from.
+        onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+        onBlur={() => {
+          const next = cutCommit(draft, value);
+          if (next == null) setDraft(String(value ?? 0));
+          else onCommit(next);
+        }}
+        className="w-20 rounded bg-black/30 px-1 py-0.5 text-xs"
+      />
+      {/* Reads the committed value, so it stops moving until the write lands. */}
+      <span>ms = {formatTimestamp(value ?? 0)}</span>
+    </label>
+  );
+}
+
 interface Props {
   doc: H3Document;
   selectedPaths: string[];
@@ -129,17 +195,11 @@ export function DocumentEditor({ doc, selectedPaths, onSelect, onCommit }: Props
               <code className="text-xs text-[var(--color-accent)]">[Shot {shot.index}]</code>
 
               {i > 0 && (
-                <label className="flex items-center gap-1 text-[10px] text-[var(--color-muted)]">
-                  cut at
-                  <input
-                    type="number"
-                    step={100}
-                    value={shot.cutAtMs ?? 0}
-                    onChange={(e) => onCommit(`shots[${i}].cutAtMs`, Number(e.target.value))}
-                    className="w-20 rounded bg-black/30 px-1 py-0.5 text-xs"
-                  />
-                  <span>ms = {formatTimestamp(shot.cutAtMs ?? 0)}</span>
-                </label>
+                <CutField
+                  key={shot.id}
+                  value={shot.cutAtMs}
+                  onCommit={(ms) => onCommit(`shots[${i}].cutAtMs`, ms)}
+                />
               )}
 
             </div>
