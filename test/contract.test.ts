@@ -11,15 +11,28 @@
  * What is asserted:
  *
  *   the guide files still hash to what the spec recorded
+ *   every guide citation resolves to a heading those files actually have
  *   every alignment template, character for character
- *   section labels, order and layout, read off the rendered golden output
- *   where the style clause goes, and how shots are separated
- *   every vocabulary list, against the exports the code actually uses
- *   the ordered blocks of both system prompts
+ *   section labels, order, layout, and the exact gap between them
+ *   where the style clause goes, how shots are separated, and both shot headers
+ *   every vocabulary claim, against whatever its `binds` descriptor names
+ *   the ordered blocks of both prompts, and structural anchors for what each says
  *   the diagnostic list, against the codes the rules really emit
+ *   that everything the spec points at exists: test files, source paths, functions
+ *
+ * Two obligations, and both are enforced. A claim says where it came from --
+ * a `guide` citation or `house: true` -- and it says what would make it false,
+ * in `binds`. Provenance was checked here long before binding was, and the gap
+ * was not visible from a green run: a mutation sweep of 63 spec fields found 33
+ * could be changed with the whole suite passing, including nine vocabulary
+ * entries that named a real exported constant and were compared to nothing.
  *
  * If you are adding a mode, a section, a vocabulary value, a prompt block or a
  * diagnostic: put it in the spec first, watch this fail, then implement it.
+ * A new vocabulary claim needs a `binds` descriptor -- `export`, `render`,
+ * `quotedIn`, or `unbound` with a reason, and the unbound list is pinned. A new
+ * prompt block needs `asserts`, or a `noAnchor` reason saying why no structural
+ * anchor is reachable. Neither is optional; this file fails without them.
  */
 
 import { createHash } from 'node:crypto';
