@@ -13,6 +13,8 @@
  */
 
 export { GLOBAL_POLICY, PROVIDER_TYPE_POLICY } from './defaults.ts';
+export { POLICY_FIELDS } from './fields.ts';
+export type { PolicyField, PolicyFieldKind } from './fields.ts';
 export { explainPolicy, layersFrom, resolveAttribute, resolvePolicy, scopeOrder } from './resolve.ts';
 export { POLICY_KEYS, PROVIDER_TYPES, SCOPES } from './types.ts';
 export type { Policy, PolicyLayers, ProviderType, Scope, Sourced } from './types.ts';

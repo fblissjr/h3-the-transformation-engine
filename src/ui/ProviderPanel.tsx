@@ -141,7 +141,14 @@ export function ProviderPanel({
         Shown for every provider, never only for the one that supports it. The
         setting describes how you want the document produced, not who produces
         it, so hiding it on a local backend would teach that it is a Gemini
-        feature -- and it is the same flag if heylook ever gains a grammar.
+        feature -- and it is the same flag for a third backend that can.
+
+        Not heylook, though: that project has said it will not add constrained
+        decoding, so `canEnforceSchema: false` there is a settled answer rather
+        than a gap waiting to close. Recorded as a decision reported to us, not
+        as something measured -- but it does mean the shape trailer and the
+        defensive parse in `src/provider/shape.ts` are heylook's permanent path
+        rather than an interim one.
 
         A backend that cannot honour it says so here instead of the control
         vanishing, because a disappearing checkbox reads as a bug and a silently

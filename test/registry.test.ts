@@ -15,6 +15,7 @@ import {
   describeConcurrency,
   heylookPolicyConfig,
   instanceFor,
+  instancePolicyFor,
   HEYLOOK_INSTANCES,
   parseInstances,
   policyFor,
@@ -75,6 +76,50 @@ describe('providers declare a type and nothing branches on it', () => {
     // Rather than inserting an empty object, which would read as "this provider
     // has an opinion" to anyone looking at the layers.
     expect(layersFor('gemini').provider).toBeUndefined();
+  });
+});
+
+describe('the stored bag reaches the cascade, or the instance layer is decoration', () => {
+  const heylook = HEYLOOK_INSTANCES[0];
+  const stored = { [heylook.id]: { retryTimeoutMs: 9_000 } };
+
+  it('spans a stored override through to the client option it becomes', () => {
+    // The whole thread in one assertion, because every link in it was
+    // separately correct while the chain reached nothing: the bag is keyed by
+    // instance id, the cascade takes one layer, and the client takes a
+    // millisecond budget. What this cannot reach is `useEngine` handing the bag
+    // over -- the same irreducible remainder `buildClient` has, and the reason
+    // `instancePolicyFor` is a named function rather than three lines in a memo.
+    const policy = policyFor('heylook', instancePolicyFor('heylook', heylook, stored));
+    expect(heylookPolicyConfig(policy)).toEqual({ backpressureBudgetMs: 9_000 });
+  });
+
+  it('reports the stored value as coming from the machine, not from a default', () => {
+    // A panel that cannot tell inherited from set-here cannot offer a reset,
+    // which is the only reason `explainPolicy` returns a scope at all.
+    const explained = explainFor('heylook', instancePolicyFor('heylook', heylook, stored));
+    expect(explained.retryTimeoutMs?.scope).toBe('instance');
+    expect(explained.maxConcurrentRequests?.scope).toBe('providerType');
+  });
+
+  it('withholds the overrides of a machine a provider does not serve', () => {
+    // Instances are heylook's today. A Gemini call inheriting a local box's
+    // five-minute retry budget would be a hosted endpoint queueing for minutes
+    // behind a quota that resets in seconds. Keyed on the instance's own
+    // providerId rather than on the string 'heylook', so a provider that gains
+    // instances later needs no edit here.
+    expect(instancePolicyFor('gemini', heylook, stored)).toEqual({});
+    expect(policyFor('gemini', instancePolicyFor('gemini', heylook, stored)).retryTimeoutMs).toBe(
+      policyFor('gemini').retryTimeoutMs,
+    );
+  });
+
+  it('ignores overrides stored against a machine this build no longer configures', () => {
+    // Origins are build-time, so an id can outlive the environment that named
+    // it. Matching how a stored instance CHOICE is dropped when the environment
+    // stops naming it -- kept in storage, absent from the cascade.
+    expect(instancePolicyFor('heylook', heylook, { 'a-machine-that-left': { retryTimeoutMs: 1 } }))
+      .toEqual({});
   });
 });
 

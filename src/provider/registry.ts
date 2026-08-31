@@ -159,6 +159,33 @@ export function instanceFor(instanceId: string | null): Instance {
 }
 
 /**
+ * The overrides that apply to a provider right now, out of every machine's.
+ *
+ * The join between what storage holds -- a bag keyed by instance id -- and what
+ * the cascade takes, which is one layer. It exists as a named function for the
+ * reason `buildClient` and `heylookPolicyConfig` do: in a React memo this is
+ * three lines nothing can reach, and every wiring gap this repo has found had
+ * that shape. With it here, a test can span a stored override through to the
+ * client config it ends up as.
+ *
+ * Two ways it correctly returns nothing. An instance belonging to another
+ * provider contributes no layer, because instances are heylook's today and a
+ * Gemini call must not inherit a machine's retry budget -- tested rather than
+ * asserted by a `providerId === 'heylook'` check, so a provider that gains
+ * instances later needs no edit here. And an id this build no longer configures
+ * is simply absent, matching how a stored instance choice is dropped when the
+ * environment stops naming it.
+ */
+export function instancePolicyFor(
+  providerId: ProviderId,
+  instance: Instance,
+  stored: Record<string, Policy>,
+): Policy {
+  if (instance.providerId !== providerId) return {};
+  return stored[instance.id] ?? {};
+}
+
+/**
  * The layers for a provider, with an instance's overrides on top.
  *
  * Assembled here rather than in the UI so that every caller resolves the same
