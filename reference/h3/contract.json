@@ -197,7 +197,6 @@
   },
   "vocabulary": {
     "modes": {
-      "source": "MODES",
       "guide": "base 1, ref 1",
       "values": [
         "T2VA",
@@ -206,10 +205,14 @@
         "L2VA",
         "Ref2VA"
       ],
-      "note": "Base 1 names the first four; Ref2VA is the full-reference mode the second guide covers. It was a bare array with no citation while every entry beside it carried one -- the same shape as the two entries an outside audit marked house, caught by the check that now enforces the pattern."
+      "note": "Base 1 names the first four; Ref2VA is the full-reference mode the second guide covers. It was a bare array with no citation while every entry beside it carried one -- the same shape as the two entries an outside audit marked house, caught by the check that now enforces the pattern.",
+      "binds": {
+        "values": {
+          "export": "MODES"
+        }
+      }
     },
     "cameraTypes": {
-      "source": "CAMERA_TYPES",
       "guide": "base 4.3",
       "values": [
         "Zoom In",
@@ -232,10 +235,14 @@
         "POV",
         "Roll Clockwise",
         "Roll Counterclockwise"
-      ]
+      ],
+      "binds": {
+        "values": {
+          "export": "CAMERA_TYPES"
+        }
+      }
     },
     "amplitudes": {
-      "source": "AMPLITUDES",
       "guide": "base 4.3",
       "values": [
         "small",
@@ -245,10 +252,17 @@
         "small": "with small amplitude",
         "large": "with large amplitude"
       },
-      "note": "Medium is implied by omission."
+      "note": "Medium is implied by omission.",
+      "binds": {
+        "values": {
+          "export": "AMPLITUDES"
+        },
+        "phrases": {
+          "export": "AMPLITUDE_PHRASE"
+        }
+      }
     },
     "speeds": {
-      "source": "SPEEDS",
       "guide": "base 4.3",
       "values": [
         "slow",
@@ -258,10 +272,17 @@
         "slow": "at slow speed",
         "fast": "at fast speed"
       },
-      "note": "Normal is implied by omission."
+      "note": "Normal is implied by omission.",
+      "binds": {
+        "values": {
+          "export": "SPEEDS"
+        },
+        "phrases": {
+          "export": "SPEED_PHRASE"
+        }
+      }
     },
     "ordinaryCuts": {
-      "source": "ORDINARY_CUTS",
       "guide": "base 4.2",
       "values": [
         "the camera cuts to",
@@ -269,58 +290,121 @@
         "the shot transitions to",
         "the shot changes to",
         "the shot switches to"
-      ]
+      ],
+      "binds": {
+        "values": {
+          "export": "ORDINARY_CUTS"
+        }
+      }
     },
     "specialCuts": {
-      "source": "SPECIAL_CUTS",
       "guide": "base 4.2",
       "values": [
         "cross-dissolve",
         "fade",
         "wipe"
       ],
-      "note": "Only when the user explicitly asks."
+      "note": "Only when the user explicitly asks.",
+      "binds": {
+        "values": {
+          "export": "SPECIAL_CUTS"
+        }
+      }
     },
     "tags": {
       "dialogue": {
         "open": "<d>",
         "close": "</d>",
         "form": "<d>[Language] words</d>",
-        "guide": "base 4.4"
+        "guide": "base 4.4",
+        "binds": {
+          "open": {
+            "render": [
+              "T2VA",
+              "I2VA",
+              "Ref2VA"
+            ]
+          },
+          "close": {
+            "render": [
+              "T2VA",
+              "I2VA",
+              "Ref2VA"
+            ]
+          },
+          "form": {
+            "unbound": "A schematic the spec writes to summarise base 4.4, not a string any guide contains. The guide states the rule in prose and shows filled instances; the delimiters beside this are bound by render."
+          }
+        }
       },
       "sceneTrans": {
         "value": "<scenetrans>",
         "guide": "base 4.4",
-        "note": "Both sides of a line that crosses a cut."
+        "note": "Both sides of a line that crosses a cut.",
+        "binds": {
+          "value": {
+            "export": "SCENETRANS_TAG"
+          }
+        }
       },
       "cutoff": {
         "value": "<cutoff>",
         "guide": "base 4.4",
-        "note": "Speech truncated by the end of the video; final beat only."
+        "note": "Speech truncated by the end of the video; final beat only.",
+        "binds": {
+          "value": {
+            "export": "CUTOFF_TAG"
+          }
+        }
       },
       "unclear": {
         "value": "[unclear]",
-        "guide": "ref 5.4"
+        "guide": "ref 5.4",
+        "binds": {
+          "value": {
+            "export": "UNCLEAR_MARKER"
+          }
+        }
       }
     },
     "voiceoverPhrase": {
-      "source": "VOICEOVER_PHRASE",
       "value": "says in an off-screen voiceover",
       "guide": "base 4.4",
-      "note": "Exact phrase, followed by a statement that the lips remain closed."
+      "note": "Exact phrase, followed by a statement that the lips remain closed.",
+      "binds": {
+        "value": {
+          "export": "VOICEOVER_PHRASE"
+        }
+      }
     },
     "speakerIds": {
       "form": "(S1)",
       "compoundForm": "(S1,S2)",
       "guide": "base 4.4",
-      "note": "Numbered by the order of actual vocal events; never renumbered; never written in retention_analysis (ref 5.4)."
+      "note": "Numbered by the order of actual vocal events; never renumbered; never written in retention_analysis (ref 5.4).",
+      "binds": {
+        "form": {
+          "render": [
+            "T2VA",
+            "I2VA",
+            "Ref2VA"
+          ]
+        },
+        "compoundForm": {
+          "quotedIn": "base"
+        }
+      }
     },
     "onScreenText": {
       "quoting": "English double quotation marks, verbatim, untranslated",
-      "guide": "base 4.5"
+      "guide": "base 4.5",
+      "binds": {
+        "quoting": {
+          "unbound": "A rule about how a string is written, not a string. base 4.5 is the claim; visibleTextQuoted in validate/rules/speech.ts is what enforces it, and it has its own controls."
+        }
+      }
     },
     "taskTypes": {
-      "source": "TASK_TYPES",
       "guide": "ref 3",
       "values": [
         "keyframe completion",
@@ -329,57 +413,82 @@
         "video continuation",
         "audio reuse",
         "audio reference"
-      ]
+      ],
+      "binds": {
+        "values": {
+          "export": "TASK_TYPES"
+        }
+      }
     },
     "visualRetention": {
-      "source": "VISUAL_RETENTION",
       "guide": "ref 4.1",
       "values": [
         "fully_preserved",
         "partially_preserved",
         "attribute_transfer",
         "weak_reference"
-      ]
+      ],
+      "binds": {
+        "values": {
+          "export": "VISUAL_RETENTION"
+        }
+      }
     },
     "audioRetention": {
-      "source": "AUDIO_RETENTION",
       "guide": "ref 4.2",
       "values": [
         "fully_copy",
         "partially_copy",
         "reference",
         "weak_reference"
-      ]
+      ],
+      "binds": {
+        "values": {
+          "export": "AUDIO_RETENTION"
+        }
+      }
     },
     "labelKinds": {
-      "source": "LABEL_KINDS",
       "guide": "ref 2",
       "values": [
         "Subject",
         "Picture",
         "Video",
         "Audio"
-      ]
+      ],
+      "binds": {
+        "values": {
+          "export": "LABEL_KINDS"
+        }
+      }
     },
     "mediaKinds": {
-      "source": "MEDIA_KINDS",
       "values": [
         "image",
         "video",
         "audio"
       ],
       "house": true,
-      "note": "House partition of reference assets. Neither guide enumerates media kinds; it exists so a slot can be typed."
+      "note": "House partition of reference assets. Neither guide enumerates media kinds; it exists so a slot can be typed.",
+      "binds": {
+        "values": {
+          "export": "MEDIA_KINDS"
+        }
+      }
     },
     "slotCeilings": {
-      "source": "SLOT_CEILINGS",
       "values": {
         "image": 9,
         "video": 3,
         "audio": 3
       },
       "house": true,
-      "note": "Not in either guide -- neither states any limit on reference assets. A platform limit carried without a guide citation."
+      "note": "Not in either guide -- neither states any limit on reference assets. A platform limit carried without a guide citation.",
+      "binds": {
+        "values": {
+          "export": "SLOT_CEILINGS"
+        }
+      }
     },
     "budgets": {
       "soundscapeSentences": {
@@ -387,14 +496,24 @@
           1,
           4
         ],
-        "guide": "base 4.6"
+        "guide": "base 4.6",
+        "binds": {
+          "range": {
+            "export": "SOUNDSCAPE_SENTENCE_RANGE"
+          }
+        }
       },
       "musicSentences": {
         "range": [
           1,
           3
         ],
-        "guide": "base 4.7"
+        "guide": "base 4.7",
+        "binds": {
+          "range": {
+            "export": "MUSIC_SENTENCE_RANGE"
+          }
+        }
       },
       "refDetailWords": {
         "range": [
@@ -409,11 +528,21 @@
         ],
         "alsoInTheSameSentence": "A single shot does not automatically justify a shorter description; distribute detail across multiple shots according to their information load. Carried by the planner, and recorded here so the spec states the whole clause group rather than the parts that happened to be contested.",
         "unresolved": "Task types combine (ref 3: joined with ' + ', and its own worked example is [video editing + reference generation + audio reuse]). ref 5.2 does not say which clause governs a prefix naming video editing alongside a generation type. Left unresolved here on purpose rather than decided in either direction; the planner is told only not to pad toward the range to satisfy it, since padding is the failure mode either answer would rule out. A guide revision that resolves it is a visible event -- the guide files are hash-checked in sources above.",
-        "note": "The scope is part of the rule. Stating the bare range overstates the guide, which is how the planner came to apply it to video-editing jobs."
+        "note": "The scope is part of the rule. Stating the bare range overstates the guide, which is how the planner came to apply it to video-editing jobs.",
+        "binds": {
+          "range": {
+            "export": "REF_DETAIL_WORD_RANGE"
+          },
+          "appliesTo": {
+            "unbound": "A paraphrase of ref 5.2's scoping sentence, not a literal from it. The guide citation is the only binding available; the range beside it is bound by export."
+          },
+          "exemptions": {
+            "unbound": "Paraphrases of ref 5.2's own carve-outs. Recorded because a number without its scope is a misquotation, and unbound because no literal in the guide matches this wording."
+          }
+        }
       }
     },
     "slotRoles": {
-      "source": "SLOT_ROLES",
       "house": true,
       "note": "The 19 jobs a reference asset can be given. Neither guide enumerates roles; this is the house partition that decides which label kind a slot gets and whether it earns a standalone definition line, so it is load-bearing rather than descriptive.",
       "values": [
@@ -436,10 +565,14 @@
         "music_style",
         "sfx",
         "soundtrack_copy"
-      ]
+      ],
+      "binds": {
+        "values": {
+          "export": "SLOT_ROLES"
+        }
+      }
     },
     "frameAnchorRoles": {
-      "source": "FRAME_ANCHOR_ROLES",
       "house": true,
       "note": "Which roles make an image a concrete frame anchor, and therefore earn it a standalone <Picture N> entry. Derived from ref 2.2's distinction between an image used as a frame and one used to define a character or style, but the partition itself is ours.",
       "values": [
@@ -447,10 +580,14 @@
         "last_frame",
         "keyframe",
         "storyboard"
-      ]
+      ],
+      "binds": {
+        "values": {
+          "export": "FRAME_ANCHOR_ROLES"
+        }
+      }
     },
     "subjectContentRoles": {
-      "source": "SUBJECT_CONTENT_ROLES",
       "house": true,
       "note": "Roles whose content is cited inside a <Subject N> rather than getting a line of its own. The complement of the frame anchors, same provenance.",
       "values": [
@@ -462,20 +599,28 @@
         "motion",
         "camera",
         "performance"
-      ]
+      ],
+      "binds": {
+        "values": {
+          "export": "SUBJECT_CONTENT_ROLES"
+        }
+      }
     },
     "videoStructureRoles": {
-      "source": "VIDEO_STRUCTURE_ROLES",
       "house": true,
       "note": "Which roles make a video a whole-video relationship and so earn a standalone <Video N>. Ref 2.3 says <Video N> is reserved for editing, continuation and structural reference; the role names implementing that are ours.",
       "values": [
         "edit_source",
         "continuation_source",
         "structure"
-      ]
+      ],
+      "binds": {
+        "values": {
+          "export": "VIDEO_STRUCTURE_ROLES"
+        }
+      }
     },
     "audioRoles": {
-      "source": "AUDIO_ROLES",
       "house": true,
       "note": "Which roles give a soundtrack a job, and so create an <Audio N> for a video slot. Ref 2.5 says an ordinary reference video does not create one merely by containing sound; deciding when it does is ours.",
       "values": [
@@ -483,10 +628,14 @@
         "music_style",
         "sfx",
         "soundtrack_copy"
-      ]
+      ],
+      "binds": {
+        "values": {
+          "export": "AUDIO_ROLES"
+        }
+      }
     },
     "continuityPhrases": {
-      "source": "CONTINUITY_PHRASES",
       "guide": "base 4.4",
       "note": "The four phrasings the guide offers for audio carrying across a cut. Offered to the planner rather than enforced: the guide lists them as options, so a validator matching on them would fire on legitimate prose that said it differently.",
       "values": [
@@ -494,19 +643,27 @@
         "continues uninterrupted into the next shot",
         "carries over from the previous shot",
         "remains audible across the transition"
-      ]
+      ],
+      "binds": {
+        "values": {
+          "export": "CONTINUITY_PHRASES"
+        }
+      }
     },
     "dialogueTerminals": {
-      "source": "DIALOGUE_TERMINALS",
       "guide": "ref 5.4",
       "values": [
         ".",
         "?",
         "!"
-      ]
+      ],
+      "binds": {
+        "values": {
+          "export": "DIALOGUE_TERMINALS"
+        }
+      }
     },
     "dialogueAllowedPunctuation": {
-      "source": "DIALOGUE_ALLOWED_PUNCTUATION",
       "guide": "ref 5.4",
       "note": "Scoped, like the rule that uses it, to dialogue the user did not supply. Base 4.4 preserves supplied punctuation verbatim.",
       "values": [
@@ -516,18 +673,31 @@
         "!",
         "'",
         "-"
-      ]
+      ],
+      "binds": {
+        "values": {
+          "export": "DIALOGUE_ALLOWED_PUNCTUATION"
+        }
+      }
     },
     "dialoguePlaceholder": {
-      "source": "DIALOGUE_PLACEHOLDER",
       "house": true,
       "note": "<d/> marks where a spoken line is spliced into prose. A house token in no guide, written by the planner and consumed by the serializer, so it never reaches H3 -- except when a beat carries it with no dialogue, which the validator reports as DIALOGUE_PLACEHOLDER_ORPHAN.",
-      "value": "<d/>"
+      "value": "<d/>",
+      "binds": {
+        "value": {
+          "export": "DIALOGUE_PLACEHOLDER"
+        }
+      }
     },
     "notApplicable": {
-      "source": "NOT_APPLICABLE",
       "value": "N/A",
-      "guide": "base 4.6, 4.7"
+      "guide": "base 4.6, 4.7",
+      "binds": {
+        "value": {
+          "export": "NOT_APPLICABLE"
+        }
+      }
     }
   },
   "prompts": {
@@ -540,89 +710,128 @@
           "source": "core",
           "conditional": false,
           "house": true,
-          "note": "Observable-only description, one action at a time, continuity from beat to beat. Neither guide states any of it; base 4.1 says every detail should correspond to something visible or audible, and this is the house reading of what that asks a writer to do."
+          "note": "Observable-only description, one action at a time, continuity from beat to beat. Neither guide states any of it; base 4.1 says every detail should correspond to something visible or audible, and this is the house reading of what that asks a writer to do.",
+          "asserts": [],
+          "noAnchor": "Craft prose with no field name, literal or rendered shape in it. Anchoring a sentence here would make this file a change detector for wording, which is the failure test/creative-integration.test.ts already had once."
         },
         {
           "heading": "# What the frame can show",
           "source": "core",
           "conditional": false,
           "house": true,
-          "note": "Four consequences of base 4.1 that # How to write leaves implicit: absence cannot be rendered so a missing thing is written as its visible evidence; count and position beat adjectives; every property has to be present in one frame; left and right are fixed as the camera sees them. Deliberately narrower than it could be. A fifth rule banning relational placement -- beside, behind her, nearby -- was dropped because the guides' worked examples use it: 'sitting beside <Subject 3> on the sofa' (ref) and 'a closed black umbrella beside a silver bicycle' (base FL2VA). Only the left/right half survives that check, and it survives because no worked example uses body-relative left or right at all."
+          "note": "Four consequences of base 4.1 that # How to write leaves implicit: absence cannot be rendered so a missing thing is written as its visible evidence; count and position beat adjectives; every property has to be present in one frame; left and right are fixed as the camera sees them. Deliberately narrower than it could be. A fifth rule banning relational placement -- beside, behind her, nearby -- was dropped because the guides' worked examples use it: 'sitting beside <Subject 3> on the sofa' (ref) and 'a closed black umbrella beside a silver bicycle' (base FL2VA). Only the left/right half survives that check, and it survives because no worked example uses body-relative left or right at all.",
+          "asserts": [],
+          "noAnchor": "Same shape as # How to write: four consequences of base 4.1 stated as prose. The negation half also reaches the patch prompt, where it is likewise unanchorable."
         },
         {
           "heading": "# Recognisable people",
           "source": "core",
           "conditional": false,
           "note": "Not in either guide. From the Sora prompt architecture and the original engine's own fragment. Carve-out: dialogue text and on-screen text are reproduced verbatim regardless. Neither guide mentions public figures. From the Sora prompt architecture and the original engine's fragment. Carve-out: dialogue text and on-screen text are reproduced verbatim regardless.",
-          "house": true
+          "house": true,
+          "asserts": [],
+          "noAnchor": "A prohibition stated in prose. Its only field-shaped token, `dialogue`, is shared with # Speech and so does not tell the two blocks apart -- an anchor that matches a neighbouring block would pass while pointing at the wrong text."
         },
         {
           "heading": "# Camera",
           "source": "core",
           "conditional": false,
-          "guide": "base 4.3"
+          "guide": "base 4.3",
+          "asserts": [
+            "`camera`",
+            "with small amplitude"
+          ]
         },
         {
           "heading": "# Shots and beats",
           "source": "core",
           "conditional": false,
           "guide": "base 4.2",
-          "note": "The cut vocabulary and the no-timestamp-on-Shot-1 rule are the guide's. 'Cut only to reveal genuinely new subject, space, state, viewpoint or time' restates base 4.2's preference; the beat structure around it is house."
+          "note": "The cut vocabulary and the no-timestamp-on-Shot-1 rule are the guide's. 'Cut only to reveal genuinely new subject, space, state, viewpoint or time' restates base 4.2's preference; the beat structure around it is house.",
+          "asserts": [
+            "[Shot N] At MM:SS.mmm, <your first beat>"
+          ]
         },
         {
           "heading": "# Speech",
           "source": "core",
           "conditional": false,
           "guide": "base 4.4",
-          "note": "Carries the continuity fields the planner schema requires -- crossesCut, cutoff, <scenetrans>, <cutoff> and the four phrasings of base 4.4 -- which no prompt named until a review found that a model doing the right thing produced an unclearable SCENETRANS_UNPAIRED. The punctuation instruction is scoped to lines the planner writes: base 4.4 preserves supplied words verbatim, and rewriting one makes the document stop recognising it as the user's."
+          "note": "Carries the continuity fields the planner schema requires -- crossesCut, cutoff, <scenetrans>, <cutoff> and the four phrasings of base 4.4 -- which no prompt named until a review found that a model doing the right thing produced an unclearable SCENETRANS_UNPAIRED. The punctuation instruction is scoped to lines the planner writes: base 4.4 preserves supplied words verbatim, and rewriting one makes the document stop recognising it as the user's.",
+          "asserts": [
+            "(S1,S2)",
+            "crossesCut",
+            "<d/>"
+          ]
         },
         {
           "heading": "# Style",
           "source": "core",
           "conditional": false,
           "guide": "base 4.1",
-          "note": "Says only that style names the medium and finish. Where it is rendered is contract-specific and lives in the mode blocks: base opens Shot 1 with it as a clause (base 4.1), Ref2VA states it in one or two sentences before [Shot 1] (ref 5.2). The core stated the base shape for every mode until a review found it contradicted the Ref2VA golden fixture."
+          "note": "Says only that style names the medium and finish. Where it is rendered is contract-specific and lives in the mode blocks: base opens Shot 1 with it as a clause (base 4.1), Ref2VA states it in one or two sentences before [Shot 1] (ref 5.2). The core stated the base shape for every mode until a review found it contradicted the Ref2VA golden fixture.",
+          "asserts": [
+            "`style`"
+          ]
         },
         {
           "heading": "# On-screen text",
           "source": "core",
           "conditional": false,
-          "guide": "base 4.5"
+          "guide": "base 4.5",
+          "asserts": [
+            "`visibleText`"
+          ]
         },
         {
           "heading": "# Audio",
           "source": "core",
           "conditional": false,
           "guide": "base 4.6, 4.7",
-          "note": "The sentence ranges and the N/A option are 4.6 and 4.7 verbatim. Which way to lean is not. 4.7 makes N/A conditional -- \"Use N/A when there is no non-diegetic music\" -- and its own worked examples lean the other way, four with a score and two without across the two guides. Defaulting to N/A when the request neither states nor implies music is house preference, recorded in notInTheGuides as music-default. 4.7's 1-3 sentences is scoped to the case where a score is present, and stays in vocab.ts unchanged."
+          "note": "The sentence ranges and the N/A option are 4.6 and 4.7 verbatim. Which way to lean is not. 4.7 makes N/A conditional -- \"Use N/A when there is no non-diegetic music\" -- and its own worked examples lean the other way, four with a score and two without across the two guides. Defaulting to N/A when the request neither states nor implies music is house preference, recorded in notInTheGuides as music-default. 4.7's 1-3 sentences is scoped to the case where a score is present, and stays in vocab.ts unchanged.",
+          "asserts": [
+            "`soundscape`",
+            "`music`",
+            "\"N/A\""
+          ]
         },
         {
           "heading": "# Active mode:",
           "source": "mode-block",
           "conditional": false,
           "note": "One per mode; the heading carries the mode name. One block per mode. The keyframe semantics are base 3.1-3.3 and the full-reference differences are ref 5.2; the glitch-mark affordances appended to it are house and marked in notInTheGuides.",
-          "guide": "base 3, ref 5"
+          "guide": "base 3, ref 5",
+          "asserts": [
+            "[Shot 1]"
+          ]
         },
         {
           "heading": "# Style direction",
           "source": "derived:styleDirective",
           "conditional": true,
           "note": "From CreativeModeRecord.selection. Absent when no pack resolves. Derived from a CreativeModeRecord. Injects pack directives that no guide mentions; the packs are in notInTheGuides.",
-          "house": true
+          "house": true,
+          "asserts": [],
+          "noAnchor": "Derived from a CreativeModeRecord, so the text is pack data rather than prompt prose. That the planner and patch prompts derive the same directive from the same record is asserted in test/creative-integration.test.ts."
         },
         {
           "heading": "# Glitch marks",
           "source": "derived:glitchDirective",
           "conditional": true,
           "note": "From CreativeModeRecord.glitch. The planner appends a mode-specific affordance note; the patch prompt does not, because it has no mode. Derived from a CreativeModeRecord's glitch half. Entirely house; it defers to base 4.5 for how a mark is written, rather than restating it.",
-          "house": true
+          "house": true,
+          "asserts": [],
+          "noAnchor": "Derived, like # Style direction, and asserted in the same place."
         },
         {
           "heading": "# Supplied facts",
           "source": "computed",
           "conditional": false,
           "note": "Last on purpose, so the facts have the final word. Computed values handed to the model as fact -- duration, latest legal cut, label assignments, budgets -- so it never derives arithmetic. The values trace to the guides; presenting them this way does not.",
-          "house": true
+          "house": true,
+          "asserts": [
+            "Spoken-word budget across the whole clip:"
+          ]
         }
       ]
     },
@@ -634,28 +843,41 @@
           "source": "core",
           "conditional": false,
           "house": true,
-          "note": "How a surgical edit behaves: change only what was asked, keep register, preserve continuity. No guide describes editing an existing prompt. Carries the negation half of the planner's # What the frame can show, and only that half: the rule is asymmetric, since an edit that may write 'no other people' reintroduces exactly what the planner was stopped from writing. The rest of that block is composition guidance a surgical edit has no use for. Carries the edit half of music-default for the same reason: `music` is on PATCHABLE_LEAVES, so an edit is free to invent a score over an N/A the planner deliberately wrote."
+          "note": "How a surgical edit behaves: change only what was asked, keep register, preserve continuity. No guide describes editing an existing prompt. Carries the negation half of the planner's # What the frame can show, and only that half: the rule is asymmetric, since an edit that may write 'no other people' reintroduces exactly what the planner was stopped from writing. The rest of that block is composition guidance a surgical edit has no use for. Carries the edit half of music-default for the same reason: `music` is on PATCHABLE_LEAVES, so an edit is free to invent a score over an N/A the planner deliberately wrote.",
+          "asserts": [
+            "<d/>",
+            "`summary`",
+            "`music`"
+          ]
         },
         {
           "heading": "# When you should refuse",
           "source": "core",
           "conditional": false,
           "house": true,
-          "note": "Structural changes a patch cannot express are declined rather than approximated. House."
+          "note": "Structural changes a patch cannot express are declined rather than approximated. House.",
+          "asserts": [
+            "`declined`"
+          ]
         },
         {
           "heading": "# Active style",
           "source": "derived:styleDirective",
           "conditional": true,
           "house": true,
-          "note": "Same derivation as the planner's # Style direction, framed as preservation."
+          "note": "Same derivation as the planner's # Style direction, framed as preservation.",
+          "asserts": [],
+          "noAnchor": "A one-sentence wrapper around a derived directive; the wrapper names no field and the directive is pack data, asserted in test/creative-integration.test.ts."
         },
         {
           "heading": "# Active glitch marks",
           "source": "derived:glitchDirective",
           "conditional": true,
           "house": true,
-          "note": "Same derivation as the planner's # Glitch marks, framed as preservation, and with no mode note because a patch has no mode."
+          "note": "Same derivation as the planner's # Glitch marks, framed as preservation, and with no mode note because a patch has no mode.",
+          "asserts": [
+            "visibleText"
+          ]
         }
       ],
       "parity": "Both prompts derive the style and glitch blocks from the same record through the same function, so an edit cannot drift from what the document was written under. test/creative-integration.test.ts asserts the derived text is identical on both sides."
@@ -701,6 +923,11 @@
       "id": "tolerant-ids",
       "statement": "Stored ids this build does not know resolve to nothing rather than failing to load.",
       "enforcedBy": "test/creative.test.ts"
+    },
+    {
+      "id": "patch-fits-the-schema",
+      "statement": "A patch never writes a value H3DocumentSchema rejects for that leaf.",
+      "enforcedBy": "test/leaf.test.ts"
     }
   ],
   "diagnostics": {
@@ -749,57 +976,81 @@
     "items": [
       {
         "id": "recognisable-people",
-        "where": "planner and patch prompts",
+        "paths": [
+          "src/provider/prompts/planner.ts",
+          "src/provider/prompts/patch.ts"
+        ],
         "why": "Naming a public figure pulls the frame toward a likeness. From the Sora prompt architecture."
       },
       {
         "id": "creative-packs",
-        "where": "src/core/creative",
+        "paths": [
+          "src/core/creative"
+        ],
         "why": "Style direction injected into the planner prompt. Never reaches the serializer."
       },
       {
         "id": "glitch-marks",
-        "where": "src/core/creative/glitch.ts",
+        "paths": [
+          "src/core/creative/glitch.ts"
+        ],
         "why": "Anomalous tokenizer strings placed as visible on-screen text. Uses the guide's on-screen text rule rather than a new one."
       },
       {
         "id": "frame-legibility",
-      "where": "src/provider/prompts/planner.ts",
-      "why": "Absence written as visible evidence, count and position over adjectives, every property present in one frame, and left/right fixed to the camera. Unsourced craft, kept only in the part the guides' worked examples do not contradict. The negation rule also reaches the patch prompt, because an edit free to write an absence undoes the planner's half of it."
-    },
-    {
-      "id": "music-default",
-      "where": "planner and patch prompts",
-      "why": "base 4.7 sanctions N/A conditionally -- when there is no non-diegetic music -- and says nothing about which way to lean when the request is silent. Leaning to N/A unless music is asked for or the material implies it is house preference, on the grounds that an invented score is a claim about the scene the user never made and this is the field where a model supplies one by reflex. It runs mildly against the guides' own example distribution, which is four scores to two N/A, so it is preference and not a reading. Only the lean is adopted: the 1-3 sentence range is still 4.7's, scoped to the music-present case. The patch prompt carries the same rule because `music` is on PATCHABLE_LEAVES, which is the asymmetry the negation rule already has. A copy of the base guide circulating outside this repo states a stronger version as though it were the guide -- N/A as the normal answer, one sentence rather than 1-3, with unsourced hit-rate figures -- and none of that is taken."
-    },
-    {
-      "id": "wildcards",
-        "where": "src/core/wildcards",
+        "paths": [
+          "src/provider/prompts/planner.ts"
+        ],
+        "why": "Absence written as visible evidence, count and position over adjectives, every property present in one frame, and left/right fixed to the camera. Unsourced craft, kept only in the part the guides' worked examples do not contradict. The negation rule also reaches the patch prompt, because an edit free to write an absence undoes the planner's half of it."
+      },
+      {
+        "id": "music-default",
+        "paths": [
+          "src/provider/prompts/planner.ts",
+          "src/provider/prompts/patch.ts"
+        ],
+        "why": "base 4.7 sanctions N/A conditionally -- when there is no non-diegetic music -- and says nothing about which way to lean when the request is silent. Leaning to N/A unless music is asked for or the material implies it is house preference, on the grounds that an invented score is a claim about the scene the user never made and this is the field where a model supplies one by reflex. It runs mildly against the guides' own example distribution, which is four scores to two N/A, so it is preference and not a reading. Only the lean is adopted: the 1-3 sentence range is still 4.7's, scoped to the music-present case. The patch prompt carries the same rule because `music` is on PATCHABLE_LEAVES, which is the asymmetry the negation rule already has. A copy of the base guide circulating outside this repo states a stronger version as though it were the guide -- N/A as the normal answer, one sentence rather than 1-3, with unsourced hit-rate figures -- and none of that is taken."
+      },
+      {
+        "id": "wildcards",
+        "paths": [
+          "src/core/wildcards"
+        ],
         "why": "Content substitution on the idea, before anything is planned. Never touches beat prose or serialized output."
       },
       {
         "id": "frame-grid",
-        "where": "src/core/normalize/duration.ts",
+        "paths": [
+          "src/core/normalize/duration.ts"
+        ],
         "why": "17k+5 at 24fps is a workflow fact, not a guide rule."
       },
       {
         "id": "spoken-word-budget",
-        "where": "src/core/normalize/budgets.ts",
+        "paths": [
+          "src/core/normalize/budgets.ts"
+        ],
         "why": "2.5 words per second is an estimate, supplied to the planner as advice."
       },
       {
         "id": "beat-density",
-        "where": "src/core/normalize/budgets.ts",
+        "paths": [
+          "src/core/normalize/budgets.ts"
+        ],
         "why": "MS_PER_BEAT, one dominant beat per 2.5 seconds. House judgement. Neither guide contains a density rule, and the comment here attributed one to the guide until an outside audit searched for it."
       },
       {
         "id": "slot-ceilings",
-        "where": "src/core/ir/vocab.ts",
+        "paths": [
+          "src/core/ir/vocab.ts"
+        ],
         "why": "SLOT_CEILINGS, 9 images / 3 videos / 3 audio. Neither guide states any limit on reference assets; marked house in the vocabulary block as well."
       },
       {
         "id": "json-shape-trailer",
-        "where": "src/provider/shape.ts",
+        "paths": [
+          "src/provider/shape.ts"
+        ],
         "why": "The only text sent to a model that no prompt builder wrote, and the only place this spec does not describe the string the model receives. When schema enforcement is off -- a per-call choice now, not a property of the backend -- the client appends the serialized JSON Schema to the system prompt after buildPlannerSystemPrompt has returned, and parses the reply defensively. That applies to every provider: heylook always, since neither of its wires can constrain decoding, and Gemini whenever enforceSchema is false. It lands AFTER '# Supplied facts', which prompts.planner.blocks places last so the facts have the final word -- accepted because a format instruction is a different axis from the craft guidance that note is about, and because it must be the last thing read before the model emits. Invisible to test/contract.test.ts, which indexes into the builder's output rather than the sent string; asserted in test/heylook.test.ts instead, and the breakage confirming contract.test.ts stays green while that one goes red was run."
       }
     ]

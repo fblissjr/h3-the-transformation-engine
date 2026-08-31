@@ -30,6 +30,7 @@ import contract from '../reference/h3/contract.json';
 import * as vocab from '../src/core/ir/vocab';
 import type { H3Mode } from '../src/core/ir/vocab';
 import { serialize } from '../src/core/serialize';
+import { DIALOGUE_PLACEHOLDER } from '../src/core/serialize/shared';
 import { contextFor, normalize } from '../src/core/normalize';
 import { buildPlannerSystemPrompt } from '../src/provider/prompts/planner';
 import { buildPatchSystemPrompt } from '../src/provider/prompts/patch';
@@ -58,6 +59,91 @@ const rendered = (mode: keyof typeof FIXTURES) => {
   return serialize(doc, contextFor(doc)).text;
 };
 
+/** The pinned guide text, by source id, read once. */
+const GUIDE_TEXT: Record<string, string> = Object.fromEntries(
+  contract.sources.map((s) => [s.id, readFileSync(join(GUIDE_DIR, s.file), 'utf8')]),
+);
+
+/**
+ * Everything a `binds: {export}` descriptor may name.
+ *
+ * `DIALOGUE_PLACEHOLDER` lives in the serializer rather than the vocabulary, which is
+ * why the staleness check below reads two files. Adding a module here is the whole cost
+ * of letting the spec bind to it.
+ */
+const EXPORTS: Record<string, unknown> = { ...vocab, DIALOGUE_PLACEHOLDER };
+
+type Node = Record<string, unknown>;
+
+/**
+ * The keys that make a claim. A leaf carries at least one; a group only holds leaves.
+ *
+ * `open`, `close`, `appliesTo` and `exemptions` were added after a mutation sweep found
+ * them unreadable by any test: `tags.dialogue.open` could have said `<dlg>` and
+ * `refDetailWords.appliesTo` could have said "everything" with the suite green. The
+ * scope keys are the guide-number rule's own subject, so leaving them off this list is
+ * the specific mistake that rule exists to prevent.
+ */
+const CLAIM_KEYS = [
+  'values',
+  'value',
+  'range',
+  'form',
+  'phrases',
+  'quoting',
+  'compoundForm',
+  'open',
+  'close',
+  'appliesTo',
+  'exemptions',
+] as const;
+
+const isLeaf = (node: Node) => CLAIM_KEYS.some((k) => k in node);
+
+/** Every claim-bearing entry under `node`, with the dotted path that reaches it. */
+function leaves(node: unknown, path: string, out: [string, Node][] = []): [string, Node][] {
+  if (typeof node !== 'object' || node === null) {
+    out.push([path, {} as Node]);
+    return out;
+  }
+  const record = node as Node;
+  if (isLeaf(record)) {
+    out.push([path, record]);
+    return out;
+  }
+  for (const [key, sub] of Object.entries(record)) {
+    if (['note', 'house', 'guide', 'binds'].includes(key)) continue;
+    leaves(sub, path === '' ? key : `${path}.${key}`, out);
+  }
+  return out;
+}
+
+/** The placeholders a spec template may use, and what each one matches. */
+const PLACEHOLDERS: Record<string, string> = {
+  '{N}': '\\d+',
+  '{MM:SS.mmm}': '\\d\\d:\\d\\d\\.\\d\\d\\d',
+};
+
+/**
+ * Turn a template the spec states -- `[Shot {N}] At {MM:SS.mmm},` -- into the pattern
+ * the serializer has to match, so the spec string is what the assertion reads.
+ *
+ * An unknown placeholder throws rather than being escaped into a literal that could
+ * never match: a silent non-match would look like the serializer being wrong.
+ */
+function templatePattern(template: string): RegExp {
+  const unknown = [...template.matchAll(/\{[^}]*\}/g)]
+    .map((m) => m[0])
+    .filter((p) => !(p in PLACEHOLDERS));
+  expect(unknown, `${template} uses a placeholder this helper cannot render`).toEqual([]);
+
+  const body = template
+    .split(/(\{N\}|\{MM:SS\.mmm\})/)
+    .map((part) => PLACEHOLDERS[part] ?? part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .join('');
+  return new RegExp(body);
+}
+
 // ---------------------------------------------------------------------------
 // The sources
 // ---------------------------------------------------------------------------
@@ -71,6 +157,88 @@ describe('the guides the spec was written against', () => {
         sha,
         `${source.file} changed. If MiniMax revised the guide, update the hash and let the golden tests report what moved.`,
       ).toBe(source.sha256);
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Guide citations
+// ---------------------------------------------------------------------------
+
+/**
+ * Every `guide` key in the spec is a claim that a section exists, and until now not one
+ * of them was read. `output.*.guide`, `vocabulary.*.guide`, `blocks[].guide` and
+ * `sections[].guide` could all cite a section the guide does not have -- which is what a
+ * renumbering upstream would produce, silently, across the whole document at once.
+ *
+ * The citation grammar is small and closed:
+ *
+ *   cite := part (", " part)*
+ *   part := [guide] N[.M]        "base 4.7", "ref 5.2", "base 4.6, 4.7"
+ *         | guide N " case " K   "base 5 case 3"
+ *
+ * The guide name is sticky across commas, so `base 4.6, 4.7` is two base citations,
+ * while `base 3, ref 5` names one section in each file.
+ */
+type Citation = { guide: string; heading: RegExp; text: string };
+
+function parseCitation(cite: string): Citation[] {
+  let guide = '';
+  return cite.split(',').map((raw) => {
+    const part = raw.trim();
+    const m = /^(?:(base|ref)\s+)?(\d+(?:\.\d+)?)(?:\s+case\s+(\d+))?$/.exec(part);
+    if (!m) throw new Error(`unparseable citation part: "${part}" in "${cite}"`);
+    guide = m[1] ?? guide;
+    if (!guide) throw new Error(`citation names no guide: "${cite}"`);
+    const heading = m[3]
+      ? new RegExp(`^### Case ${m[3]}:`, 'm')
+      : m[2].includes('.')
+        ? new RegExp(`^### ${m[2].replace('.', '\\.')} `, 'm')
+        : new RegExp(`^## ${m[2]}\\. `, 'm');
+    return { guide, heading, text: m[3] ? `${m[2]} case ${m[3]}` : m[2] };
+  });
+}
+
+/** Every citation in the document, with the path that carries it. */
+function citations(node: unknown, path = '', out: [string, string][] = []): [string, string][] {
+  if (typeof node !== 'object' || node === null) return out;
+  if (Array.isArray(node)) {
+    node.forEach((v, i) => citations(v, `${path}[${i}]`, out));
+    return out;
+  }
+  for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
+    const at = path ? `${path}.${key}` : key;
+    if (typeof value === 'string' && /guide$/i.test(key)) out.push([at, value]);
+    else citations(value, at, out);
+  }
+  return out;
+}
+
+describe('every guide citation resolves to a section that exists', () => {
+  const text: Record<string, string> = {};
+  for (const source of contract.sources) {
+    text[source.id] = readFileSync(join(GUIDE_DIR, source.file), 'utf8');
+  }
+
+  const found = citations(contract);
+
+  it('finds citations to check, across more than one part of the spec', () => {
+    // Guards the walker, not the guides: a walker that matched nothing would leave
+    // every assertion below vacuously green.
+    expect(found.length).toBeGreaterThan(40);
+    const roots = new Set(found.map(([path]) => path.split(/[.[]/)[0]));
+    expect([...roots].sort()).toEqual(['output', 'prompts', 'shotHeader', 'vocabulary']);
+  });
+
+  for (const [path, cite] of found) {
+    it(`${path}: ${cite}`, () => {
+      for (const part of parseCitation(cite)) {
+        expect(text[part.guide], `${cite} names guide "${part.guide}"`).toBeDefined();
+        expect(
+          part.heading.test(text[part.guide]),
+          `${path} cites ${part.guide} ${part.text}, which has no such heading`,
+        ).toBe(true);
+      }
     });
   }
 });
@@ -132,12 +300,22 @@ describe('output shape matches the spec', () => {
         }
       });
 
+      /**
+       * The gap is compared exactly, not with `endsWith`.
+       *
+       * `endsWith` accepts any suffix of the truth, so a spec that under-declared the
+       * separator passed: with the real gap `\n\n`, declaring `\n` went green on all
+       * five modes, while `\n\n\n` and `XX` went red. That is the one direction drift
+       * actually takes -- someone reads `\n` in the spec and writes a serializer change
+       * to match it.
+       */
       it('separates sections the way it says', () => {
         for (let i = 1; i < spec.sections.length; i++) {
           const previous = spec.sections[i - 1].label;
           const label = spec.sections[i].label;
           const between = text.slice(text.indexOf(`${previous}:`), text.indexOf(`${label}:`));
-          expect(between.endsWith(spec.sectionSeparator)).toBe(true);
+          const gap = between.slice(between.trimEnd().length);
+          expect(gap, `${mode}: the gap before ${label}`).toBe(spec.sectionSeparator);
         }
       });
 
@@ -175,10 +353,17 @@ describe('output shape matches the spec', () => {
     });
   }
 
+  /**
+   * `later` is derived from the spec, not hardcoded.
+   *
+   * The pattern used to be written out as a literal regex here, so the spec's
+   * `[Shot {N}] At {MM:SS.mmm},` was read by nothing and could have said anything.
+   * `first` is left as it is: two equalities against the same literal do bind it.
+   */
   it('states the shot header the serializer writes', () => {
     expect(contract.shotHeader.first).toBe('[Shot 1]');
     expect(rendered('T2VA')).toContain('[Shot 1]');
-    expect(rendered('T2VA')).toMatch(/\[Shot 2\] At \d\d:\d\d\.\d\d\d,/);
+    expect(rendered('T2VA')).toMatch(templatePattern(contract.shotHeader.later));
   });
 });
 
@@ -186,39 +371,108 @@ describe('output shape matches the spec', () => {
 // Vocabulary
 // ---------------------------------------------------------------------------
 
-describe('vocabulary matches the spec', () => {
-  const v = contract.vocabulary;
+/**
+ * Every vocabulary claim is compared to the thing it describes.
+ *
+ * This replaces sixteen hand-written `it()` lines, and the reason is not tidiness: a
+ * claim was checked only if someone remembered to write a line for it, so nine leaves
+ * that named a real exported constant in `source` -- SLOT_ROLES, AUDIO_ROLES,
+ * CONTINUITY_PHRASES, DIALOGUE_TERMINALS, DIALOGUE_ALLOWED_PUNCTUATION,
+ * DIALOGUE_PLACEHOLDER, FRAME_ANCHOR_ROLES, SUBJECT_CONTENT_ROLES and
+ * VIDEO_STRUCTURE_ROLES -- were compared to nothing at all, and a mutation sweep of the
+ * spec found 33 of 63 fields could be changed with the whole suite green.
+ *
+ * The spec is still written by hand. `binds` says *where to compare*, never what the
+ * value is, so the two statements stay independent -- a spec generated from the code
+ * would agree with it by construction and be worth nothing.
+ *
+ * `render` is the weaker oracle and is used only where it is the honest one: it proves
+ * the serializer emits the form, not that it is the only form it can emit. It also has
+ * to name its modes, or it degenerates into "this short string appears somewhere",
+ * which almost anything passes.
+ */
+describe('every vocabulary claim is bound to what it describes', () => {
+  const claims = leaves(contract.vocabulary, '').flatMap(([path, leaf]) =>
+    CLAIM_KEYS.filter((k) => k in leaf).map((key) => ({ path, leaf, key })),
+  );
 
-  it('modes', () => expect(v.modes.values).toEqual([...vocab.MODES]));
-  it('camera types', () => expect(v.cameraTypes.values).toEqual([...vocab.CAMERA_TYPES]));
-  it('amplitudes', () => {
-    expect(v.amplitudes.values).toEqual([...vocab.AMPLITUDES]);
-    expect(v.amplitudes.phrases).toEqual(vocab.AMPLITUDE_PHRASE);
+  const binding = (leaf: Node, key: string) =>
+    (leaf.binds as Record<string, Record<string, unknown>> | undefined)?.[key];
+
+  it('binds at least as many claims as the hand-written block it replaced', () => {
+    // The sixteen `it()` lines performed 22 value comparisons. A resolver that silently
+    // skipped a claim key would otherwise look exactly like a passing refactor.
+    const compared = claims.filter(({ leaf, key }) => 'export' in (binding(leaf, key) ?? {}));
+    expect(compared.length).toBeGreaterThanOrEqual(22);
+    expect(claims.length).toBeGreaterThan(30);
   });
-  it('speeds', () => {
-    expect(v.speeds.values).toEqual([...vocab.SPEEDS]);
-    expect(v.speeds.phrases).toEqual(vocab.SPEED_PHRASE);
+
+  /**
+   * The exemptions are pinned, because `unbound` is the escape hatch.
+   *
+   * An allowlist that grants is safe to pin: the dangerous direction is growth, and
+   * pinning is what makes a new exemption a decision someone writes down rather than a
+   * quiet way to make this whole describe stop asking.
+   */
+  it('exempts exactly these claims and no others', () => {
+    const exempt = claims
+      .filter(({ leaf, key }) => 'unbound' in (binding(leaf, key) ?? {}))
+      .map(({ path, key }) => `${path}.${key}`);
+    expect(exempt.sort()).toEqual([
+      'budgets.refDetailWords.appliesTo',
+      'budgets.refDetailWords.exemptions',
+      'onScreenText.quoting',
+      'tags.dialogue.form',
+    ]);
   });
-  it('ordinary cuts', () => expect(v.ordinaryCuts.values).toEqual([...vocab.ORDINARY_CUTS]));
-  it('special cuts', () => expect(v.specialCuts.values).toEqual([...vocab.SPECIAL_CUTS]));
-  it('task types', () => expect(v.taskTypes.values).toEqual([...vocab.TASK_TYPES]));
-  it('visual retention', () => expect(v.visualRetention.values).toEqual([...vocab.VISUAL_RETENTION]));
-  it('audio retention', () => expect(v.audioRetention.values).toEqual([...vocab.AUDIO_RETENTION]));
-  it('label kinds', () => expect(v.labelKinds.values).toEqual([...vocab.LABEL_KINDS]));
-  it('media kinds', () => expect(v.mediaKinds.values).toEqual([...vocab.MEDIA_KINDS]));
-  it('slot ceilings', () => expect(v.slotCeilings.values).toEqual(vocab.SLOT_CEILINGS));
-  it('tags', () => {
-    expect(v.tags.sceneTrans.value).toBe(vocab.SCENETRANS_TAG);
-    expect(v.tags.cutoff.value).toBe(vocab.CUTOFF_TAG);
-    expect(v.tags.unclear.value).toBe(vocab.UNCLEAR_MARKER);
+
+  it('gives every claim exactly one binding of a kind this file resolves', () => {
+    const kinds = ['export', 'render', 'quotedIn', 'unbound'];
+    const bad = claims
+      .map(({ path, leaf, key }) => {
+        const b = binding(leaf, key);
+        if (!b) return `${path}.${key}: no binding`;
+        const named = Object.keys(b).filter((k) => kinds.includes(k));
+        if (named.length !== 1) return `${path}.${key}: ${named.length} known kinds`;
+        return null;
+      })
+      .filter(Boolean);
+    expect(bad).toEqual([]);
   });
-  it('voiceover phrase', () => expect(v.voiceoverPhrase.value).toBe(vocab.VOICEOVER_PHRASE));
-  it('budgets', () => {
-    expect(v.budgets.soundscapeSentences.range).toEqual([...vocab.SOUNDSCAPE_SENTENCE_RANGE]);
-    expect(v.budgets.musicSentences.range).toEqual([...vocab.MUSIC_SENTENCE_RANGE]);
-    expect(v.budgets.refDetailWords.range).toEqual([...vocab.REF_DETAIL_WORD_RANGE]);
-  });
-  it('the not-applicable sentinel', () => expect(v.notApplicable.value).toBe(vocab.NOT_APPLICABLE));
+
+  for (const { path, leaf, key } of claims) {
+    const b = binding(leaf, key) ?? {};
+    const value = leaf[key];
+
+    if ('export' in b) {
+      it(`${path}.${key} equals ${String(b.export)}`, () => {
+        expect(Object.hasOwn(EXPORTS, b.export as string), `${String(b.export)} is exported`).toBe(
+          true,
+        );
+        const expected = EXPORTS[b.export as string];
+        expect(value).toEqual(Array.isArray(expected) ? [...expected] : expected);
+      });
+    } else if ('render' in b) {
+      const modes = b.render as (keyof typeof FIXTURES)[];
+      it(`${path}.${key} is rendered in ${modes.join(', ')}`, () => {
+        expect(modes.length, 'a render binding names no mode').toBeGreaterThan(0);
+        for (const mode of modes) expect(rendered(mode)).toContain(String(value));
+      });
+    } else if ('quotedIn' in b) {
+      it(`${path}.${key} is quoted verbatim in the ${String(b.quotedIn)} guide`, () => {
+        expect(GUIDE_TEXT[b.quotedIn as string], `no such guide: ${String(b.quotedIn)}`).toBeDefined();
+        expect(GUIDE_TEXT[b.quotedIn as string]).toContain(String(value));
+      });
+    } else {
+      it(`${path}.${key} says why it is unbound`, () => {
+        expect(String(b.unbound).length, 'an unbound reason has to be a reason').toBeGreaterThan(30);
+      });
+    }
+  }
+});
+
+describe('vocabulary attribution', () => {
+  const v = contract.vocabulary;
 
   /**
    * Every vocabulary entry says where it came from.
@@ -265,30 +519,6 @@ describe('vocabulary matches the spec', () => {
  * or a form. A group only holds leaves and cites nothing itself.
  */
 describe('every vocabulary claim is attributed', () => {
-  type Node = Record<string, unknown>;
-
-  const isLeaf = (node: Node) =>
-    ['values', 'value', 'range', 'form', 'phrases', 'quoting', 'compoundForm'].some(
-      (k) => k in node,
-    );
-
-  function leaves(node: unknown, path: string, out: [string, Node][] = []): [string, Node][] {
-    if (typeof node !== 'object' || node === null) {
-      out.push([path, {} as Node]);
-      return out;
-    }
-    const record = node as Node;
-    if (isLeaf(record)) {
-      out.push([path, record]);
-      return out;
-    }
-    for (const [key, sub] of Object.entries(record)) {
-      if (['note', 'house', 'guide'].includes(key)) continue;
-      leaves(sub, path === '' ? key : `${path}.${key}`, out);
-    }
-    return out;
-  }
-
   it('cites a guide section or declares itself house, with nothing in between', () => {
     const unattributed = leaves(contract.vocabulary, '')
       .filter(([, entry]) => !('guide' in entry) && entry.house !== true)
@@ -364,14 +594,6 @@ describe('the spec covers every vocabulary the code exports', () => {
     ALIGNMENT_TEMPLATES: 'output[].alignment, one per mode',
     BASE_SECTIONS: 'output[].sections for the base contract',
     REF_SECTIONS: 'output[].sections for Ref2VA',
-    AMPLITUDE_PHRASE: 'vocabulary.amplitudes.phrases',
-    SPEED_PHRASE: 'vocabulary.speeds.phrases',
-    SCENETRANS_TAG: 'vocabulary.tags.sceneTrans',
-    CUTOFF_TAG: 'vocabulary.tags.cutoff',
-    UNCLEAR_MARKER: 'vocabulary.tags.unclear',
-    SOUNDSCAPE_SENTENCE_RANGE: 'vocabulary.budgets.soundscapeSentences',
-    MUSIC_SENTENCE_RANGE: 'vocabulary.budgets.musicSentences',
-    REF_DETAIL_WORD_RANGE: 'vocabulary.budgets.refDetailWords',
     FPS: 'a workflow constant, not part of the output format',
     FRAME_BLOCK: 'the frame grid, in notInTheGuides',
     FRAME_OFFSET: 'the frame grid, in notInTheGuides',
@@ -385,7 +607,10 @@ describe('the spec covers every vocabulary the code exports', () => {
   function declaredSources(node: unknown, out: Set<string> = new Set()): Set<string> {
     if (typeof node !== 'object' || node === null) return out;
     const record = node as Record<string, unknown>;
-    if (typeof record.source === 'string') out.add(record.source);
+    for (const descriptor of Object.values(record.binds ?? {})) {
+      const named = (descriptor as Record<string, unknown>)?.export;
+      if (typeof named === 'string') out.add(named);
+    }
     for (const sub of Object.values(record)) declaredSources(sub, out);
     return out;
   }
@@ -467,6 +692,78 @@ describe('prompt blocks match the spec', () => {
     for (const block of contract.prompts.patch.blocks) {
       expect(bare.includes(block.heading), block.heading).toBe(!block.conditional);
     }
+  });
+
+  /**
+   * What each block actually says, not just that its heading is present.
+   *
+   * The spec described blocks by heading, source, conditional, guide and note, and
+   * nothing about their content -- so an instruction inside `# Audio` was semantically
+   * inverted with all 734 tests green. That is the same blind spot the shape trailer
+   * has, and it is invisible by construction: no amount of work on a spec that declares
+   * only headings can notice a block whose subject was deleted.
+   *
+   * Anchors are structural on purpose: a field name in backticks, a tag literal, a
+   * rendered shape, a phrase bound elsewhere in the vocabulary. The question asked of a
+   * candidate anchor is not "can I make this fail" but "what legitimate improvement to
+   * this block would this wrongly reject" -- so no anchor here is a sentence. A block
+   * with no reachable structural anchor declares why in `noAnchor` rather than getting a
+   * wording assertion by default.
+   */
+  describe('blocks say what the spec says they say', () => {
+    const sides = {
+      planner: { text: planner, blocks: contract.prompts.planner.blocks },
+      patch: { text: buildPatchSystemPrompt(EVERYTHING), blocks: contract.prompts.patch.blocks },
+    };
+
+    /** The text from this heading up to whichever declared heading comes next. */
+    const slice = (text: string, headings: string[], i: number) => {
+      const start = text.indexOf(headings[i]);
+      const after = headings
+        .slice(i + 1)
+        .map((h) => text.indexOf(h))
+        .filter((p) => p > start);
+      return text.slice(start, after.length ? Math.min(...after) : text.length);
+    };
+
+    for (const [side, { text, blocks }] of Object.entries(sides)) {
+      const headings = blocks.map((b) => b.heading);
+
+      for (const [i, block] of blocks.entries()) {
+        if (block.asserts.length === 0) {
+          it(`${side} ${block.heading} says why it carries no anchor`, () => {
+            expect(String(block.noAnchor ?? '').length, `${block.heading}`).toBeGreaterThan(30);
+          });
+          continue;
+        }
+        it(`${side} ${block.heading}`, () => {
+          const body = slice(text, headings, i);
+          expect(body.length, `${block.heading} sliced to nothing`).toBeGreaterThan(block.heading.length);
+          for (const anchor of block.asserts) {
+            expect(body, `${block.heading} no longer contains ${anchor}`).toContain(anchor);
+          }
+        });
+      }
+    }
+
+    it('anchors most blocks, and each anchor lands in exactly one of them', () => {
+      const anchored = Object.values(sides)
+        .flatMap(({ blocks }) => (blocks as { asserts: string[] }[]))
+        .filter((b) => b.asserts.length > 0);
+      expect(anchored.length).toBeGreaterThanOrEqual(11);
+      // An anchor that appears in a neighbouring block too would pass while pointing at
+      // the wrong text, which is the proxy-used-silently failure in a new place. It also
+      // guards the slicer: a slice that returned the whole prompt would match everywhere.
+      for (const { text, blocks } of Object.values(sides)) {
+        const headings = blocks.map((b) => b.heading);
+        for (const block of blocks) {
+          for (const anchor of block.asserts) {
+            const hits = blocks.filter((_, j) => slice(text, headings, j).includes(anchor));
+            expect(hits.length, `${anchor} appears in ${hits.length} blocks`).toBe(1);
+          }
+        }
+      }
+    });
   });
 
   it('names builders that exist', () => {
@@ -574,11 +871,26 @@ describe('the spec points at things that exist', () => {
     }
   });
 
+  /**
+   * Every item names the files it lives in, and every one of them is checked.
+   *
+   * This used to read a single prose `where` and skip anything that did not begin
+   * `src/` -- so `recognisable-people` ("planner and patch prompts") and, when it was
+   * added, `music-default` were checked by nothing, while looking exactly like the
+   * nine entries that were. A list of paths has no prose form to fall through.
+   */
   it('names source paths that exist for everything outside the guides', () => {
+    let checked = 0;
     for (const item of contract.notInTheGuides.items) {
-      const path = item.where.split(':')[0];
-      if (!path.startsWith('src/')) continue;
-      expect(existsSync(join(import.meta.dirname, '..', path)), `${item.id} names ${path}`).toBe(true);
+      expect(item.paths.length, `${item.id} names no path`).toBeGreaterThan(0);
+      for (const path of item.paths) {
+        expect(existsSync(join(import.meta.dirname, '..', path)), `${item.id} names ${path}`).toBe(
+          true,
+        );
+        checked++;
+      }
     }
+    // Not vacuous: every item contributed at least one path.
+    expect(checked).toBeGreaterThanOrEqual(contract.notInTheGuides.items.length);
   });
 });
