@@ -42,7 +42,14 @@ function Field({ path, label, value, rows = 2, selected, onSelect, onCommit }: F
   }, [value]);
 
   const commit = async () => {
-    if (draft === value) return;
+    // Retyping what the document already holds is the obvious way out of a
+    // refusal, so it has to clear the mark. Returning early without clearing
+    // left the ring on a field displaying exactly the stored value, and the
+    // `[value]` effect could not help -- the value never changed.
+    if (draft === value) {
+      setRefused(false);
+      return;
+    }
     setRefused(!(await onCommit(path, draft)));
   };
 

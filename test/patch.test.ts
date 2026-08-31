@@ -109,6 +109,28 @@ describe('applyPatch', () => {
     expect(result.rejected[0].reason).toMatch(/supplied by the user/);
   });
 
+  it('lets the person who supplied a line retype it', () => {
+    // The rejection has always said "Edit it directly instead", and until the
+    // origin existed that was impossible: a typed edit goes through this same
+    // function and hit the same gate. The gate protects the line from the
+    // model, which is the whole of its purpose.
+    const result = applyPatch(
+      i2vaTrain,
+      op('shots[0].beats[2].dialogue.text', 'What I actually said.'),
+      'direct',
+    );
+    expect(result.rejected).toEqual([]);
+    expect(getAtPath(result.doc, 'shots[0].beats[2].dialogue.text')).toBe('What I actually said.');
+  });
+
+  it('still refuses the same edit when it comes from a model', () => {
+    // The default origin is the untrusted one, so a caller that says nothing
+    // gets the protection rather than losing it.
+    const result = applyPatch(i2vaTrain, op('shots[0].beats[2].dialogue.text', 'Something else.'));
+    expect(result.applied).toEqual([]);
+    expect(result.rejected[0].reason).toMatch(/supplied by the user/);
+  });
+
   it('allows editing dialogue the model wrote', () => {
     expect(t2vaBaker.shots[0].beats[1].dialogue?.userSupplied).toBe(false);
     const result = applyPatch(t2vaBaker, op('shots[0].beats[1].dialogue.text', 'Last batch of the night.'));

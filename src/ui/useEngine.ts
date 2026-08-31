@@ -947,19 +947,26 @@ export function useEngine() {
   const applyDirect = useCallback(
     async (path: string, value: unknown): Promise<boolean> => {
       if (!doc) return false;
-      // The same guard `applyAssisted` states below, and here for the same
-      // reason it was once absent: the editor that calls this is never
-      // disabled. Two overlapping direct edits each compute from the `doc` of
-      // their own render, so the first is silently discarded -- and both reach
-      // `recordVersion`, which is why its id allocation could race. That half
-      // is safe by construction; this half is the lost edit, and it is now
-      // reported rather than dropped in silence. The field keeps what was
-      // typed, so the message is the only thing that says why the document did
-      // not move.
+      // Says what it covers, because it reads like more than it is: nothing
+      // here sets `busy`, so this guard sees a generation or an assisted edit
+      // and never a second direct edit. Two overlapping direct edits are a
+      // different problem -- each computes from the `doc` of its own render, so
+      // the first is discarded, and worse now than before, since the discarded
+      // field's `applyDirect` returned true and it will not mark itself. The
+      // window is under one IndexedDB round trip: measured at 250/100/50/20/5ms
+      // between edits, all chained, and it forked only at 0ms, which is the
+      // browser driver rather than a person. Fixing it means reading the newest
+      // document rather than the render's, not a wider guard here.
       if (busy) {
         fail(`${busy} is running. The edit to ${path} was not applied.`);
         return false;
       }
+      // Cleared on the way in, the way `generate` and `applyAssisted` do. A
+      // banner from a refused edit outlived the edit that fixed it, so the
+      // field said the value was in the document while the banner said it was
+      // not. The notice is left alone: it carries the schema report from load,
+      // which an unrelated edit has no business dismissing.
+      setError(null);
       try {
         const result = editDirect(doc, path, value);
         if (result.patch.rejected.length > 0) {
@@ -971,11 +978,11 @@ export function useEngine() {
       } catch (cause) {
         // `editDirect` serializes, and the serializer throws rather than
         // renders on a value it cannot express -- `formatTimestamp` below zero
-        // was the reachable one. `App.tsx` calls this as `void applyDirect(...)`,
-        // so an escape here was an unhandled rejection: no banner, no version,
-        // and a field that appeared to do nothing at all. The shape gate stops
-        // that value reaching the serializer now; this stops the next one from
-        // being invisible.
+        // was the reachable one. An escape here used to be an unhandled
+        // rejection, because the caller discarded the promise: no banner, no
+        // version, and a field that appeared to do nothing at all. The caller
+        // now awaits the answer, and the shape gate stops that particular value
+        // reaching the serializer; this stops the next one from being invisible.
         fail(cause instanceof Error ? cause.message : String(cause));
         return false;
       }

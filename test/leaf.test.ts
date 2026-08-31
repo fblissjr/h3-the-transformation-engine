@@ -64,19 +64,28 @@ describe('leafSchema', () => {
 describe('coerceToLeaf', () => {
   it('reads a numeric leaf out of the string a patch operation carries', () => {
     const leaf = leafSchema('shots[].cutAtMs')!;
-    expect(coerceToLeaf(leaf, 5000, '6200')).toBe(6200);
+    expect(coerceToLeaf(leaf, '6200')).toBe(6200);
   });
 
   it('leaves an empty string alone rather than making it zero', () => {
     // Number('') is 0. Coercing it here would write a cut at the start of the
     // video for an empty field; left as a string it is refused by the leaf.
     const leaf = leafSchema('shots[].cutAtMs')!;
-    expect(coerceToLeaf(leaf, 5000, '')).toBe('');
+    expect(coerceToLeaf(leaf, '')).toBe('');
   });
 
   it('splits a list leaf, which is how visibleText has always been written', () => {
     const leaf = leafSchema('shots[].beats[].visibleText')!;
-    expect(coerceToLeaf(leaf, [], 'OPEN, CLOSED')).toEqual(['OPEN', 'CLOSED']);
+    expect(coerceToLeaf(leaf, 'OPEN, CLOSED')).toEqual(['OPEN', 'CLOSED']);
+  });
+
+  it('splits a list leaf on what the schema says, not on what is stored there', () => {
+    // The stored value used to decide this. A document holding something other
+    // than an array in `visibleText` opens -- `loadDocument` reports rather
+    // than gates -- and could then never be repaired, because the split was
+    // skipped and the raw string refused.
+    const leaf = leafSchema('shots[].beats[].visibleText')!;
+    expect(coerceToLeaf(leaf, 'OPEN')).toEqual(['OPEN']);
   });
 });
 

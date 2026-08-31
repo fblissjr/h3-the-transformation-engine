@@ -316,10 +316,16 @@ export async function edit(
  * re-render as an assisted edit, so the two are indistinguishable downstream.
  */
 export function editDirect(doc: H3Document, path: string, value: unknown): EditResult {
-  const patch = applyPatch(doc, {
-    operations: [{ path, value: value as string, rationale: 'Direct edit.' }],
-    declined: null,
-  });
+  const patch = applyPatch(
+    doc,
+    {
+      operations: [{ path, value: value as string, rationale: 'Direct edit.' }],
+      declined: null,
+    },
+    // The one caller that is the person rather than the model, which is what
+    // lets them edit a line they supplied themselves.
+    'direct',
+  );
   const ctx = contextFor(patch.doc);
   const validation = validate(patch.doc, ctx);
   const rendered = serialize(patch.doc, ctx);

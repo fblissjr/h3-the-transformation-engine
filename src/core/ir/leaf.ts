@@ -74,9 +74,16 @@ export function leafSchema(pattern: string): z.ZodType | null {
  * is refused by the leaf below, which is where `Number('') === 0` would
  * otherwise become a cut at the start of the video.
  */
-export function coerceToLeaf(leaf: z.ZodType, before: unknown, value: unknown): unknown {
-  if (Array.isArray(before) && typeof value === 'string') return splitList(value);
-  if (unwrap(leaf).def.type === 'number' && typeof value === 'string') {
+export function coerceToLeaf(leaf: z.ZodType, value: unknown): unknown {
+  const kind = unwrap(leaf).def.type;
+  // Both branches ask the schema rather than the value in hand. Asking the
+  // stored value whether this is a list -- which is what this did first --
+  // means a document that somehow holds a non-array there can never be
+  // repaired: the split is skipped, the raw string is refused, and the field
+  // is stuck. `loadDocument` reports rather than gates, so such a document
+  // opens.
+  if (kind === 'array' && typeof value === 'string') return splitList(value);
+  if (kind === 'number' && typeof value === 'string') {
     const trimmed = value.trim();
     return trimmed === '' ? value : Number(trimmed);
   }

@@ -8,8 +8,12 @@
  *      computed and start being guessed.
  *   2. The path already resolves. A hallucinated path is rejected rather than
  *      auto-created, because a field nothing reads is worse than an error.
- *   3. User-supplied dialogue is never altered. That is the one piece of content
- *      whose whole value is that it came through unchanged.
+ *   3. User-supplied dialogue is never altered by a model. That is the one piece
+ *      of content whose whole value is that it came through unchanged -- from
+ *      the model. The person who typed it may retype it, which is what the
+ *      rejection has always told them to do: `origin: 'direct'` is the editor
+ *      saying it is them, and without it the advice was impossible to follow,
+ *      since a typed edit goes through this same function.
  *   4. The value fits the shape `H3DocumentSchema` gives that leaf. The
  *      allowlist says where a write may land and said nothing about what may
  *      land there, so a fractional cut time from the editor and the string
@@ -56,7 +60,14 @@ function isProtectedDialogue(doc: H3Document, path: string): boolean {
   return doc.shots[shotIndex]?.beats[beatIndex]?.dialogue?.userSupplied === true;
 }
 
-export function applyPatch(doc: H3Document, patch: PatchOutput): PatchResult {
+/** Who is writing. A model by default, since that is the untrusted case. */
+export type PatchOrigin = 'model' | 'direct';
+
+export function applyPatch(
+  doc: H3Document,
+  patch: PatchOutput,
+  origin: PatchOrigin = 'model',
+): PatchResult {
   let next = doc;
   const applied: AppliedOperation[] = [];
   const rejected: RejectedOperation[] = [];
@@ -75,7 +86,7 @@ export function applyPatch(doc: H3Document, patch: PatchOutput): PatchResult {
       continue;
     }
 
-    if (isProtectedDialogue(next, op.path)) {
+    if (origin === 'model' && isProtectedDialogue(next, op.path)) {
       rejected.push({
         path: op.path,
         reason: 'This line was supplied by the user and must be reproduced exactly. Edit it directly instead.',
@@ -101,7 +112,7 @@ export function applyPatch(doc: H3Document, patch: PatchOutput): PatchResult {
     // as text reads as a change and rewrites the number as a string.
     // visibleText is an array; a patch supplying a bare string would otherwise
     // silently change its type and break every consumer downstream.
-    const coerced = coerceToLeaf(leaf, before, op.value);
+    const coerced = coerceToLeaf(leaf, op.value);
     if (before === coerced) {
       rejected.push({ path: op.path, reason: 'Value is unchanged.' });
       continue;
