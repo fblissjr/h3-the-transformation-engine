@@ -16,6 +16,7 @@
 import { openDB, type DBSchema, type IDBPDatabase, type IDBPTransaction } from 'idb';
 import { H3DocumentSchema } from '../core/ir/schema';
 import type { H3Document } from '../core/ir/types';
+import { trace } from '../debug';
 
 export const DB_NAME = 'H3TransformationEngine';
 
@@ -116,10 +117,27 @@ function schemaComplete(database: IDBPDatabase<H3Schema>): boolean {
  */
 async function openHealed(): Promise<IDBPDatabase<H3Schema>> {
   const existing = await openDB<H3Schema>(DB_NAME);
-  if (schemaComplete(existing)) return existing;
+  if (schemaComplete(existing)) {
+    trace('storage', 'storage.open', `opened ${DB_NAME} at version ${existing.version}`, {
+      name: DB_NAME,
+      version: existing.version,
+      repaired: false,
+    });
+    return existing;
+  }
 
   const next = existing.version + 1;
   existing.close();
+  // A repair is the interesting case and it happens once, silently, on a
+  // database something else on this origin created empty. Reported at `warn`
+  // so it is visible in the log rather than only in its consequences.
+  trace(
+    'storage',
+    'storage.open',
+    `${DB_NAME} was missing stores or indexes; repairing to version ${next}`,
+    { name: DB_NAME, version: next, repaired: true },
+    { level: 'warn' },
+  );
   return openDB<H3Schema>(DB_NAME, next, { upgrade: (database, _old, _new, tx) => ensureSchema(database, tx) });
 }
 
@@ -148,6 +166,17 @@ export async function closeDb(): Promise<void> {
 
 export async function saveDocument(record: StoredDocument): Promise<void> {
   await (await db()).put('documents', record);
+  // Read defensively, and not for the sake of it: this threw on the partial
+  // records `test/db.test.ts` stores on purpose, and took `saveDocument` down
+  // with it. A trace that can break its subject is worse than no trace, because
+  // it only fails once you are already debugging.
+  trace('storage', 'storage.saveDocument', `saved "${record.title}"`, {
+    id: record.id,
+    title: record.title,
+    headVersionId: record.headVersionId,
+    mode: record.doc?.mode ?? null,
+    shots: record.doc?.shots?.length ?? null,
+  });
 }
 
 /**
@@ -163,8 +192,21 @@ export async function loadDocument(
   id: string,
 ): Promise<{ record: StoredDocument; schemaError: string | null } | undefined> {
   const record = await (await db()).get('documents', id);
-  if (!record) return undefined;
-  return { record, schemaError: describeSchemaFailure(record.doc) };
+  if (!record) {
+    trace('storage', 'storage.loadDocument', `no stored document under "${id}"`, { id, found: false });
+    return undefined;
+  }
+  const schemaError = describeSchemaFailure(record.doc);
+  trace(
+    'storage',
+    'storage.loadDocument',
+    schemaError == null
+      ? `loaded "${record.title}"`
+      : `loaded "${record.title}", which does not match the current schema: ${schemaError}`,
+    { id, found: true, title: record.title, headVersionId: record.headVersionId, schemaError },
+    { level: schemaError == null ? 'info' : 'warn' },
+  );
+  return { record, schemaError };
 }
 
 /** The first schema complaint about a stored document, or null if it parses. */
@@ -192,6 +234,7 @@ export async function deleteDocument(id: string): Promise<void> {
     await versions.delete(version.id);
   }
   await tx.done;
+  trace('storage', 'storage.deleteDocument', `deleted "${id}" and its versions`, { id });
 }
 
 // ---------------------------------------------------------------------------
@@ -205,4 +248,8 @@ export async function getSetting<T>(key: string, fallback: T): Promise<T> {
 
 export async function setSetting(key: string, value: unknown): Promise<void> {
   await (await db()).put('settings', { key, value });
+  // `key` here is a setting name -- `provider`, `heylookModel` -- and it is
+  // deliberately not one of the field names `src/debug/redact.ts` blanks, or
+  // this channel would report that something changed without saying what.
+  trace('storage', 'storage.setSetting', `${key} = ${JSON.stringify(value)}`, { key, value });
 }

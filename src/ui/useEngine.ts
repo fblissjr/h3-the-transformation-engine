@@ -19,23 +19,20 @@ import { hasPlaceholders, newSeed, rollRecord, rollSeeded } from '../core/wildca
 import { contextFor, framesToSeconds } from '../core/normalize';
 import { inferMode } from '../core/normalize/mode';
 import { compile, edit, editDirect, inspect } from '../pipeline';
-import { GeminiClient } from '../provider/gemini';
+import { buildClient } from '../provider/build';
 import type { InferenceClient, ProviderId } from '../provider/types';
-import {
-  HeylookClient,
-  listModels,
-  pickDefaultModel,
-  type HeylookModel,
-} from '../provider/heylook';
+import { listModels, pickDefaultModel, type HeylookModel } from '../provider/heylook';
 import {
   explainFor,
   heylookPolicyConfig,
   instanceFor,
+  instancePolicyFor,
   policyFor,
   HEYLOOK_INSTANCES,
   PROVIDERS,
 } from '../provider/registry';
 import type { Policy } from '../core/policy';
+import { loadInstancePolicies, saveInstancePolicy } from '../db/policy';
 import {
   API_KEY_NAME,
   DEFAULT_KEY_MODE,
@@ -49,6 +46,7 @@ import {
 import { buildTree, flattenTree, listVersions, recordVersion } from '../db/versions';
 import { getSetting, loadDocument, saveDocument, setSetting, type StoredVersion } from '../db/db';
 import type { EraseScope } from '../db/wipe';
+import { trace } from '../debug';
 
 const DOC_ID = 'workspace';
 
@@ -169,6 +167,15 @@ export function useEngine() {
    */
   const [enforceSchema, setEnforceSchemaState] = useState(true);
   const [instanceId, setInstanceIdState] = useState<string>(HEYLOOK_INSTANCES[0].id);
+  /**
+   * Every machine's policy overrides, by instance id.
+   *
+   * The only layer of the cascade that is editable at runtime. Held as the
+   * whole bag rather than the active machine's slice so that switching
+   * instances needs no reload, and so a write can produce the next bag without
+   * reading storage back to find out what it now says.
+   */
+  const [instancePolicies, setInstancePolicies] = useState<Record<string, Policy>>({});
   /** What is on disk, independent of whether it has been unlocked this session. */
   const [storedKeyMode, setStoredKeyMode] = useState<KeyMode | null>(null);
   const [idea, setIdea] = useState('');
@@ -183,6 +190,30 @@ export function useEngine() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  /**
+   * Set the bar at the top of the window, and record that it happened.
+   *
+   * Traced HERE rather than in an effect on `error`, which was the first
+   * attempt and is subtly incomplete: React bails out of a re-render when
+   * `setError` is called with an identical string, so a failure that recurs
+   * with the same message -- pressing generate twice with no key -- fired the
+   * effect once and then silently never again, while the log read as a
+   * complete record of what reached the screen. Recording at the decision is
+   * one event per occurrence by construction.
+   *
+   * Clearing (`setError(null)`) deliberately stays a bare setter: an empty bar
+   * is not an event.
+   */
+  const fail = useCallback((message: string) => {
+    trace('state', 'state.error', message, { error: message }, { level: 'error' });
+    setError(message);
+  }, []);
+
+  const note = useCallback((message: string) => {
+    trace('state', 'state.notice', message, { notice: message }, { level: 'warn' });
+    setNotice(message);
+  }, []);
   /**
    * The single copy of the creative selection.
    *
@@ -190,7 +221,7 @@ export function useEngine() {
    * and an erase all put the controls and the document in the same state. A
    * picker holding its own copy agrees with this one exactly once, at mount.
    */
-  const [creative, setCreative] = useState<CreativeModeRecord | null>(null);
+  const [creative, setCreativeState] = useState<CreativeModeRecord | null>(null);
   /**
    * The wildcard seed, or null when nothing has been rolled.
    *
@@ -221,7 +252,7 @@ export function useEngine() {
           // never open, so it goes and the user is told why.
           removeSecret(API_KEY_NAME);
           setStoredKeyMode(null);
-          setNotice('The stored API key could not be decrypted on this browser. Paste it again.');
+          note('The stored API key could not be decrypted on this browser. Paste it again.');
         }
       }
 
@@ -241,6 +272,29 @@ export function useEngine() {
         setInstanceIdState(storedInstance);
       }
 
+      // Reports rather than gates, the way the document schema does: an
+      // override that no longer parses falls back to the layer below, which is
+      // the shipped default, and the app opens either way. Entries naming a
+      // machine this build no longer configures are kept rather than pruned --
+      // they cost nothing, and pruning them would silently discard the settings
+      // for a machine that is only temporarily out of the environment.
+      const storedPolicies = await loadInstancePolicies();
+      setInstancePolicies(storedPolicies.policies);
+      if (storedPolicies.error) {
+        const policyNotice =
+          `Some stored machine settings could not be read (${storedPolicies.error}). ` +
+          'The built-in defaults are in use for those.';
+        // Appended for the reason the schema notice below is: the key notice
+        // above says a stored key has to be pasted again, and it is not
+        // something to drop because a second thing also went wrong.
+        //
+        // Traced as its own fragment rather than through `note`, because an
+        // updater cannot be: what reaches the bar is this text joined to
+        // whatever was already there, and the fragment is the event.
+        trace('state', 'state.notice', policyNotice, { notice: policyNotice }, { level: 'warn' });
+        setNotice((current) => (current ? `${current} ${policyNotice}` : policyNotice));
+      }
+
       const stored = await loadDocument(DOC_ID);
       if (stored) {
         const { record, schemaError } = stored;
@@ -250,7 +304,7 @@ export function useEngine() {
         setDurationFrames(record.doc.durationFrames);
         setDurationSeconds(record.doc.durationSeconds);
         setModeOverride(record.doc.modeLocked ? record.doc.mode : null);
-        setCreative(restoreCreative(record.doc.creativeMode));
+        setCreativeState(restoreCreative(record.doc.creativeMode));
         if (record.doc.roll) {
           setIdea(record.doc.roll.template);
           setSeed(record.doc.roll.seed);
@@ -261,7 +315,9 @@ export function useEngine() {
             'It has been opened anyway; check it before editing.';
           // Appended, not assigned: the key notice a few lines above says the
           // stored key is gone and has to be pasted again, which is not
-          // something to drop because a second thing also went wrong.
+          // something to drop because a second thing also went wrong. Traced as
+          // a fragment for the reason the policy notice above is.
+          trace('state', 'state.notice', schemaNotice, { notice: schemaNotice }, { level: 'warn' });
           setNotice((current) => (current ? `${current} ${schemaNotice}` : schemaNotice));
         }
       }
@@ -280,7 +336,7 @@ export function useEngine() {
   const saveApiKey = useCallback(async (value: string, passphrase?: string) => {
     const trimmed = value.trim();
     if (trimmed === '') {
-      setError('Paste a key before saving.');
+      fail('Paste a key before saving.');
       return;
     }
     const mode: WritableKeyMode = passphrase ? 'passphrase' : DEFAULT_KEY_MODE;
@@ -290,7 +346,7 @@ export function useEngine() {
       // Storing the key can fail for real -- a browser with IndexedDB disabled
       // has nowhere to put the wrapping key. Letting that reject unhandled left
       // the form looking like it had saved when it had not.
-      setError(
+      fail(
         `Could not store the key: ${cause instanceof Error ? cause.message : String(cause)}`,
       );
       return;
@@ -304,7 +360,7 @@ export function useEngine() {
   const unlockApiKey = useCallback(async (passphrase: string) => {
     const value = await getSecret(API_KEY_NAME, passphrase);
     if (value == null) {
-      setError('That passphrase does not unlock the stored key.');
+      fail('That passphrase does not unlock the stored key.');
       return false;
     }
     setApiKey(value);
@@ -332,7 +388,7 @@ export function useEngine() {
     setSelectedPaths([]);
     setSlots([]);
     setModeOverride(null);
-    setCreative(null);
+    setCreativeState(null);
     setSeed(null);
     // The provider choice and the model id live in the `settings` store, which
     // the erase deletes on both scopes. Leaving them on screen would be the
@@ -348,16 +404,33 @@ export function useEngine() {
       setStoredKeyMode(null);
     }
     setError(null);
-    setNotice(
+    note(
       scope === 'everything'
         ? 'Erased the workspace, its history, and the stored key.'
         : 'Erased the workspace and its history. Your API key is still stored.',
     );
+    trace('state', 'state.erased', `erased: ${scope}`, { scope }, { level: 'warn' });
   }, []);
 
   // --- derived -----------------------------------------------------------
   const inference = useMemo(() => inferMode(slots), [slots]);
   const mode: H3Mode = modeOverride ?? inference.mode;
+
+  /**
+   * The picker's own setter, traced.
+   *
+   * Only the picker's path goes through here. A restore, a checkout and an
+   * erase all set the same state and are traced by their own events, so
+   * routing them through this too would report a user choosing a style when
+   * they had opened a document.
+   */
+  const setCreative = useCallback((next: CreativeModeRecord | null) => {
+    trace('state', 'state.creative', `creative selection: ${describeRecord(next)}`, {
+      record: next,
+      hasDirection: next != null && hasDirection(next),
+    });
+    setCreativeState(next);
+  }, []);
 
   const view = useMemo(() => (doc ? inspect(doc) : null), [doc]);
 
@@ -427,7 +500,7 @@ export function useEngine() {
         // on a model the user never chose, and the picker would agree with
         // itself while disagreeing with what they last set.
         if (current != null) {
-          setNotice(
+          note(
             `heylook is no longer serving ${current}. Selected ${replacement ?? 'nothing'} instead.`,
           );
         }
@@ -449,6 +522,20 @@ export function useEngine() {
     } catch (cause) {
       setHeylookModels([]);
       const timedOut = cause instanceof DOMException && cause.name === 'TimeoutError';
+      // Traced here rather than inside `listModels`, which fails at five
+      // different throw sites. Without it a failed discovery left the log
+      // showing a request with no outcome at all -- found by opening the panel
+      // against a server that was not running, which is the commonest state
+      // this feature exists to explain.
+      trace(
+        'provider',
+        'provider.discovery.error',
+        `heylook discovery failed at ${instance.origin}: ${
+          cause instanceof Error ? cause.message : String(cause)
+        }`,
+        { origin: instance.origin, timedOut, cause },
+        { level: 'error' },
+      );
       setHeylookError(
         timedOut
           ? `heylook at ${instance.origin} accepted the connection but did not answer within 20 ` +
@@ -472,23 +559,35 @@ export function useEngine() {
   }, [provider, heylookModels, refreshHeylookModels]);
 
   const setProvider = useCallback((next: ProviderId) => {
+    trace('state', 'state.provider', `provider is now ${next}`, {
+      provider: next,
+      canEnforceSchema: PROVIDERS[next].canEnforceSchema,
+    });
     setProviderState(next);
     setError(null);
     void setSetting(PROVIDER_SETTING, next);
   }, []);
 
   const setInstanceId = useCallback((next: string) => {
+    trace('state', 'state.instance', `instance is now ${next}`, {
+      instance: next,
+      origin: instanceFor(next).origin,
+    });
     setInstanceIdState(next);
     setHeylookModels(null); // a different machine serves a different roster
     void setSetting(HEYLOOK_INSTANCE_SETTING, next);
   }, []);
 
   const setEnforceSchema = useCallback((next: boolean) => {
+    trace('state', 'state.enforceSchema', `schema enforcement ${next ? 'on' : 'off'}`, {
+      enforceSchema: next,
+    });
     setEnforceSchemaState(next);
     void setSetting(ENFORCE_SCHEMA_SETTING, next);
   }, []);
 
   const setHeylookModel = useCallback((id: string) => {
+    trace('state', 'state.model', `heylook model is now ${id}`, { model: id });
     heylookModelIdRef.current = id;
     setHeylookModelId(id);
     void setSetting(HEYLOOK_MODEL_SETTING, id);
@@ -515,22 +614,60 @@ export function useEngine() {
    * retry budget per provider type, concurrency per machine -- without every
    * layer having to state all of it.
    */
-  const policy = useMemo<Policy>(() => policyFor(provider), [provider]);
+  /**
+   * This machine's overrides, or nothing when the active provider has none.
+   *
+   * Resolved by a pure function in the registry rather than indexed inline, so
+   * the span from a stored override to the client config it becomes is
+   * reachable by a test. `test/registry.test.ts` walks it; what no test here can
+   * reach is this hook handing the bag over, which is the same irreducible
+   * remainder `buildClient` has.
+   */
+  const instancePolicy = useMemo<Policy>(
+    () => instancePolicyFor(provider, instance, instancePolicies),
+    [provider, instance, instancePolicies],
+  );
 
-  const client = useMemo<InferenceClient | null>(() => {
-    if (provider === 'heylook') {
-      return heylookModel
-        ? new HeylookClient({
-            origin: instance.origin,
-            model: heylookModel,
-            // Mapped by a pure function in the registry rather than inline,
-            // so the join between policy and client is reachable by a test.
-            ...heylookPolicyConfig(policy),
-          })
-        : null;
-    }
-    return apiKey ? new GeminiClient({ apiKey }) : null;
-  }, [provider, apiKey, heylookModel, policy, instance]);
+  const policy = useMemo<Policy>(
+    () => policyFor(provider, instancePolicy),
+    [provider, instancePolicy],
+  );
+
+  /**
+   * Write this machine's overrides, or clear one by omitting it.
+   *
+   * Takes the whole next policy rather than a patch, so clearing an attribute
+   * and setting it are the same call. An empty policy drops the entry entirely
+   * -- `{}` and no entry must not be two states, or the panel reports a machine
+   * as customised to exactly its inherited values.
+   */
+  const setInstancePolicy = useCallback(
+    (next: Policy) => {
+      const target = instance.id;
+      void (async () => {
+        setInstancePolicies(await saveInstancePolicy(instancePolicies, target, next));
+      })();
+    },
+    [instance, instancePolicies],
+  );
+
+  const client = useMemo<InferenceClient | null>(
+    () =>
+      // Constructed by a pure function rather than inline, so the wiring inside
+      // it -- the policy mapping, and the `instrument` wrap that feeds the debug
+      // console's provider channel -- is reachable by a test. Inline, deleting
+      // the wrap left every debug test green and the panel silent.
+      buildClient({
+        provider,
+        apiKey,
+        origin: instance.origin,
+        model: heylookModel,
+        // Mapped by a pure function in the registry rather than inline, so the
+        // join between policy and client is reachable by a test.
+        ...heylookPolicyConfig(policy),
+      }),
+    [provider, apiKey, heylookModel, policy, instance],
+  );
 
   /** Why the generate button cannot fire, in this provider's terms. */
   const notReady = useMemo(() => {
@@ -564,6 +701,12 @@ export function useEngine() {
       setDoc(next);
       setHeadVersionId(version.id);
       setVersions(await listVersions(DOC_ID));
+      trace('state', 'state.commit', `head is now ${version.id} "${label}"`, {
+        versionId: version.id,
+        parentId: headVersionId,
+        label,
+        changedPaths: (operations ?? []).map((o) => o.path),
+      });
     },
     [headVersionId],
   );
@@ -580,10 +723,10 @@ export function useEngine() {
       (cause instanceof DOMException && cause.name === 'AbortError') ||
       (cause instanceof Error && cause.name === 'AbortError');
     if (aborted) {
-      setNotice('Stopped. Nothing was saved -- a stopped call returns no document.');
+      note('Stopped. Nothing was saved -- a stopped call returns no document.');
       return;
     }
-    setError(cause instanceof Error ? cause.message : String(cause));
+    fail(cause instanceof Error ? cause.message : String(cause));
   }, []);
 
   /**
@@ -599,8 +742,17 @@ export function useEngine() {
   // --- actions -----------------------------------------------------------
   const generate = useCallback(async () => {
     if (busy) return;
-    if (!client) return setError(notReady ?? 'No inference backend is ready.');
-    if (effectiveIdea.trim() === '') return setError('Describe what you want before generating.');
+    if (!client) return fail(notReady ?? 'No inference backend is ready.');
+    if (effectiveIdea.trim() === '') return fail('Describe what you want before generating.');
+    trace('state', 'state.generate', `generate on ${client.providerId}`, {
+      provider: client.providerId,
+      mode: input.mode,
+      enforceSchema,
+      seed,
+      rolled: rolled != null,
+      creative: describeRecord(creative),
+      slots: slots.length,
+    });
     setBusy('Planning');
     setError(null);
     setNotice(null);
@@ -632,7 +784,7 @@ export function useEngine() {
       if (!doc) return;
       const result = editDirect(doc, path, value);
       if (result.patch.rejected.length > 0) {
-        setError(result.patch.rejected[0].reason);
+        fail(result.patch.rejected[0].reason);
         return;
       }
       await commit(result.doc, `Edited ${path}`, result.patch.applied);
@@ -648,9 +800,15 @@ export function useEngine() {
       // generation running with nothing able to stop it -- falsifying the
       // invariant `abortRef`'s own comment claims.
       if (busy) return;
-      if (!client) return setError(notReady ?? 'No inference backend is ready.');
+      if (!client) return fail(notReady ?? 'No inference backend is ready.');
       if (!doc) return;
-      if (selectedPaths.length === 0) return setError('Select something to edit first.');
+      if (selectedPaths.length === 0) return fail('Select something to edit first.');
+      trace('state', 'state.applyAssisted', `assisted edit of ${selectedPaths.length} path(s)`, {
+        provider: client.providerId,
+        paths: selectedPaths,
+        instruction,
+        enforceSchema,
+      });
       setBusy('Editing');
       setError(null);
       setNotice(null);
@@ -662,7 +820,7 @@ export function useEngine() {
           enforceSchema,
         });
         if (result.patch.applied.length === 0) {
-          setError(
+          fail(
             result.patch.rejected[0]?.reason ?? 'The model returned no applicable changes.',
           );
           return;
@@ -675,7 +833,7 @@ export function useEngine() {
           ...result.patch.rejected.map((r) => `${r.path}: ${r.reason}`),
           ...result.patch.declined.map((d) => `declined ${d.what}: ${d.why}`),
         ];
-        if (skipped.length > 0) setNotice(`Applied ${result.patch.applied.length}. Skipped: ${skipped.join('; ')}`);
+        if (skipped.length > 0) note(`Applied ${result.patch.applied.length}. Skipped: ${skipped.join('; ')}`);
       } catch (cause) {
         reportOrStopped(cause);
       } finally {
@@ -690,7 +848,7 @@ export function useEngine() {
     setDoc(version.doc);
     setHeadVersionId(version.id);
     setSlots(version.doc.slots);
-    setCreative(restoreCreative(version.doc.creativeMode));
+    setCreativeState(restoreCreative(version.doc.creativeMode));
     // A version records the template as well as the seed, so checking one out
     // puts the idea box back in the state that produced it.
     if (version.doc.roll) {
@@ -708,10 +866,23 @@ export function useEngine() {
     });
     // Editing from here branches rather than overwriting: the next commit takes
     // this version as its parent.
-    setNotice(`Checked out "${version.label}". Editing from here will branch.`);
+    note(`Checked out "${version.label}". Editing from here will branch.`);
+    trace('state', 'state.checkout', `checked out ${version.id} "${version.label}"`, {
+      versionId: version.id,
+      label: version.label,
+      // The document's own record, restored into the picker. It is what the
+      // open prose was written under, which is not necessarily what the next
+      // generation would use -- the badge exists because those differ.
+      creativeMode: version.doc.creativeMode ?? null,
+      seed: version.doc.roll?.seed ?? null,
+    });
   }, []);
 
   const togglePath = useCallback((path: string, additive: boolean) => {
+    // The path and the modifier, not the resulting set: the set is computed
+    // inside the updater, and an updater has to stay pure -- React is free to
+    // run it twice, which would log the click twice.
+    trace('state', 'state.select', `${additive ? 'toggled' : 'selected'} ${path}`, { path, additive });
     setSelectedPaths((current) => {
       if (!additive) return current.length === 1 && current[0] === path ? [] : [path];
       return current.includes(path) ? current.filter((p) => p !== path) : [...current, path];
@@ -744,7 +915,10 @@ export function useEngine() {
     setEnforceSchema,
     /** The effective policy, and where each value came from. */
     policy,
-    policyExplained: explainFor(provider),
+    policyExplained: explainFor(provider, instancePolicy),
+    /** What this machine states for itself, which is the only editable layer. */
+    instancePolicy,
+    setInstancePolicy,
     /**
      * Whether the active backend can honour it. Read from the provider rather
      * than from a constructed client, which does not exist before a key is

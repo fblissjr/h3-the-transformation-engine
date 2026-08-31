@@ -44,6 +44,7 @@ export type { ImageAttachment } from './types';
 export { dataUrlToAttachment } from './types';
 
 import { extractJsonObject, requiredKeys, withShapeTrailer } from './shape';
+import { trace } from '../debug';
 
 /** The one host this client contacts. Named here so the CSP can be read against it. */
 export const GEMINI_ORIGIN = 'https://generativelanguage.googleapis.com';
@@ -175,6 +176,19 @@ export class GeminiClient implements InferenceClient {
     const started = Date.now();
     const request = buildRequest(options, this.defaultModel);
 
+    // The body itself, not a re-derivation of it. The decorator in
+    // `src/debug/instrument.ts` records what the pipeline asked for; this is
+    // what actually goes on the wire, which is where `store: false`, the
+    // thinking level and the presence or absence of `response_format` become
+    // visible. The API key is not in here -- it went to the SDK constructor.
+    trace(
+      'provider',
+      'provider.wire.request',
+      `gemini POST interactions.create -- ${String(request.model)}, thinking ${THINKING[options.task]}` +
+        `, ${request.response_format ? 'schema enforced' : 'shape asked for in the prompt'}`,
+      { origin: GEMINI_ORIGIN, body: request },
+    );
+
     const interaction = await this.ai.interactions.create(
       request as never,
       options.signal ? ({ signal: options.signal } as never) : undefined,
@@ -184,6 +198,17 @@ export class GeminiClient implements InferenceClient {
     const text = String((interaction as { output_text?: unknown }).output_text ?? '');
     const interactionId = (interaction as { id?: string }).id;
     const usage = extractUsage(interaction);
+
+    // Emitted before the status checks below, so a truncation or a failure is
+    // still reported with its usage and its id rather than only as a thrown
+    // error the decorator sees.
+    trace(
+      'provider',
+      'provider.wire.response',
+      `gemini answered ${status} -- ${text.length} chars`,
+      { status, interactionId, usage, textLength: text.length },
+      { level: status === TERMINAL_OK ? 'info' : 'warn' },
+    );
 
     if (status === TERMINAL_TRUNCATED) {
       throw new TruncatedError(text, status, interactionId);
@@ -205,6 +230,10 @@ export class GeminiClient implements InferenceClient {
         // breaking its own guarantee and deserves to be loud.
         try {
           parsed = JSON.parse(text) as T;
+          trace('provider', 'provider.parse', 'gemini: constrained decoding, parsed the reply whole', {
+            branch: 'enforced',
+            chars: text.length,
+          });
         } catch (cause) {
           throw new ProviderError(
             `Reply was not valid JSON despite a response schema: ${
@@ -218,6 +247,20 @@ export class GeminiClient implements InferenceClient {
         // Asked rather than enforced, so the same defensive read the local
         // client uses. A model free to write prose will sometimes wrap it.
         const slice = extractJsonObject(text, requiredKeys(options.schema));
+        trace(
+          'provider',
+          'provider.parse',
+          slice == null
+            ? 'gemini: enforcement off, and no JSON object could be found in the reply'
+            : `gemini: enforcement off, JSON object extracted from ${text.length} chars of reply`,
+          {
+            branch: 'asked',
+            requiredKeys: requiredKeys(options.schema),
+            chars: text.length,
+            extracted: slice == null ? null : slice.length,
+          },
+          { level: slice == null ? 'error' : 'info' },
+        );
         if (slice == null) {
           throw new ProviderError(
             'No JSON object found in the reply. Schema enforcement is switched off for this ' +

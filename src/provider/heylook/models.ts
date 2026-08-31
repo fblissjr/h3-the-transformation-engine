@@ -14,6 +14,7 @@
  */
 
 import { HEYLOOK_INSTANCES } from '../registry';
+import { trace } from '../../debug';
 
 export interface HeylookModel {
   id: string;
@@ -51,6 +52,12 @@ export async function listModels(
   origin: string = HEYLOOK_INSTANCES[0].origin,
   signal?: AbortSignal,
 ): Promise<HeylookModel[]> {
+  // Discovery runs outside `InferenceClient.call`, so the decorator in
+  // `src/debug/instrument.ts` never sees it. Without these two lines the
+  // commonest heylook question -- why is the model list empty -- leaves no
+  // trace at all.
+  const started = Date.now();
+  trace('provider', 'provider.discovery.request', `heylook GET ${origin}/v1/models`, { origin });
   let response: Response;
   try {
     response = await fetch(`${origin}/v1/models`, signal ? { signal } : {});
@@ -98,7 +105,7 @@ export async function listModels(
     );
   }
 
-  return rows
+  const models = rows
     .filter((row): row is Record<string, unknown> => row != null && typeof row === 'object')
     .map((row) => ({
       id: String(row.id ?? ''),
@@ -107,6 +114,15 @@ export async function listModels(
       ...(Array.isArray(row.capabilities) ? { capabilities: row.capabilities.map(String) } : {}),
     }))
     .filter((row) => row.id !== '');
+
+  trace(
+    'provider',
+    'provider.discovery.response',
+    `heylook is serving ${models.length} model(s)`,
+    { origin, models },
+    { durationMs: Date.now() - started, level: models.length === 0 ? 'warn' : 'info' },
+  );
+  return models;
 }
 
 /** Gate on `capabilities`, never on `modalities`. See the type. */

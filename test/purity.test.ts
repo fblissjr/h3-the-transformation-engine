@@ -38,6 +38,13 @@ const FORBIDDEN: Forbidden[] = [
   { pattern: /from\s+['"]idb['"]/, why: 'the database layer', scan: 'raw' },
   { pattern: /\b(?:document|window|localStorage|navigator)\s*\./, why: 'the DOM', scan: 'code' },
   { pattern: /\bfetch\s*\(/, why: 'the network', scan: 'code' },
+  // The trace bus is a module-level sink with a bounded buffer, which is state
+  // -- and `src/core` is what has to stay runnable in a Node script with no app
+  // around it. `src/debug/index.ts` said this discipline lived in a comment;
+  // this file's own header says a boundary nothing checks erodes on the first
+  // convenient import. Nothing in `src/core` is named debug, so the loose
+  // pattern has nothing to false-positive on.
+  { pattern: /from\s+['"][^'"]*debug(?:\/[^'"]*)?['"]/, why: 'the debug bus', scan: 'raw' },
 ];
 
 function tsFilesIn(dir: string): string[] {
@@ -100,6 +107,16 @@ describe('the purity check can fail', () => {
 
   it('flags the SDK import', () => {
     expect(trips(sdk, "import { GoogleGenAI } from '@google/genai';")).toBe(true);
+  });
+
+  it('flags a trace import, at either depth', () => {
+    const bus = FORBIDDEN.find((f) => f.why === 'the debug bus')!;
+    expect(trips(bus, "import { trace } from '../debug';")).toBe(true);
+    // Deep imports too: banning only the barrel would leave the obvious way
+    // round it open. The first version of this pattern did exactly that, and
+    // this case documented the hole instead of closing it.
+    expect(trips(bus, "import { trace } from '../../debug/bus';")).toBe(true);
+    expect(trips(bus, "import { attach } from './debugger';")).toBe(false);
   });
 
   it('ignores the words in prose and in messages', () => {

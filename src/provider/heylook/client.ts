@@ -64,6 +64,7 @@ import { HEYLOOK_INSTANCES } from '../registry';
 import { extractJsonObject, requiredKeys, withShapeTrailer } from '../shape';
 import { canServe, type HeylookModel } from './models';
 import { resizeAll } from './images';
+import { trace } from '../../debug';
 
 /**
  * Anthropic's vocabulary; only `end_turn` and `max_tokens` occur in practice.
@@ -268,13 +269,66 @@ export class HeylookClient implements InferenceClient {
     }
 
     const images = await resizeAll(rawImages);
+    if (rawImages.length > 0) {
+      // Reported because the resize is why the body's image bytes do not match
+      // what the pipeline handed over, and a silent discrepancy in a request
+      // log is worse than no log.
+      trace('provider', 'provider.resize', `heylook resized ${rawImages.length} image(s) before sending`, {
+        before: rawImages.map((i) => ({ mimeType: i.mimeType, base64Chars: i.base64.length })),
+        after: images.map((i) => ({ mimeType: i.mimeType, base64Chars: i.base64.length })),
+      });
+    }
+
     const request = buildRequest(options, images, this.model);
+
+    // The body as posted, not a re-derivation from `options`: the images above
+    // have already been resized by this point, so anything rebuilt from the raw
+    // attachments would report the wrong sizes for the one field somebody opens
+    // a request log to check.
+    trace(
+      'provider',
+      'provider.wire.request',
+      `heylook POST ${this.origin}/v1/messages -- ${this.model?.id ?? 'no model'}`,
+      { url: `${this.origin}/v1/messages`, requestId, body: request },
+    );
+
     const body = await this.post(request, requestId, options.signal);
 
     const status = String(body.stop_reason ?? 'end_turn');
     const text = joinTextBlocks(body.content);
     const messageId = typeof body.id === 'string' ? body.id : undefined;
     const usage = extractUsage(body);
+
+    trace(
+      'provider',
+      'provider.wire.response',
+      `heylook answered stop_reason ${status} -- ${text.length} chars of text`,
+      {
+        stopReason: status,
+        messageId,
+        usage,
+        // Which block types came back. A thinking model returns a `thinking`
+        // block beside `text`, and only `text` is joined -- this is where that
+        // is visible rather than merely documented.
+        blocks: Array.isArray(body.content)
+          ? body.content.map((block) => (block as { type?: unknown })?.type ?? 'unknown')
+          : [],
+        textLength: text.length,
+        // A sibling of `usage`, not a member of it, so `extractUsage` does not
+        // reach it and it would otherwise be dropped. Carries prompt_tps,
+        // generation_tps, peak_memory_gb and total_duration_ms.
+        //
+        // Measured rather than relayed, which is the bar this repo sets for a
+        // claim about software it does not control: one non-streaming call to
+        // google_gemma_4-E4B-it-bf16-mlx on 2026-08-31 returned
+        // {prompt_tps: 352.6, generation_tps: 100.3, peak_memory_gb: 15.94,
+        // total_duration_ms: 4396} against a 4.40s wall clock. It is logged and
+        // deliberately NOT lifted onto `CallResult`: throughput is this
+        // provider's own reporting, and the seam has no such concept to give it.
+        ...(body.performance != null ? { performance: body.performance } : {}),
+      },
+      { level: status === STOP_TRUNCATED ? 'warn' : 'info' },
+    );
 
     if (status === STOP_TRUNCATED) {
       // Our own flag, never the wire: a cancelled run is indistinguishable from
@@ -292,6 +346,22 @@ export class HeylookClient implements InferenceClient {
       // notably a copy of the schema, which the trailer makes likely and which
       // is longer than any document written against it.
       const slice = extractJsonObject(text, requiredKeys(options.schema));
+      trace(
+        'provider',
+        'provider.parse',
+        slice == null
+          ? 'heylook: no JSON object could be found in the reply'
+          : `heylook: JSON object extracted from ${text.length} chars of reply`,
+        {
+          // Always this branch here: heylook has no constrained decoding, so
+          // the shape was asked for in the prompt whatever `enforceSchema` said.
+          branch: 'asked',
+          requiredKeys: requiredKeys(options.schema),
+          chars: text.length,
+          extracted: slice == null ? null : slice.length,
+        },
+        { level: slice == null ? 'error' : 'info' },
+      );
       if (slice == null) {
         throw new ProviderError(
           `No JSON object found in the reply from ${this.model?.id ?? 'heylook'}. This model ` +
@@ -321,9 +391,26 @@ export class HeylookClient implements InferenceClient {
       const response = await this.fetchImpl(`${this.origin}/v1/requests/${requestId}`, {
         method: 'DELETE',
       });
-      if (!response.ok) return 0;
+      if (!response.ok) {
+        trace(
+          'provider',
+          'provider.cancel',
+          `heylook DELETE /v1/requests/${requestId} answered ${response.status} -- nothing was stopped`,
+          { requestId, status: response.status },
+          { level: 'warn' },
+        );
+        return 0;
+      }
       const body = (await response.json()) as { cancelled?: unknown };
-      return typeof body.cancelled === 'number' ? body.cancelled : 0;
+      const cancelled = typeof body.cancelled === 'number' ? body.cancelled : 0;
+      trace(
+        'provider',
+        'provider.cancel',
+        `heylook cancelled ${cancelled} in-flight request(s)`,
+        { requestId, cancelled },
+        { level: 'warn' },
+      );
+      return cancelled;
     } catch {
       // The server may be gone, or this build may predate the endpoint. Either
       // way the generation stops or it does not, and the user has their UI back.
@@ -355,6 +442,18 @@ export class HeylookClient implements InferenceClient {
           Math.max(retryAfterMs(response.headers.get('Retry-After')), MIN_RETRY_MS) * 2 ** attempt,
           MAX_RETRY_MS,
         );
+        trace(
+          'provider',
+          'provider.backpressure',
+          `heylook is busy (503): attempt ${attempt + 1}, waiting ${wait}ms`,
+          {
+            attempt: attempt + 1,
+            retryAfterHeader: response.headers.get('Retry-After'),
+            waitMs: wait,
+            budgetRemainingMs: Math.max(deadline - Date.now(), 0),
+          },
+          { level: 'warn' },
+        );
         if (Date.now() + wait >= deadline) {
           throw new BackpressureError(
             `heylook was still busy after ${Math.round(this.backpressureBudgetMs / 1000)}s and ` +
@@ -368,7 +467,15 @@ export class HeylookClient implements InferenceClient {
       }
 
       if (!response.ok) {
-        throw new ProviderError(await failureMessage(response, this.model), String(response.status));
+        const message = await failureMessage(response, this.model);
+        trace(
+          'provider',
+          'provider.http.error',
+          `heylook answered ${response.status}`,
+          { status: response.status, requestId, message },
+          { level: 'error' },
+        );
+        throw new ProviderError(message, String(response.status));
       }
 
       try {

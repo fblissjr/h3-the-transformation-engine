@@ -56,9 +56,10 @@ src/core/        pure TypeScript, no React, no DOM, no network (enforced by a te
   creative/      style packs, anchors, strength scoring, glitch marks
   wildcards/     {category} substitution on the idea, and the experiment matrix
 src/provider/    the client interface, a Gemini and a heylook client, and the planner/patch prompts
+src/debug/       the in-memory trace buffer, redaction, and the InferenceClient decorator
 src/crypto/      at-rest storage for the API key, three modes
 src/db/          IndexedDB, three stores, immutable version tree, erase-and-verify
-src/ui/          slot manager, document editor, prompt view, diagnostics, history, local data
+src/ui/          slot manager, document editor, prompt view, diagnostics, history, local data, debug console
 reference/h3/    the two official guides, and contract.json — the machine-readable spec
 ```
 
@@ -185,12 +186,32 @@ A local server on your own network — MLX and gguf models over an endpoint that
 - **CORS is not assumable, and a failure there is indistinguishable from three other things.** A CSP refusal, a CORS refusal and a server that is down all arrive as a bare `TypeError` from `fetch` with no status and no response body, so the error message names all three rather than guessing. `curl` cannot settle it — curl does not enforce CORS — which is why the live check is the browser, not the terminal. The client sends `Content-Type: application/json` and `X-Request-ID`, both of which make the request non-simple and trigger a preflight.
 - **No API key is sent.** heylook's key gate is opt-in, off by default, and exempt for loopback traffic. If you set `HEYLOOK_API_KEY` on the server and reach it from another machine, this build will get a 401 and say so; it has no second secret to send.
 
+## Debug console
+
+`debug` in the header opens a trace of what the app is doing, on four channels in one time-ordered list: `provider` (the call), `pipeline` (the compiler around it), `state` (the app decision that caused it) and `storage` (what was written). One list rather than a tab each, because the answer to "I pressed generate, what happened" crosses all four in order. Filter by channel, search the payloads, expand a row for the whole thing, copy the filtered set as JSON. It records whether or not the panel is open, so the usual order — do the thing, then wonder what it did — works.
+
+What is on it:
+
+- The request as the pipeline described it, and the request as it actually went on the wire — `store: false` and the thinking level on Gemini, the system prompt with its shape trailer on heylook, and every image reduced to its type and size.
+- The reply: status, usage, the text, and **which JSON-extraction branch ran** — decoding constrained by a schema, or a shape asked for in words and found (or not) in prose.
+- heylook's queue. A 503 is normal operation on a server that runs one generation at a time, and each wait is reported with its attempt number, the `Retry-After` it read and the budget left. A cancel is reported too, with how many runs the server said it stopped.
+- Every compiler stage: the normalized context the prompt is built from, whether the planner output matched the schema and with which issues if not, what the patch applied, rejected and declined, the diagnostics, and the rendered length.
+- What changed: the version committed and which paths it touched, the settings written, the document loaded and whether it still matches this build's schema.
+
+**Two halves, and they are not equally strong.** The neutral record — options in, result out, duration, usage, status — comes from a decorator over `InferenceClient`, so it holds for every backend by construction, including one added later that knows nothing about any of this. The wire body, the retry loop and the parse branch are emitted by each client itself, which is a maintained list: a new client that emits none of it shows the neutral record and no wire body, and nothing in the panel says so. Worth knowing before trusting a quiet `provider` channel.
+
+Correlation is by time order. That is sound because the app issues exactly one model call at a time — `generate` and `applyAssisted` both return early while a call is in flight, which is stricter than any policy value; see `describeConcurrency` in `src/provider/registry.ts`.
+
+The buffer lives in memory only and dies on reload. That is deliberate rather than unfinished: a persisted log would be a fourth thing the erase button has to survey, and would put prompts into storage. It is bounded at 800 events and 4 MB, evicting oldest-first, with any single payload capped so one enormous event cannot push the log out from under itself. Image data is elided to a size on the way IN, not at render time, and secret-shaped field names are blanked — the panel has a copy button, so anything reaching the buffer is something that can be pasted into a bug report. No API key travels in either request body — asserted for Gemini, whose key goes to the SDK constructor, and true of heylook by having no key to send — and the redaction runs anyway.
+
+`window.__h3debug` is the same log from the browser console: `.events()`, `.events('provider')`, `.last(20)`, `.clear()`, `.pause()`, `.mirror()`.
+
 ## Commands
 
 ```
 bun install
 bun run dev         # http://localhost:5173
-bun run test        # 648 tests
+bun run test        # 700 tests
 bun run typecheck
 bun run build
 bun run probe       # live API probes (reads GEMINI_API_KEY from .env)
@@ -276,7 +297,7 @@ What the code does:
 - **No stored interactions** — `store: false` on every request, no setting to change it, enforced by `test/provider.test.ts`. Chosen because `interactions.delete` returns 501, so a stored interaction could not be removed later.
 - **CSP** — `connect-src 'self' https://generativelanguage.googleapis.com <the heylook origin>`, `script-src 'self'`. The heylook entry is a literal host, never a scheme-wide source, and it is **generated at build time from `VITE_HEYLOOK_ORIGIN`** by a plugin in `vite.config.ts` that reads the same `normalizeOrigin` the app does. There is one origin value, so the policy and the base URL cannot drift apart — which matters because a base URL the policy does not name is refused by the browser with no status and no response, and would look exactly like the server being down. The build fails outright if the placeholder is missing from `index.html`. Bare `ws:`/`wss:` remain deliberately absent: they match any host, which would hand a compromised dependency a socket to anywhere. `frame-ancestors` is absent because it is ignored in a `<meta>` tag — set it as a response header if you deploy this.
 - **Mixed content is a separate limit no policy lifts.** A plain `http://` heylook origin that is not `localhost` is blocked by the browser when this page is served over https, whatever `connect-src` says. Over the http dev server both work.
-- **No logging of its own** — zero `console.*` in `src/`, no analytics, telemetry, or error reporting.
+- **No logging of its own that leaves the machine** — no analytics, no telemetry, no error reporting, and nothing written to disk. The debug console (below) keeps a bounded trace in memory for the life of the page; the only `console.*` calls in `src/` are its optional mirror, off unless you switch it on. This bullet used to say "zero `console.*` in `src/`", which the debug console made false.
 
 What that does not cover:
 

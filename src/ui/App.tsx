@@ -11,6 +11,7 @@ import { useState } from 'react';
 import { useEngine } from './useEngine';
 import { KeyPanel } from './KeyPanel';
 import { ProviderPanel } from './ProviderPanel';
+import { PolicyPanel } from './PolicyPanel';
 import { DataPanel } from './DataPanel/DataPanel';
 import { SlotManager } from './SlotManager/SlotManager';
 import { DocumentEditor } from './DocumentEditor/DocumentEditor';
@@ -19,6 +20,7 @@ import { Diagnostics } from './Diagnostics/Diagnostics';
 import { VersionTree } from './VersionTree/VersionTree';
 import { CreativePanel } from './CreativePanel/CreativePanel';
 import { WildcardPanel } from './WildcardPanel/WildcardPanel';
+import { DebugConsole } from './DebugConsole/DebugConsole';
 import { MODES } from '../core/ir/vocab';
 import { gridFramesUpTo } from '../core/normalize/duration';
 import { modeRequirements } from '../core/normalize/mode';
@@ -58,6 +60,18 @@ export function App() {
           onInstanceChange={e.setInstanceId}
         />
         {/*
+          Beside the provider controls rather than inside them: what a machine
+          is like outlives which machine is selected, and the disclosure keeps
+          a four-row table out of a header that is already busy.
+        */}
+        <PolicyPanel
+          policy={e.policy}
+          explained={e.policyExplained}
+          instancePolicy={e.instancePolicy}
+          instanceId={e.provider === 'heylook' ? e.instanceId : null}
+          onChange={e.setInstancePolicy}
+        />
+        {/*
           The key panel is hidden on the local provider rather than disabled.
           heylook needs no key, and a key field beside it invites pasting a
           Google key into something that would never send it.
@@ -71,6 +85,7 @@ export function App() {
             onForget={e.forgetApiKey}
           />
         )}
+        <DebugConsole />
         <DataPanel onErased={e.resetAfterErase} />
       </header>
 

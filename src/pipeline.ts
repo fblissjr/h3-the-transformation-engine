@@ -29,8 +29,37 @@ import {
   buildPatchUserPrompt,
   PATCH_MAX_OUTPUT_TOKENS,
 } from './provider/prompts/patch';
+import { trace } from './debug';
 
 export class PlanError extends Error {}
+
+/**
+ * One line each for the things every stage produces.
+ *
+ * Kept here rather than in `src/debug/` because they read the compiler's own
+ * types, and `src/debug/` is deliberately ignorant of them -- the bus takes an
+ * arbitrary payload so that a new layer can describe itself without editing a
+ * shared type. These are the pipeline describing itself.
+ */
+function describeDoc(doc: H3Document): Record<string, unknown> {
+  return {
+    mode: doc.mode,
+    shots: doc.shots.length,
+    beats: doc.shots.reduce((total, shot) => total + shot.beats.length, 0),
+    subjects: doc.subjects.length,
+    slots: doc.slots.length,
+    creativeMode: doc.creativeMode ?? null,
+    hasRoll: doc.roll != null,
+  };
+}
+
+function describeValidation(validation: ValidationResult): Record<string, unknown> {
+  return {
+    count: validation.diagnostics.length,
+    codes: validation.diagnostics.map((d) => d.code),
+    diagnostics: validation.diagnostics,
+  };
+}
 
 export interface CompileResult {
   doc: H3Document;
@@ -78,7 +107,30 @@ export async function compile(
   },
 ): Promise<CompileResult> {
   refuseUnexpanded(input);
+  const started = Date.now();
+  trace('pipeline', 'pipeline.compile.start', `compile: ${input.idea.length} char idea`, {
+    id: options.id,
+    idea: input.idea,
+    modeOverride: input.mode ?? null,
+    durationFrames: input.durationFrames ?? null,
+    durationSeconds: input.durationSeconds ?? null,
+    slots: input.slots.map((slot) => ({ kind: slot.kind, hasDataUrl: slot.dataUrl != null })),
+    creativeMode: input.creativeMode ?? null,
+    seed: options.seed ?? null,
+    enforceSchema: options.enforceSchema ?? null,
+  });
+
   const ctx = normalize(input);
+  // The derived numbers the prompt is built from. When the planner writes a
+  // document of the wrong length or the alignment line looks wrong, this is the
+  // input to that, and it is otherwise invisible between the idea box and the
+  // system prompt.
+  trace(
+    'pipeline',
+    'pipeline.normalize',
+    `normalized: ${ctx.mode} (${ctx.contract}), ${ctx.durationText}s, ${ctx.recommendedShots} shots suggested`,
+    ctx,
+  );
 
   const result = await client.call({
     systemInstruction: buildPlannerSystemPrompt(ctx, input),
@@ -102,16 +154,53 @@ export async function compile(
   // has no constrained decoding -- by preference, not by limitation -- this is
   // the check doing the real work rather than a second opinion.
   const parsed = PlannerOutputSchema.safeParse(result.parsed);
+  // The single trust boundary, so whether it held is worth saying either way.
+  // A provider that enforced a schema and a provider that merely asked for one
+  // both arrive here, and this is the only place the difference shows.
+  trace(
+    'pipeline',
+    'pipeline.parse',
+    parsed.success
+      ? 'planner output matched the schema'
+      : `planner output did not match the schema: ${parsed.error.issues.length} issue(s)`,
+    parsed.success
+      ? { ok: true }
+      : { ok: false, issues: parsed.error.issues, received: result.parsed },
+    { level: parsed.success ? 'info' : 'error' },
+  );
   if (!parsed.success) {
     throw new PlanError(`Planner output did not match the schema: ${parsed.error.message}`);
   }
 
   const doc = assemble(parsed.data, input, ctx, { id: options.id, modeLocked: input.mode != null });
+  trace('pipeline', 'pipeline.assemble', `assembled ${doc.mode} document`, describeDoc(doc));
+
+  const validation = validate(doc, ctx);
+  trace(
+    'pipeline',
+    'pipeline.validate',
+    validation.diagnostics.length === 0
+      ? 'no diagnostics'
+      : `${validation.diagnostics.length} diagnostic(s)`,
+    describeValidation(validation),
+    { level: validation.diagnostics.length === 0 ? 'info' : 'warn' },
+  );
+
+  const rendered = serialize(doc, ctx);
+  trace('pipeline', 'pipeline.serialize', `rendered ${rendered.length} chars`, {
+    length: rendered.length,
+    spans: rendered.map.length,
+    text: rendered.text,
+  });
+
+  trace('pipeline', 'pipeline.compile.done', `compile finished`, { id: options.id }, {
+    durationMs: Date.now() - started,
+  });
 
   return {
     doc,
-    validation: validate(doc, ctx),
-    rendered: serialize(doc, ctx),
+    validation,
+    rendered,
     ...(result.interactionId ? { interactionId: result.interactionId } : {}),
     usage: result.usage,
   };
@@ -136,6 +225,16 @@ export async function edit(
   options: { seed?: number; signal?: AbortSignal; enforceSchema?: boolean } = {},
 ): Promise<EditResult> {
   if (paths.length === 0) throw new PlanError('An edit needs at least one target path.');
+  const started = Date.now();
+  trace('pipeline', 'pipeline.edit.start', `edit ${paths.length} path(s): ${instruction}`, {
+    paths,
+    instruction,
+    // The document's own creative record, which is what the patch prompt is
+    // built from -- deliberately not the picker's current selection. See the
+    // note on `creative` in `src/ui/useEngine.ts`.
+    creativeMode: doc.creativeMode ?? null,
+    seed: options.seed ?? null,
+  });
 
   const result = await client.call({
     systemInstruction: buildPatchSystemPrompt(doc.creativeMode),
@@ -149,18 +248,62 @@ export async function edit(
   });
 
   const parsed = PatchOutputSchema.safeParse(result.parsed);
+  trace(
+    'pipeline',
+    'pipeline.parse',
+    parsed.success
+      ? 'patch output matched the schema'
+      : `patch output did not match the schema: ${parsed.error.issues.length} issue(s)`,
+    parsed.success
+      ? { ok: true, operations: parsed.data.operations.length }
+      : { ok: false, issues: parsed.error.issues, received: result.parsed },
+    { level: parsed.success ? 'info' : 'error' },
+  );
   if (!parsed.success) {
     throw new PlanError(`Patch output did not match the schema: ${parsed.error.message}`);
   }
 
   const patch = applyPatch(doc, parsed.data);
+  // Applied, rejected and declined together. A partially applied edit that
+  // looks complete is the failure mode that makes surgical editing
+  // untrustworthy, and this is the record of which of the three each operation
+  // fell into.
+  trace(
+    'pipeline',
+    'pipeline.patch',
+    `applied ${patch.applied.length}, rejected ${patch.rejected.length}, declined ${patch.declined.length}`,
+    { applied: patch.applied, rejected: patch.rejected, declined: patch.declined },
+    { level: patch.rejected.length > 0 || patch.declined.length > 0 ? 'warn' : 'info' },
+  );
   const ctx = contextFor(patch.doc);
+
+  const validation = validate(patch.doc, ctx);
+  trace(
+    'pipeline',
+    'pipeline.validate',
+    validation.diagnostics.length === 0
+      ? 'no diagnostics'
+      : `${validation.diagnostics.length} diagnostic(s)`,
+    describeValidation(validation),
+    { level: validation.diagnostics.length === 0 ? 'info' : 'warn' },
+  );
+
+  const rendered = serialize(patch.doc, ctx);
+  trace('pipeline', 'pipeline.serialize', `rendered ${rendered.length} chars`, {
+    length: rendered.length,
+    spans: rendered.map.length,
+    text: rendered.text,
+  });
+
+  trace('pipeline', 'pipeline.edit.done', 'edit finished', { paths }, {
+    durationMs: Date.now() - started,
+  });
 
   return {
     doc: patch.doc,
     patch,
-    validation: validate(patch.doc, ctx),
-    rendered: serialize(patch.doc, ctx),
+    validation,
+    rendered,
     ...(result.interactionId ? { interactionId: result.interactionId } : {}),
     usage: result.usage,
   };
@@ -178,11 +321,30 @@ export function editDirect(doc: H3Document, path: string, value: unknown): EditR
     declined: null,
   });
   const ctx = contextFor(patch.doc);
+  const validation = validate(patch.doc, ctx);
+  const rendered = serialize(patch.doc, ctx);
+  // No model, so no provider events surround this one. Traced on the same
+  // channel as an assisted edit precisely because the two are indistinguishable
+  // downstream: the log should show that too.
+  trace(
+    'pipeline',
+    'pipeline.editDirect',
+    patch.rejected.length > 0 ? `direct edit of ${path} was rejected` : `direct edit of ${path}`,
+    {
+      path,
+      value,
+      applied: patch.applied,
+      rejected: patch.rejected,
+      diagnostics: validation.diagnostics.length,
+      length: rendered.length,
+    },
+    { level: patch.rejected.length > 0 ? 'warn' : 'info' },
+  );
   return {
     doc: patch.doc,
     patch,
-    validation: validate(patch.doc, ctx),
-    rendered: serialize(patch.doc, ctx),
+    validation,
+    rendered,
     usage: {},
   };
 }

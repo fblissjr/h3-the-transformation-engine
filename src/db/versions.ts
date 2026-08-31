@@ -14,6 +14,7 @@
 import type { H3Document } from '../core/ir/types';
 import type { AppliedOperation } from '../core/patch/apply';
 import { db, type StoredVersion } from './db';
+import { trace } from '../debug';
 
 let counter = 0;
 
@@ -48,6 +49,15 @@ export async function recordVersion(params: {
     })),
   };
   await (await db()).put('versions', version);
+  trace('storage', 'storage.recordVersion', `recorded ${version.id} "${version.label}"`, {
+    id: version.id,
+    parentId: version.parentId,
+    label: version.label,
+    // Which paths this version changed, not the document -- the document is
+    // already described by `pipeline.assemble` and repeating it here would
+    // spend the buffer's budget on a copy.
+    operations: version.operations.map((o) => o.path),
+  });
   return version;
 }
 
