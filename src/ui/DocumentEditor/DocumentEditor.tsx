@@ -22,7 +22,8 @@ interface FieldProps {
   rows?: number;
   selected: boolean;
   onSelect: (path: string, additive: boolean) => void;
-  onCommit: (path: string, value: string) => void;
+  /** Resolves to whether the document actually took the value. */
+  onCommit: (path: string, value: string) => Promise<boolean>;
 }
 
 /**
@@ -33,7 +34,17 @@ interface FieldProps {
  */
 function Field({ path, label, value, rows = 2, selected, onSelect, onCommit }: FieldProps) {
   const [draft, setDraft] = useState(value);
-  useEffect(() => setDraft(value), [value]);
+  const [refused, setRefused] = useState(false);
+  // A value arriving from the document supersedes the draft and the mark alike.
+  useEffect(() => {
+    setDraft(value);
+    setRefused(false);
+  }, [value]);
+
+  const commit = async () => {
+    if (draft === value) return;
+    setRefused(!(await onCommit(path, draft)));
+  };
 
   return (
     <div className={`rounded border p-2 ${selected ? 'border-[var(--color-accent)]' : 'border-[var(--color-edge)]'}`}>
@@ -43,13 +54,18 @@ function Field({ path, label, value, rows = 2, selected, onSelect, onCommit }: F
         className="mb-1 block w-full text-left"
       >
         <span className="text-[10px] uppercase tracking-wide text-[var(--color-muted)]">{label}</span>
+        {refused && (
+          <span className="ml-2 text-[10px] text-[var(--color-warn)]">not in the document</span>
+        )}
       </button>
       <textarea
         value={draft}
         rows={rows}
         onChange={(e) => setDraft(e.target.value)}
-        onBlur={() => draft !== value && onCommit(path, draft)}
-        className="w-full resize-y rounded bg-black/30 p-1.5 text-xs leading-relaxed"
+        onBlur={() => void commit()}
+        className={`w-full resize-y rounded bg-black/30 p-1.5 text-xs leading-relaxed ${
+          refused ? 'ring-1 ring-[var(--color-warn)]' : ''
+        }`}
       />
     </div>
   );
@@ -95,7 +111,7 @@ export function cutCommit(draft: string, current: number | null): number | null 
 
 interface CutFieldProps {
   value: number | null;
-  onCommit: (ms: number) => void;
+  onCommit: (ms: number) => Promise<boolean>;
 }
 
 /**
@@ -111,7 +127,23 @@ interface CutFieldProps {
  */
 function CutField({ value, onCommit }: CutFieldProps) {
   const [draft, setDraft] = useState(cutDraft(value));
-  useEffect(() => setDraft(cutDraft(value)), [value]);
+  const [refused, setRefused] = useState(false);
+  useEffect(() => {
+    setDraft(cutDraft(value));
+    setRefused(false);
+  }, [value]);
+
+  const commit = async () => {
+    const next = cutCommit(draft, value);
+    // Nothing to write is not a refusal: an empty or unchanged field goes back
+    // to what the document holds and says nothing.
+    if (next == null) {
+      setDraft(cutDraft(value));
+      setRefused(false);
+      return;
+    }
+    setRefused(!(await onCommit(next)));
+  };
 
   return (
     <label className="flex items-center gap-1 text-[10px] text-[var(--color-muted)]">
@@ -124,17 +156,16 @@ function CutField({ value, onCommit }: CutFieldProps) {
         // Enter blurs rather than committing directly, so blur stays the one
         // path a commit can come from.
         onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-        onBlur={() => {
-          const next = cutCommit(draft, value);
-          if (next == null) setDraft(cutDraft(value));
-          else onCommit(next);
-        }}
-        className="w-20 rounded bg-black/30 px-1 py-0.5 text-xs"
+        onBlur={() => void commit()}
+        className={`w-20 rounded bg-black/30 px-1 py-0.5 text-xs ${
+          refused ? 'ring-1 ring-[var(--color-warn)]' : ''
+        }`}
       />
       {/* Reads the committed value, so it stops moving until the write lands,
           and says nothing rather than 00:00.000 for a shot that has no cut
           time -- the empty field beside it is the honest state. */}
       <span>{value == null ? 'no cut time yet' : `ms = ${formatTimestamp(value)}`}</span>
+      {refused && <span className="text-[var(--color-warn)]">not in the document</span>}
     </label>
   );
 }
@@ -143,7 +174,8 @@ interface Props {
   doc: H3Document;
   selectedPaths: string[];
   onSelect: (path: string, additive: boolean) => void;
-  onCommit: (path: string, value: unknown) => void;
+  /** Resolves to whether the document actually took the value. */
+  onCommit: (path: string, value: unknown) => Promise<boolean>;
 }
 
 export function DocumentEditor({ doc, selectedPaths, onSelect, onCommit }: Props) {

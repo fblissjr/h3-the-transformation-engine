@@ -28,6 +28,7 @@ import { normalize } from '../src/core/normalize';
 import type { PlannerOutput } from '../src/core/ir/schema';
 import type { CompileInput, H3Document } from '../src/core/ir/types';
 import type { CallOptions, CallResult, InferenceClient } from '../src/provider/types';
+import { t2vaBaker } from './fixtures/guide-examples';
 
 const plan: PlannerOutput = {
   style: 'Live-action, cinematic',
@@ -227,5 +228,41 @@ describe('edit hands the patch call its own task', () => {
     const schema = JSON.stringify(client.calls[0].schema);
     expect(schema).toContain('operations');
     expect(schema).not.toContain('soundscape');
+  });
+});
+
+/**
+ * What comes back through the seam, rather than what goes out through it.
+ *
+ * The rest of this file watches the call; this watches the reply being applied.
+ * A patch operation carries `value: string` -- that is the schema the model
+ * answers, not a convenience -- so a numeric field arrives as text and the
+ * coercion that turns it back into a number lives in `ir/leaf.ts`, two layers
+ * below. Asserting it at `applyPatch` leaves the question of whether an
+ * assisted edit reaches that code at all, which is the wiring gap this file
+ * exists for. It needs no provider: the reply is the fixture.
+ *
+ * `t2vaBaker` rather than `docFor()`, which has one shot and so no cut time.
+ */
+describe('a patch value crosses the seam as text', () => {
+  it('applies a numeric leaf as a number, not as the string it arrived in', async () => {
+    const client = new RecordingClient({
+      operations: [{ path: 'shots[1].cutAtMs', value: '6200', rationale: 'Asked.' }],
+      declined: null,
+    });
+    const result = await edit(client, t2vaBaker, ['shots[1].cutAtMs'], 'cut a second later');
+    expect(result.patch.rejected).toEqual([]);
+    expect(result.doc.shots[1].cutAtMs).toBe(6200);
+  });
+
+  it('refuses a value the document schema rejects, and says which field', async () => {
+    const client = new RecordingClient({
+      operations: [{ path: 'shots[1].cutAtMs', value: '6200.5', rationale: 'Asked.' }],
+      declined: null,
+    });
+    const result = await edit(client, t2vaBaker, ['shots[1].cutAtMs'], 'cut a second later');
+    expect(result.patch.applied).toEqual([]);
+    expect(result.patch.rejected[0]?.reason).toMatch(/Not a legal value for "shots\[\]\.cutAtMs"/);
+    expect(result.doc.shots[1].cutAtMs).toBe(5000);
   });
 });

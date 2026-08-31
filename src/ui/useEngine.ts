@@ -935,9 +935,18 @@ export function useEngine() {
     }
   }, [busy, client, notReady, effectiveIdea, input, commit, creative, rolled, seed, reportOrStopped, enforceSchema]);
 
+  /**
+   * A direct edit, answering whether the document took it.
+   *
+   * The answer is the point rather than a convenience: the editor holds a draft
+   * per field, and every path out of here that does not commit -- the busy
+   * drop, a rejection from the patch gates, a throw -- used to leave that draft
+   * sitting there looking committed. The caller marks itself instead of
+   * guessing from a banner that may be about some other field.
+   */
   const applyDirect = useCallback(
-    async (path: string, value: unknown) => {
-      if (!doc) return;
+    async (path: string, value: unknown): Promise<boolean> => {
+      if (!doc) return false;
       // The same guard `applyAssisted` states below, and here for the same
       // reason it was once absent: the editor that calls this is never
       // disabled. Two overlapping direct edits each compute from the `doc` of
@@ -947,14 +956,18 @@ export function useEngine() {
       // reported rather than dropped in silence. The field keeps what was
       // typed, so the message is the only thing that says why the document did
       // not move.
-      if (busy) return fail(`${busy} is running. The edit to ${path} was not applied.`);
+      if (busy) {
+        fail(`${busy} is running. The edit to ${path} was not applied.`);
+        return false;
+      }
       try {
         const result = editDirect(doc, path, value);
         if (result.patch.rejected.length > 0) {
           fail(result.patch.rejected[0].reason);
-          return;
+          return false;
         }
         await commit(result.doc, `Edited ${path}`, result.patch.applied);
+        return true;
       } catch (cause) {
         // `editDirect` serializes, and the serializer throws rather than
         // renders on a value it cannot express -- `formatTimestamp` below zero
@@ -964,6 +977,7 @@ export function useEngine() {
         // that value reaching the serializer now; this stops the next one from
         // being invisible.
         fail(cause instanceof Error ? cause.message : String(cause));
+        return false;
       }
     },
     [busy, doc, commit, fail],

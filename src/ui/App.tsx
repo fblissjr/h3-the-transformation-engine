@@ -245,7 +245,7 @@ export function App() {
               doc={e.doc}
               selectedPaths={e.selectedPaths}
               onSelect={e.togglePath}
-              onCommit={(path, value) => void e.applyDirect(path, value)}
+              onCommit={(path, value) => e.applyDirect(path, value)}
             />
           ) : (
             <div className="p-6 text-xs text-[var(--color-muted)]">
