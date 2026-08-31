@@ -88,13 +88,18 @@ describe('every outcome is reportable and none is fatal', () => {
     expect(outcome.detail).toContain('google_gemma_4-E4B-it-bf16-mlx');
   });
 
-  it('reads a busy 500 as busy, because this route does not use 503 for it', async () => {
-    // The bug this pins, found by clicking rather than by any test: the two
-    // routes report one condition with two codes. Generating answers 503 with
-    // Retry-After; asking THIS route to make room answers 500 carrying
-    // MODEL_BUSY. Classifying on the status alone sent a transient,
-    // self-clearing wait down the `rejected` path, whose advice is to refresh a
-    // roster that was never wrong. Body recorded from the live server.
+  it('reads a busy 500 as busy, because servers below 1.79.53 use it for that', async () => {
+    // The bug this pins, found by clicking rather than by any test: on the
+    // server this was measured against (1.79.52) the two routes report one
+    // condition with two codes. Generating answers 503 with Retry-After; asking
+    // THIS route to make room answers 500 carrying MODEL_BUSY. Classifying on
+    // the status alone sent a transient, self-clearing wait down the `rejected`
+    // path, whose advice is to refresh a roster that was never wrong.
+    //
+    // The heylook side reports 1.79.53 aligns this route on 503. That is their
+    // claim and is not verified here -- so this case is not obsolete, it is the
+    // pre-.53 half of a version-skew pair, and the 503 case above is the other.
+    // Body recorded from the live server.
     const body = JSON.stringify({
       detail:
         "Failed to load model: MODEL_BUSY: cannot make room -- ['Qwen3.5-27B-8bit-mlx'] " +

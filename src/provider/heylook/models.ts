@@ -235,17 +235,24 @@ export async function loadModel(
   }
 
   // Busy is decided by what the server SAID, not only by the status it said it
-  // with, because the two routes disagree about the code for one condition.
-  // Measured, both against the live server within a minute of each other while
-  // one model was generating: `/v1/messages` answers 503 with
+  // with, because which status carries this condition depends on the version.
+  //
+  // Measured here on server 1.79.52, both routes within a minute of each other
+  // while one model was generating: `/v1/messages` answers 503 with
   // `code: model_overloaded` and `Retry-After: 1`, while this route answers
   // **500** carrying `MODEL_BUSY: cannot make room -- [<id>] is generating`.
+  // The heylook side has since reported that 1.79.53 makes this route answer
+  // 503 with the same envelope as the rest -- their fix, not verified here,
+  // because the server this was measured against is still .52.
   //
-  // Reading the status alone put that in the `rejected` branch, whose advice is
-  // to refresh the roster -- confidently wrong, since the roster is fine and the
-  // condition clears itself. And it cannot be fixed by treating 500 as busy: on
-  // this route 500 is also the genuine "that model is broken" answer. The token
-  // is the only thing that separates them.
+  // Both are handled and neither is redundant. The status check is the one that
+  // will match on .53 and after; the token is the one that matches below it, and
+  // it cannot be replaced by treating 500 as busy, because on this route 500 is
+  // also the genuine "that model exists and failed to load".
+  //
+  // Reading the status alone put a transient, self-clearing wait in the
+  // `rejected` branch, whose advice is to refresh the roster -- confidently
+  // wrong, since the roster was fine.
   const busy = response.status === 503 || /MODEL_BUSY/.test(body);
   if (busy) {
     const detail = messageFrom(body) ?? 'the server is busy';
