@@ -20,6 +20,7 @@ import { contextFor, framesToSeconds } from '../core/normalize';
 import { inferMode } from '../core/normalize/mode';
 import { compile, edit, editDirect, inspect } from '../pipeline';
 import { buildClient } from '../provider/build';
+import { createSerialQueue } from './queue';
 import type { InferenceClient, ProviderId } from '../provider/types';
 import {
   listModels,
@@ -834,6 +835,31 @@ export function useEngine() {
   }, [client, provider, discovering, heylookError, instance]);
 
   // --- persistence of a new document state --------------------------------
+  /**
+   * The newest document and head, for work that outlives the render it started in.
+   *
+   * Both halves are load-bearing and neither is enough alone. The effects catch
+   * every path that sets the state -- a load, a checkout, an erase -- including
+   * the ones that never go through `commit`. The writes inside `commit` catch
+   * the case the effects cannot: a queued task can run before React has
+   * re-rendered, and a ref that waits for a render would hand it the document
+   * the previous task already replaced.
+   */
+  const docRef = useRef<H3Document | null>(null);
+  const headRef = useRef<string | null>(null);
+  useEffect(() => {
+    docRef.current = doc;
+  }, [doc]);
+  useEffect(() => {
+    headRef.current = headVersionId;
+  }, [headVersionId]);
+
+  /**
+   * Direct edits run one at a time. Created once, since a queue that is
+   * rebuilt on render serialises nothing.
+   */
+  const editQueue = useRef(createSerialQueue());
+
   const commit = useCallback(
     async (
       next: H3Document,
@@ -842,7 +868,10 @@ export function useEngine() {
     ) => {
       const version = await recordVersion({
         documentId: DOC_ID,
-        parentId: headVersionId,
+        // The ref rather than the render's value: two commits in one render
+        // both named the same parent, which forked the history for an edit
+        // nobody branched.
+        parentId: headRef.current,
         doc: next,
         label,
         ...(operations ? { operations } : {}),
@@ -854,17 +883,22 @@ export function useEngine() {
         doc: next,
         headVersionId: version.id,
       });
+      // Before the setters, and not left to their effects: whatever runs next
+      // must see this document and this head even if React has not rendered.
+      const parentId = headRef.current;
+      docRef.current = next;
+      headRef.current = version.id;
       setDoc(next);
       setHeadVersionId(version.id);
       setVersions(await listVersions(DOC_ID));
       trace('state', 'state.commit', `head is now ${version.id} "${label}"`, {
         versionId: version.id,
-        parentId: headVersionId,
+        parentId,
         label,
         changedPaths: (operations ?? []).map((o) => o.path),
       });
     },
-    [headVersionId],
+    [],
   );
 
   /**
@@ -945,49 +979,52 @@ export function useEngine() {
    * guessing from a banner that may be about some other field.
    */
   const applyDirect = useCallback(
-    async (path: string, value: unknown): Promise<boolean> => {
-      if (!doc) return false;
-      // Says what it covers, because it reads like more than it is: nothing
-      // here sets `busy`, so this guard sees a generation or an assisted edit
-      // and never a second direct edit. Two overlapping direct edits are a
-      // different problem -- each computes from the `doc` of its own render, so
-      // the first is discarded, and worse now than before, since the discarded
-      // field's `applyDirect` returned true and it will not mark itself. The
-      // window is under one IndexedDB round trip: measured at 250/100/50/20/5ms
-      // between edits, all chained, and it forked only at 0ms, which is the
-      // browser driver rather than a person. Fixing it means reading the newest
-      // document rather than the render's, not a wider guard here.
-      if (busy) {
-        fail(`${busy} is running. The edit to ${path} was not applied.`);
-        return false;
-      }
-      // Cleared on the way in, the way `generate` and `applyAssisted` do. A
-      // banner from a refused edit outlived the edit that fixed it, so the
-      // field said the value was in the document while the banner said it was
-      // not. The notice is left alone: it carries the schema report from load,
-      // which an unrelated edit has no business dismissing.
-      setError(null);
-      try {
-        const result = editDirect(doc, path, value);
-        if (result.patch.rejected.length > 0) {
-          fail(result.patch.rejected[0].reason);
+    (path: string, value: unknown): Promise<boolean> =>
+      editQueue.current(async () => {
+        // Read when the task runs rather than when it was queued, which is the
+        // whole of the fix: the edit ahead of this one has already produced a new
+        // document by now, and computing from the render's `doc` is what
+        // discarded it. Measured before and after against the running app by
+        // blurring two fields in one tick -- the first edit used to vanish from
+        // the stored document while its version stayed in the tree, parented
+        // beside the second rather than before it.
+        const current = docRef.current;
+        if (!current) return false;
+        // Says what it covers, because it reads like more than it is: nothing
+        // here sets `busy`, so this guard sees a generation or an assisted edit
+        // and never a second direct edit. That case is the queue's, not this
+        // guard's.
+        if (busy) {
+          fail(`${busy} is running. The edit to ${path} was not applied.`);
           return false;
         }
-        await commit(result.doc, `Edited ${path}`, result.patch.applied);
-        return true;
-      } catch (cause) {
-        // `editDirect` serializes, and the serializer throws rather than
-        // renders on a value it cannot express -- `formatTimestamp` below zero
-        // was the reachable one. An escape here used to be an unhandled
-        // rejection, because the caller discarded the promise: no banner, no
-        // version, and a field that appeared to do nothing at all. The caller
-        // now awaits the answer, and the shape gate stops that particular value
-        // reaching the serializer; this stops the next one from being invisible.
-        fail(cause instanceof Error ? cause.message : String(cause));
-        return false;
-      }
-    },
-    [busy, doc, commit, fail],
+        // Cleared on the way in, the way `generate` and `applyAssisted` do. A
+        // banner from a refused edit outlived the edit that fixed it, so the
+        // field said the value was in the document while the banner said it was
+        // not. The notice is left alone: it carries the schema report from load,
+        // which an unrelated edit has no business dismissing.
+        setError(null);
+        try {
+          const result = editDirect(current, path, value);
+          if (result.patch.rejected.length > 0) {
+            fail(result.patch.rejected[0].reason);
+            return false;
+          }
+          await commit(result.doc, `Edited ${path}`, result.patch.applied);
+          return true;
+        } catch (cause) {
+          // `editDirect` serializes, and the serializer throws rather than
+          // renders on a value it cannot express -- `formatTimestamp` below zero
+          // was the reachable one. An escape here used to be an unhandled
+          // rejection, because the caller discarded the promise: no banner, no
+          // version, and a field that appeared to do nothing at all. The caller
+          // now awaits the answer, and the shape gate stops that particular value
+          // reaching the serializer; this stops the next one from being invisible.
+          fail(cause instanceof Error ? cause.message : String(cause));
+          return false;
+        }
+      }),
+    [busy, commit, fail],
   );
 
   const applyAssisted = useCallback(
