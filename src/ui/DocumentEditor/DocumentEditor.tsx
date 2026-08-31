@@ -56,6 +56,20 @@ function Field({ path, label, value, rows = 2, selected, onSelect, onCommit }: F
 }
 
 /**
+ * The draft a cut-time field starts from, given what the document holds.
+ *
+ * Empty for a shot with no cut time, and that emptiness is load-bearing rather
+ * than cosmetic: the field used to seed from the `?? 0` it displays, so on a
+ * shot carrying a live `SHOT_MISSING_TIMESTAMP` the draft was already "0" with
+ * nothing typed, and merely tabbing through the field committed a cut at zero
+ * -- erasing the diagnostic, writing a bogus `[Shot 2] At 00:00.000`, and
+ * leaving a document that validates clean with nothing to say what happened.
+ */
+export function cutDraft(value: number | null): string {
+  return value == null ? '' : String(value);
+}
+
+/**
  * What a blurred cut-time draft should write, or null for "write nothing".
  *
  * Exported because this is the whole of the decision and the UI around it is
@@ -65,9 +79,11 @@ function Field({ path, label, value, rows = 2, selected, onSelect, onCommit }: F
  * the `?? 0` the input displays: a shot after the first with no cut time is a
  * live `SHOT_MISSING_TIMESTAMP`, and typing 0 into it is a real change.
  *
- * Range and ordering are not checked here. `validate/rules/timeline.ts` owns
- * them, and a second opinion in the editor would be a warning severity wearing
- * a different hat.
+ * What it deliberately does not do is judge the number. Whether a cut time may
+ * be fractional or negative is the document schema's answer, given once in
+ * `H3DocumentSchema` and enforced for every writer by the shape gate in
+ * `patch/apply.ts`; a copy of that rule here would be a second source for it.
+ * Ordering and the end of the video stay with `validate/rules/timeline.ts`.
  */
 export function cutCommit(draft: string, current: number | null): number | null {
   const trimmed = draft.trim();
@@ -94,8 +110,8 @@ interface CutFieldProps {
  * numeric draft turns an empty field into 0 and fights whoever is typing.
  */
 function CutField({ value, onCommit }: CutFieldProps) {
-  const [draft, setDraft] = useState(String(value ?? 0));
-  useEffect(() => setDraft(String(value ?? 0)), [value]);
+  const [draft, setDraft] = useState(cutDraft(value));
+  useEffect(() => setDraft(cutDraft(value)), [value]);
 
   return (
     <label className="flex items-center gap-1 text-[10px] text-[var(--color-muted)]">
@@ -110,13 +126,15 @@ function CutField({ value, onCommit }: CutFieldProps) {
         onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
         onBlur={() => {
           const next = cutCommit(draft, value);
-          if (next == null) setDraft(String(value ?? 0));
+          if (next == null) setDraft(cutDraft(value));
           else onCommit(next);
         }}
         className="w-20 rounded bg-black/30 px-1 py-0.5 text-xs"
       />
-      {/* Reads the committed value, so it stops moving until the write lands. */}
-      <span>ms = {formatTimestamp(value ?? 0)}</span>
+      {/* Reads the committed value, so it stops moving until the write lands,
+          and says nothing rather than 00:00.000 for a shot that has no cut
+          time -- the empty field beside it is the honest state. */}
+      <span>{value == null ? 'no cut time yet' : `ms = ${formatTimestamp(value)}`}</span>
     </label>
   );
 }

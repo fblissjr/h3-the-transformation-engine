@@ -9,7 +9,30 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { cutCommit } from '../src/ui/DocumentEditor/DocumentEditor';
+import { cutCommit, cutDraft } from '../src/ui/DocumentEditor/DocumentEditor';
+
+describe('cutDraft', () => {
+  it('is empty for a shot with no cut time', () => {
+    // The regression this exists for: seeding from the displayed `?? 0` put
+    // "0" in the field of a shot carrying SHOT_MISSING_TIMESTAMP, so tabbing
+    // through it committed a cut at zero and erased the diagnostic. Nothing
+    // downstream can tell that write apart from a deliberate one.
+    expect(cutDraft(null)).toBe('');
+  });
+
+  it('is the number for a shot that has one', () => {
+    expect(cutDraft(5200)).toBe('5200');
+    expect(cutDraft(0)).toBe('0');
+  });
+
+  it('round-trips through cutCommit as no change', () => {
+    // The two halves have to agree: a field nobody touched must produce a
+    // draft that commits nothing, for every value including zero and null.
+    for (const value of [null, 0, 5200]) {
+      expect(cutCommit(cutDraft(value), value), `${value} committed itself`).toBeNull();
+    }
+  });
+});
 
 describe('cutCommit', () => {
   it('writes a changed number', () => {

@@ -1,7 +1,7 @@
 /**
  * Applying a patch to a document.
  *
- * Three gates, in order, and a patch operation must clear all of them:
+ * Four gates, in order, and a patch operation must clear all of them:
  *
  *   1. The path is on the allowlist in ir/paths.ts. Derived values stay derived;
  *      an open write surface is how shot indices and label ordinals stop being
@@ -10,6 +10,12 @@
  *      auto-created, because a field nothing reads is worse than an error.
  *   3. User-supplied dialogue is never altered. That is the one piece of content
  *      whose whole value is that it came through unchanged.
+ *   4. The value fits the shape `H3DocumentSchema` gives that leaf. The
+ *      allowlist says where a write may land and said nothing about what may
+ *      land there, so a fractional cut time from the editor and the string
+ *      "5200" from a model patch both went in and produced a document that
+ *      failed its own schema on the next load. The shape is read off the
+ *      document schema in ir/leaf.ts rather than restated here.
  *
  * Rejections are returned, never silently dropped. A patch that half-applied
  * without saying so is the failure mode that makes surgical editing untrustworthy.
@@ -17,6 +23,7 @@
 
 import type { H3Document } from '../ir/types';
 import type { PatchOutput } from '../ir/schema';
+import { coerceToLeaf, leafSchema } from '../ir/leaf';
 import { getAtPath, isPatchable, parsePath, pathExists, setAtPath, toPathPattern } from '../ir/paths';
 
 export interface AppliedOperation {
@@ -76,15 +83,38 @@ export function applyPatch(doc: H3Document, patch: PatchOutput): PatchResult {
       continue;
     }
 
+    const pattern = toPathPattern(op.path);
+    const leaf = leafSchema(pattern);
+    if (!leaf) {
+      // Refused rather than written blind: an allowlist entry the document
+      // schema has no field for is a bug in the allowlist, and writing it would
+      // put a key in the document that nothing can read back.
+      rejected.push({
+        path: op.path,
+        reason: `"${pattern}" has no shape in the document schema.`,
+      });
+      continue;
+    }
+
     const before = getAtPath(next, op.path);
-    if (before === op.value) {
+    // Coerced before the comparison, or a model resending the current cut time
+    // as text reads as a change and rewrites the number as a string.
+    // visibleText is an array; a patch supplying a bare string would otherwise
+    // silently change its type and break every consumer downstream.
+    const coerced = coerceToLeaf(leaf, before, op.value);
+    if (before === coerced) {
       rejected.push({ path: op.path, reason: 'Value is unchanged.' });
       continue;
     }
 
-    // visibleText is an array; a patch supplying a bare string would silently
-    // change its type and break every consumer downstream.
-    const coerced = Array.isArray(before) ? splitList(op.value) : op.value;
+    const shape = leaf.safeParse(coerced);
+    if (!shape.success) {
+      rejected.push({
+        path: op.path,
+        reason: `Not a legal value for "${pattern}": ${shape.error.issues[0]?.message ?? 'wrong shape'}.`,
+      });
+      continue;
+    }
 
     try {
       next = setAtPath(next, op.path, coerced);
@@ -98,14 +128,6 @@ export function applyPatch(doc: H3Document, patch: PatchOutput): PatchResult {
   }
 
   return { doc: next, applied, rejected, declined: patch.declined ?? [] };
-}
-
-/** Newline- or comma-separated string into a trimmed list, dropping blanks. */
-function splitList(value: string): string[] {
-  return value
-    .split(/[\n,]/)
-    .map((s) => s.trim())
-    .filter((s) => s !== '');
 }
 
 /** Undo an applied patch by writing the recorded `before` values back. */

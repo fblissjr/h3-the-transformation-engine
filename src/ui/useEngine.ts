@@ -938,21 +938,35 @@ export function useEngine() {
   const applyDirect = useCallback(
     async (path: string, value: unknown) => {
       if (!doc) return;
-      // The same guard `applyAssisted` states below, and absent here for the
-      // same reason it was once absent there: the editor that calls this is
-      // never disabled. Two overlapping direct edits each compute from the
-      // `doc` of their own render, so the first is silently discarded -- and
-      // both reach `recordVersion`, which is why its id allocation could race.
-      // That half is now safe by construction; this half is the lost edit.
-      if (busy) return;
-      const result = editDirect(doc, path, value);
-      if (result.patch.rejected.length > 0) {
-        fail(result.patch.rejected[0].reason);
-        return;
+      // The same guard `applyAssisted` states below, and here for the same
+      // reason it was once absent: the editor that calls this is never
+      // disabled. Two overlapping direct edits each compute from the `doc` of
+      // their own render, so the first is silently discarded -- and both reach
+      // `recordVersion`, which is why its id allocation could race. That half
+      // is safe by construction; this half is the lost edit, and it is now
+      // reported rather than dropped in silence. The field keeps what was
+      // typed, so the message is the only thing that says why the document did
+      // not move.
+      if (busy) return fail(`${busy} is running. The edit to ${path} was not applied.`);
+      try {
+        const result = editDirect(doc, path, value);
+        if (result.patch.rejected.length > 0) {
+          fail(result.patch.rejected[0].reason);
+          return;
+        }
+        await commit(result.doc, `Edited ${path}`, result.patch.applied);
+      } catch (cause) {
+        // `editDirect` serializes, and the serializer throws rather than
+        // renders on a value it cannot express -- `formatTimestamp` below zero
+        // was the reachable one. `App.tsx` calls this as `void applyDirect(...)`,
+        // so an escape here was an unhandled rejection: no banner, no version,
+        // and a field that appeared to do nothing at all. The shape gate stops
+        // that value reaching the serializer now; this stops the next one from
+        // being invisible.
+        fail(cause instanceof Error ? cause.message : String(cause));
       }
-      await commit(result.doc, `Edited ${path}`, result.patch.applied);
     },
-    [busy, doc, commit],
+    [busy, doc, commit, fail],
   );
 
   const applyAssisted = useCallback(
