@@ -84,6 +84,13 @@ pure and the roster is stubbed -- so a green suite says nothing about whether a
 local model can actually hold the planner's JSON shape. That is the open
 question on that provider, and it is answered by running one.
 
+One has been run. 56 of 57 planner calls against a local 26B MoE returned JSON
+the schema accepted, with no constrained decoding and the shape asked for in the
+prompt trailer -- so a local model can hold this document, and the single failure
+was a truncated string rather than a wrong shape. `scripts/music-lean-heylook.mjs`
+is the instrument. One model, one session: a data point, not a guarantee, and it
+says nothing about the smaller models in the roster.
+
 **Break a check where its green could be hollow, and not where it could not.** The question a breakage answers is whether the check reaches its subject — so spend one where a green might come from never arriving: across a schema, a barrel export, an assembly step, a UI path, or beside a second guard that could be carrying the assertion alone. Where the assertion reads the value under test directly, breaking it is a tautology and proves nothing; changing a constant to watch its own equality assertion fail is theatre, and doing it out of habit trains you to read "went red" as "is sound".
 
 That is not a licence to skip it, because this is exactly where the gaps have been. Deleting `if (input.creativeMode) doc.creativeMode = ...` from `compile` left all 400-odd tests green, because it sat past the model call where nothing could reach it. The same for the roll record. `{setting}` and `{setting:random}` drew separately for a while with no control at all, under a describe block whose name claimed the case was covered. And the two prototype guards in `matrix.ts` only go red together, which the breakage has to say out loud or the next reader concludes one of them is dead.
