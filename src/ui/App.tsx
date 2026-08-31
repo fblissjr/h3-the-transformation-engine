@@ -50,6 +50,7 @@ export function App() {
           modelId={e.heylookModelId}
           onModelChange={e.setHeylookModel}
           discovering={e.discovering}
+          loadingModel={e.loadingModel}
           error={e.heylookError}
           onRefresh={() => void e.refreshHeylookModels()}
           enforceSchema={e.enforceSchema}

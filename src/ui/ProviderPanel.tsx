@@ -33,6 +33,8 @@ interface Props {
   modelId: string | null;
   onModelChange: (id: string) => void;
   discovering: boolean;
+  /** Non-null while a model is being made resident, naming which. */
+  loadingModel: string | null;
   error: string | null;
   onRefresh: () => void;
 }
@@ -57,6 +59,7 @@ export function ProviderPanel({
   modelId,
   onModelChange,
   discovering,
+  loadingModel,
   error,
   onRefresh,
 }: Props) {
@@ -103,6 +106,14 @@ export function ProviderPanel({
           )}
 
           {discovering && <span>asking {origin}…</span>}
+
+          {/*
+            A cold load writes nothing to the connection while it runs, so
+            without this the app looks hung for as long as the model takes to
+            read. Naming the model rather than saying "loading" is the point:
+            the wait belongs to the thing just selected.
+          */}
+          {loadingModel != null && <span>loading {loadingModel}…</span>}
 
           {!discovering && models != null && models.length > 0 && (
             <select

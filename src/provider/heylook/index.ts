@@ -9,6 +9,6 @@
 export { normalizeOrigin } from './config';
 export { HeylookClient, buildRequest, joinTextBlocks, retryAfterMs } from './client';
 export type { HeylookClientConfig } from './client';
-export { canServe, listModels, pickDefaultModel, DiscoveryError } from './models';
-export type { HeylookModel } from './models';
+export { canServe, listModels, loadModel, pickDefaultModel, DiscoveryError } from './models';
+export type { HeylookModel, LoadOutcome } from './models';
 export { canResize, resizeAll, resizeAttachment, MAX_EDGE } from './images';

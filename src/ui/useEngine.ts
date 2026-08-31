@@ -21,7 +21,7 @@ import { inferMode } from '../core/normalize/mode';
 import { compile, edit, editDirect, inspect } from '../pipeline';
 import { buildClient } from '../provider/build';
 import type { InferenceClient, ProviderId } from '../provider/types';
-import { listModels, pickDefaultModel, type HeylookModel } from '../provider/heylook';
+import { listModels, loadModel, pickDefaultModel, type HeylookModel } from '../provider/heylook';
 import {
   explainFor,
   heylookPolicyConfig,
@@ -157,6 +157,15 @@ export function useEngine() {
   const abortRef = useRef<AbortController | null>(null);
   const [heylookError, setHeylookError] = useState<string | null>(null);
   const [discovering, setDiscovering] = useState(false);
+  /**
+   * The model being made resident, while that is happening.
+   *
+   * Separate from `discovering` because they are different waits with different
+   * answers: discovery is asking what is served, this is asking for gigabytes to
+   * be read off disk. Sharing one flag would put "asking <origin>" on screen
+   * during a thirty-second load.
+   */
+  const [loadingModel, setLoadingModel] = useState<string | null>(null);
   /**
    * On by default, which is what Gemini has always done.
    *
@@ -586,12 +595,48 @@ export function useEngine() {
     void setSetting(ENFORCE_SCHEMA_SETTING, next);
   }, []);
 
-  const setHeylookModel = useCallback((id: string) => {
-    trace('state', 'state.model', `heylook model is now ${id}`, { model: id });
-    heylookModelIdRef.current = id;
-    setHeylookModelId(id);
-    void setSetting(HEYLOOK_MODEL_SETTING, id);
-  }, []);
+  const setHeylookModel = useCallback(
+    (id: string) => {
+      trace('state', 'state.model', `heylook model is now ${id}`, { model: id });
+      heylookModelIdRef.current = id;
+      setHeylookModelId(id);
+      void setSetting(HEYLOOK_MODEL_SETTING, id);
+
+      // Ask for it to be made resident now, so the cold load happens against a
+      // control the user just touched rather than inside the first generate,
+      // where it is indistinguishable from a hung server -- nothing is written
+      // to the connection while a model loads.
+      //
+      // Nothing here can fail the selection. The model is chosen either way and
+      // the generate that follows resolves the provider itself; this only
+      // decides whether the wait is legible. So every outcome is a notice.
+      void (async () => {
+        setLoadingModel(id);
+        try {
+          const outcome = await loadModel(instance.origin, id);
+          if (outcome.kind === 'busy') {
+            // The one backpressure message worth quoting: it names the model
+            // that is generating, and this app has a stop button for it.
+            setNotice(
+              `${id} could not be loaded yet -- ${outcome.detail} It will load when the ` +
+                'server is free, or you can stop the run that is holding it.',
+            );
+          } else if (outcome.kind === 'rejected') {
+            setNotice(
+              `heylook would not load ${id}: ${outcome.detail} Refresh the model list; the ` +
+                'roster may have changed.',
+            );
+          }
+          // `unreachable` is deliberately silent. Discovery already reports an
+          // unreachable server in its own words, and a second notice saying the
+          // same thing in different words reads as two faults.
+        } finally {
+          setLoadingModel(null);
+        }
+      })();
+    },
+    [instance],
+  );
 
   const heylookModel = useMemo(
     () => heylookModels?.find((m) => m.id === heylookModelId) ?? null,
@@ -911,6 +956,8 @@ export function useEngine() {
     setHeylookModel,
     heylookError,
     discovering,
+    /** Non-null while a model is being made resident, naming which. */
+    loadingModel,
     enforceSchema,
     setEnforceSchema,
     /** The effective policy, and where each value came from. */
