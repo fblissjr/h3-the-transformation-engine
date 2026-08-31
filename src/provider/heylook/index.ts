@@ -11,4 +11,13 @@ export { HeylookClient, buildRequest, joinTextBlocks, retryAfterMs } from './cli
 export type { HeylookClientConfig } from './client';
 export { canServe, listModels, loadModel, pickDefaultModel, DiscoveryError } from './models';
 export type { HeylookModel, LoadOutcome } from './models';
+export {
+  reduceRoster,
+  shouldDiscover,
+  rosterModels,
+  rosterError,
+  isDiscovering,
+  INITIAL_ROSTER,
+} from './discovery';
+export type { RosterState, RosterEvent } from './discovery';
 export { canResize, resizeAll, resizeAttachment, MAX_EDGE } from './images';

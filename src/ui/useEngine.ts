@@ -21,7 +21,18 @@ import { inferMode } from '../core/normalize/mode';
 import { compile, edit, editDirect, inspect } from '../pipeline';
 import { buildClient } from '../provider/build';
 import type { InferenceClient, ProviderId } from '../provider/types';
-import { listModels, loadModel, pickDefaultModel, type HeylookModel } from '../provider/heylook';
+import {
+  listModels,
+  loadModel,
+  pickDefaultModel,
+  reduceRoster,
+  rosterError,
+  rosterModels,
+  isDiscovering,
+  shouldDiscover,
+  INITIAL_ROSTER,
+  type RosterState,
+} from '../provider/heylook';
 import {
   explainFor,
   heylookPolicyConfig,
@@ -118,8 +129,19 @@ export function useEngine() {
    * this app should not spring on anyone.
    */
   const [provider, setProviderState] = useState<ProviderId>('gemini');
-  /** The live roster, or null before discovery has been attempted. */
-  const [heylookModels, setHeylookModels] = useState<HeylookModel[] | null>(null);
+  /**
+   * The roster's lifecycle, including which machine it describes.
+   *
+   * One value rather than the three it used to be (`heylookModels`,
+   * `heylookError`, `discovering`), because those three could disagree: a
+   * reply from the machine you just switched away from overwrote all of them
+   * independently, and a failure wrote an empty roster that the re-discovery
+   * effect then read as an answer. The transitions are in
+   * `src/provider/heylook/discovery.ts`, where they can be tested -- there is
+   * no React renderer in the devDependencies, so a guard written inline here
+   * is one nothing can reach.
+   */
+  const [roster, setRoster] = useState<RosterState>(INITIAL_ROSTER);
   const [heylookModelId, setHeylookModelId] = useState<string | null>(null);
   /**
    * The same id, readable without becoming a dependency.
@@ -155,8 +177,6 @@ export function useEngine() {
    * streaming, which this client deliberately does not do.
    */
   const abortRef = useRef<AbortController | null>(null);
-  const [heylookError, setHeylookError] = useState<string | null>(null);
-  const [discovering, setDiscovering] = useState(false);
   /**
    * The model being made resident, while that is happening.
    *
@@ -417,10 +437,9 @@ export function useEngine() {
     // overrides straight back, and the panel went on reporting "this machine"
     // for a value storage no longer had.
     setInstancePolicies({});
-    setHeylookModels(null);
+    setRoster((state) => reduceRoster(state, { type: 'reset' }));
     heylookModelIdRef.current = null;
     setHeylookModelId(null);
-    setHeylookError(null);
     if (scope === 'everything') {
       setApiKey(null);
       setStoredKeyMode(null);
@@ -499,10 +518,35 @@ export function useEngine() {
    */
   /** The machine being talked to. The only source of a heylook origin. */
   const instance = useMemo(() => instanceFor(instanceId), [instanceId]);
+  /**
+   * The current instance id, readable from inside an in-flight discovery.
+   *
+   * Written from an effect on the state rather than from `setInstanceId`,
+   * which is deliberate: `setInstanceId` is not the only writer. The settings
+   * restore calls `setInstanceIdState` directly, so a ref maintained by the
+   * setter would still name the default instance after a restore and would
+   * then discard every discovery for the restored machine as stale.
+   *
+   * This guards the SIDE EFFECTS of a resolved discovery -- the notice, the
+   * model reassignment, and the write to the `settings` store. The state
+   * transition is guarded separately, by `reduceRoster`. Two guards over the
+   * same fact, and they are not redundant: the reducer decides what is shown
+   * and is the half with tests, this one decides what is persisted and is the
+   * half no test in this repo can reach. Removing either leaves the other
+   * looking correct.
+   */
+  const instanceIdRef = useRef(instanceId);
+  useEffect(() => {
+    instanceIdRef.current = instanceId;
+  }, [instanceId]);
 
   const refreshHeylookModels = useCallback(async () => {
-    setDiscovering(true);
-    setHeylookError(null);
+    // Captured once. Every write below is checked against this, not against
+    // `instance`, because this closure keeps the machine it was asked about
+    // while the app moves on.
+    const asked = instance.id;
+    const origin = instance.origin;
+    setRoster((state) => reduceRoster(state, { type: 'ask', instanceId: asked }));
     try {
       // A bounded wait, because the only control that could retry is disabled
       // while this runs. An origin that resolves but never answers -- a machine
@@ -510,8 +554,17 @@ export function useEngine() {
       // panel saying "asking ..." with no way out but a reload. The post path
       // has had a budget for this class of failure since backpressure; this had
       // none.
-      const models = await listModels(instance.origin, AbortSignal.timeout(20_000));
-      setHeylookModels(models);
+      const models = await listModels(origin, AbortSignal.timeout(20_000));
+      setRoster((state) => reduceRoster(state, { type: 'resolved', instanceId: asked, models }));
+
+      // Everything from here is a side effect the reducer cannot undo -- a
+      // notice, the selected model, and a row in the `settings` store -- so it
+      // is gated on the machine still being the current one. The persisted
+      // write is the reason this guard is not merely tidiness: a stale roster
+      // reaching it stores a model id picked from the wrong machine, which
+      // outlives the session and comes back on the next load as a selection
+      // that machine may never have served.
+      if (instanceIdRef.current !== asked) return;
 
       const current = heylookModelIdRef.current;
       if (current == null || !models.some((m) => m.id === current)) {
@@ -535,15 +588,17 @@ export function useEngine() {
         // reached it.
         if (replacement != null) void setSetting(HEYLOOK_MODEL_SETTING, replacement);
       }
-      if (models.length === 0) {
-        setHeylookError(
-          `heylook at ${instance.origin} is running but serving no models. Point it at a model ` +
-            'folder, or download one.',
-        );
-      }
+      // An empty roster is not reported here. The server answered, so it is a
+      // property of the `ready` state and `rosterError` derives it -- which is
+      // what stops "answered with nothing" and "did not answer" from being one
+      // value again.
     } catch (cause) {
-      setHeylookModels([]);
       const timedOut = cause instanceof DOMException && cause.name === 'TimeoutError';
+      // Traced unconditionally, including for a discovery that has gone stale.
+      // The trace records what happened on the wire, which stays true whichever
+      // machine is current by the time it resolves -- and a switch mid-flight is
+      // exactly the situation somebody would open the log to understand.
+      //
       // Traced here rather than inside `listModels`, which fails at five
       // different throw sites. Without it a failed discovery left the log
       // showing a request with no outcome at all -- found by opening the panel
@@ -552,33 +607,35 @@ export function useEngine() {
       trace(
         'provider',
         'provider.discovery.error',
-        `heylook discovery failed at ${instance.origin}: ${
+        `heylook discovery failed at ${origin}: ${
           cause instanceof Error ? cause.message : String(cause)
         }`,
-        { origin: instance.origin, timedOut, cause },
+        { origin, instance: asked, timedOut, cause },
         { level: 'error' },
       );
-      setHeylookError(
-        timedOut
-          ? `heylook at ${instance.origin} accepted the connection but did not answer within 20 ` +
-              'seconds. The address is reachable, so this is more likely the wrong port than the ' +
-              'wrong host.'
-          : cause instanceof Error
-            ? cause.message
-            : String(cause),
-      );
-    } finally {
-      setDiscovering(false);
+      const error = timedOut
+        ? `heylook at ${origin} accepted the connection but did not answer within 20 ` +
+          'seconds. The address is reachable, so this is more likely the wrong port than the ' +
+          'wrong host.'
+        : cause instanceof Error
+          ? cause.message
+          : String(cause);
+      setRoster((state) => reduceRoster(state, { type: 'failed', instanceId: asked, error }));
     }
   }, [instance]);
 
   // Discover on switching to heylook, and once on load if that is the stored
   // choice. Not on an interval: the roster only changes when the owner does
   // something, and there is a refresh button for that.
+  //
+  // `shouldDiscover` is false for a failure, so a server that is down is asked
+  // once rather than in a loop -- this effect depends on the state it would be
+  // setting. Recovering from that is a gesture: the refresh button, switching
+  // instance, or selecting heylook in the provider picker.
   useEffect(() => {
-    if (provider !== 'heylook' || heylookModels != null) return;
+    if (provider !== 'heylook' || !shouldDiscover(roster)) return;
     void refreshHeylookModels();
-  }, [provider, heylookModels, refreshHeylookModels]);
+  }, [provider, roster, refreshHeylookModels]);
 
   const setProvider = useCallback((next: ProviderId) => {
     trace('state', 'state.provider', `provider is now ${next}`, {
@@ -587,6 +644,13 @@ export function useEngine() {
     });
     setProviderState(next);
     setError(null);
+    // Choosing heylook reads as "try again": it is the gesture someone makes
+    // after starting the server that was down. Without it a failed discovery
+    // could only be cleared by the refresh button, which sits inside the panel
+    // the failure is being reported in. `reconsider` clears a failure and
+    // nothing else, so firing it on a healthy or in-flight roster is a no-op
+    // and cannot restart a discovery that is already running.
+    if (next === 'heylook') setRoster((state) => reduceRoster(state, { type: 'reconsider' }));
     void setSetting(PROVIDER_SETTING, next);
   }, []);
 
@@ -596,7 +660,8 @@ export function useEngine() {
       origin: instanceFor(next).origin,
     });
     setInstanceIdState(next);
-    setHeylookModels(null); // a different machine serves a different roster
+    // A different machine serves a different roster, so nothing is known again.
+    setRoster((state) => reduceRoster(state, { type: 'reset' }));
     void setSetting(HEYLOOK_INSTANCE_SETTING, next);
   }, []);
 
@@ -664,6 +729,17 @@ export function useEngine() {
     },
     [instance],
   );
+
+  /**
+   * The three faces of the roster the UI reads, derived rather than stored.
+   *
+   * Deriving them is what keeps them from disagreeing. Held separately they
+   * were three independent writes from one async function, so a stale reply
+   * could update any subset of them.
+   */
+  const heylookModels = useMemo(() => rosterModels(roster), [roster]);
+  const discovering = useMemo(() => isDiscovering(roster), [roster]);
+  const heylookError = useMemo(() => rosterError(roster, instance.origin), [roster, instance]);
 
   const heylookModel = useMemo(
     () => heylookModels?.find((m) => m.id === heylookModelId) ?? null,
