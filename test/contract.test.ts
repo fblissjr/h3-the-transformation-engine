@@ -36,6 +36,7 @@ import { buildPlannerSystemPrompt } from '../src/provider/prompts/planner';
 import { buildPatchSystemPrompt } from '../src/provider/prompts/patch';
 import type { CompileInput } from '../src/core/ir/types';
 import type { CreativeModeRecord } from '../src/core/creative';
+import * as creative from '../src/core/creative';
 import {
   fl2vaUmbrella,
   i2vaTrain,
@@ -360,6 +361,21 @@ describe('output shape matches the spec', () => {
    * `[Shot {N}] At {MM:SS.mmm},` was read by nothing and could have said anything.
    * `first` is left as it is: two equalities against the same literal do bind it.
    */
+  /**
+   * The task-type prefix, built from the spec rather than compared to a literal.
+   *
+   * `open`, `close` and `join` were declared and read by nothing: the serializer builds
+   * `[a + b]` from three hardcoded strings at serialize/ref2va.ts, and the spec could
+   * have said anything about any of them. Assembling the expected prefix binds all three
+   * at once, so a mutation to any single one goes red.
+   */
+  it('builds the Ref2VA summary prefix the way it says', () => {
+    const spec = contract.output.Ref2VA.summaryPrefix;
+    const types = FIXTURES.Ref2VA.taskTypes ?? [];
+    expect(types.length, 'the Ref2VA fixture carries no task types to prefix').toBeGreaterThan(0);
+    expect(rendered('Ref2VA')).toContain(`${spec.open}${types.join(spec.join)}${spec.close}`);
+  });
+
   it('states the shot header the serializer writes', () => {
     expect(contract.shotHeader.first).toBe('[Shot 1]');
     expect(rendered('T2VA')).toContain('[Shot 1]');
@@ -764,6 +780,31 @@ describe('prompt blocks match the spec', () => {
         }
       }
     });
+  });
+
+  /**
+   * `source` says how a block gets into the prompt, and it was read by nothing -- a
+   * block could have claimed `derived:somethingGone` with the suite green. The three
+   * static kinds are pinned; a `derived:` block has to name a function the creative
+   * module really exports, which is the half that can rot.
+   */
+  it('names a source kind it can resolve, and derived blocks name a real function', () => {
+    const STATIC = ['core', 'mode-block', 'computed'];
+    let derived = 0;
+    for (const side of ['planner', 'patch'] as const) {
+      for (const block of contract.prompts[side].blocks) {
+        const source = block.source;
+        if (source.startsWith('derived:')) {
+          const name = source.slice('derived:'.length);
+          expect(typeof (creative as Record<string, unknown>)[name], `${source}`).toBe('function');
+          derived++;
+        } else {
+          expect(STATIC, `${side} ${block.heading} source`).toContain(source);
+        }
+      }
+    }
+    // Not vacuous: the derived branch was actually taken.
+    expect(derived).toBeGreaterThan(0);
   });
 
   it('names builders that exist', () => {
