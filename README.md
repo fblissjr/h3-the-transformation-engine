@@ -211,7 +211,7 @@ The buffer lives in memory only and dies on reload. That is deliberate rather th
 ```
 bun install
 bun run dev         # http://localhost:5173
-bun run test        # 700 tests
+bun run test        # 719 tests
 bun run typecheck
 bun run build
 bun run probe       # live API probes (reads GEMINI_API_KEY from .env)

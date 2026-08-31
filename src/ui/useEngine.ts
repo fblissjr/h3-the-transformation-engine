@@ -32,7 +32,7 @@ import {
   PROVIDERS,
 } from '../provider/registry';
 import type { Policy } from '../core/policy';
-import { loadInstancePolicies, saveInstancePolicy } from '../db/policy';
+import { loadInstancePolicies, setInstanceAttribute } from '../db/policy';
 import {
   API_KEY_NAME,
   DEFAULT_KEY_MODE,
@@ -411,6 +411,12 @@ export function useEngine() {
     // creative-picker bug again: a header claiming a selection that storage no
     // longer holds, which a reload then silently drops back to the default.
     setProviderState('gemini');
+    // Same reason, and missed the first time: the erase deletes the `settings`
+    // store, which holds the instance overrides. Leaving the parsed bag in
+    // memory meant the next touch of any policy control wrote the erased
+    // overrides straight back, and the panel went on reporting "this machine"
+    // for a value storage no longer had.
+    setInstancePolicies({});
     setHeylookModels(null);
     heylookModelIdRef.current = null;
     setHeylookModelId(null);
@@ -621,6 +627,12 @@ export function useEngine() {
         setLoadingModel(id);
         try {
           const outcome = await loadModel(instance.origin, id);
+          // A slow load for a model the user has since moved off must not speak.
+          // Without this, picking A then B cleared "loading B" when A finished
+          // and posted a notice naming A -- a report about a selection that no
+          // longer exists. The ref is read rather than the state for the reason
+          // it exists: this closure captured `id`, not the current one.
+          if (heylookModelIdRef.current !== id) return;
           if (outcome.kind === 'busy') {
             // The one backpressure message worth quoting: it names the model
             // that is generating, and this app has a stop button for it.
@@ -637,8 +649,16 @@ export function useEngine() {
           // `unreachable` is deliberately silent. Discovery already reports an
           // unreachable server in its own words, and a second notice saying the
           // same thing in different words reads as two faults.
+        } catch {
+          // Only an abort reaches here -- `loadModel` reports everything else.
+          // Swallowed because a cancelled pre-flight is not a fault, and because
+          // an unhandled rejection out of a `void`ed IIFE is reported nowhere
+          // useful. The `finally` still restores the indicator.
         } finally {
-          setLoadingModel(null);
+          // Guarded for the same reason as the notice: a stale load finishing
+          // after a newer one started would otherwise clear the newer one's
+          // indicator and leave the panel looking idle mid-load.
+          if (heylookModelIdRef.current === id) setLoadingModel(null);
         }
       })();
     },
@@ -686,21 +706,29 @@ export function useEngine() {
   );
 
   /**
-   * Write this machine's overrides, or clear one by omitting it.
+   * Set or clear ONE attribute for the active machine.
    *
-   * Takes the whole next policy rather than a patch, so clearing an attribute
-   * and setting it are the same call. An empty policy drops the entry entirely
-   * -- `{}` and no entry must not be two states, or the panel reports a machine
-   * as customised to exactly its inherited values.
+   * One attribute rather than a whole policy, and the storage layer merges it
+   * into what is actually stored rather than into anything held here. Two
+   * findings drove that: a captured bag could drop a sibling attribute written
+   * moments earlier, and writing the parsed bag back destroyed entries this
+   * build cannot parse. Neither is reachable from a shape that never round-trips
+   * the whole thing.
+   *
+   * A refused value is reported rather than swallowed. The panel used to accept
+   * anything numeric, so a negative budget was stored and only surfaced on the
+   * next load, blaming storage for what the control had written.
    */
-  const setInstancePolicy = useCallback(
-    (next: Policy) => {
+  const setInstanceAttr = useCallback(
+    <K extends keyof Policy>(key: K, value: Policy[K] | undefined) => {
       const target = instance.id;
       void (async () => {
-        setInstancePolicies(await saveInstancePolicy(instancePolicies, target, next));
+        const written = await setInstanceAttribute(target, key, value);
+        setInstancePolicies(written.policies);
+        if (written.rejected) fail(`That value was not stored -- ${written.rejected}.`);
       })();
     },
-    [instance, instancePolicies],
+    [instance, fail],
   );
 
   const client = useMemo<InferenceClient | null>(
@@ -834,6 +862,13 @@ export function useEngine() {
   const applyDirect = useCallback(
     async (path: string, value: unknown) => {
       if (!doc) return;
+      // The same guard `applyAssisted` states below, and absent here for the
+      // same reason it was once absent there: the editor that calls this is
+      // never disabled. Two overlapping direct edits each compute from the
+      // `doc` of their own render, so the first is silently discarded -- and
+      // both reach `recordVersion`, which is why its id allocation could race.
+      // That half is now safe by construction; this half is the lost edit.
+      if (busy) return;
       const result = editDirect(doc, path, value);
       if (result.patch.rejected.length > 0) {
         fail(result.patch.rejected[0].reason);
@@ -841,7 +876,7 @@ export function useEngine() {
       }
       await commit(result.doc, `Edited ${path}`, result.patch.applied);
     },
-    [doc, commit],
+    [busy, doc, commit],
   );
 
   const applyAssisted = useCallback(
@@ -972,7 +1007,7 @@ export function useEngine() {
     policyExplained: explainFor(provider, instancePolicy),
     /** What this machine states for itself, which is the only editable layer. */
     instancePolicy,
-    setInstancePolicy,
+    setInstanceAttr,
     /**
      * Whether the active backend can honour it. Read from the provider rather
      * than from a constructed client, which does not exist before a key is

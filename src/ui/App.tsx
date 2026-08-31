@@ -70,7 +70,7 @@ export function App() {
           explained={e.policyExplained}
           instancePolicy={e.instancePolicy}
           instanceId={e.provider === 'heylook' ? e.instanceId : null}
-          onChange={e.setInstancePolicy}
+          onChange={e.setInstanceAttr}
         />
         {/*
           The key panel is hidden on the local provider rather than disabled.

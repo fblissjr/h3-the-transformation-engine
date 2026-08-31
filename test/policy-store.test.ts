@@ -15,8 +15,8 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-const { closeDb, getSetting } = await import('../src/db/db');
-const { INSTANCE_POLICY_SETTING, loadInstancePolicies, parseStoredPolicies, saveInstancePolicy } =
+const { closeDb, getSetting, setSetting } = await import('../src/db/db');
+const { INSTANCE_POLICY_SETTING, loadInstancePolicies, parseStoredPolicies, setInstanceAttribute } =
   await import('../src/db/policy');
 const { POLICY_FIELDS, POLICY_KEYS } = await import('../src/core/policy');
 
@@ -100,29 +100,62 @@ describe('parsing refuses nonsense and tolerates the unfamiliar', () => {
 
 describe('a round trip through storage', () => {
   it('stores an override and reads it back', async () => {
-    const next = await saveInstancePolicy({}, 'studio', { retryTimeoutMs: 9_000 });
-    expect(next).toEqual({ studio: { retryTimeoutMs: 9_000 } });
+    const written = await setInstanceAttribute('studio', 'retryTimeoutMs', 9_000);
+    expect(written.policies).toEqual({ studio: { retryTimeoutMs: 9_000 } });
     expect((await loadInstancePolicies()).policies).toEqual({ studio: { retryTimeoutMs: 9_000 } });
   });
 
-  it('removes the entry when a machine states nothing, rather than storing an empty one', async () => {
+  it('removes the entry when its last attribute is cleared, rather than storing an empty one', async () => {
     // `{}` and no entry must not be two states, or the panel reports a machine
     // as customised to exactly its inherited values. Asserted against what
-    // storage actually holds, not against the returned bag, because the
-    // returned bag is the thing under test.
-    await saveInstancePolicy({}, 'studio', { retryTimeoutMs: 9_000 });
-    const cleared = await saveInstancePolicy({ studio: { retryTimeoutMs: 9_000 } }, 'studio', {});
-    expect(cleared).toEqual({});
+    // storage actually holds, not against the returned bag.
+    await setInstanceAttribute('studio', 'retryTimeoutMs', 9_000);
+    const cleared = await setInstanceAttribute('studio', 'retryTimeoutMs', undefined);
+    expect(cleared.policies).toEqual({});
     expect(await getSetting(INSTANCE_POLICY_SETTING, null)).toEqual({});
   });
 
   it('leaves other machines alone when one is written', async () => {
-    const next = await saveInstancePolicy({ other: { retryTimeoutMs: 1_000 } }, 'studio', {
-      retryTimeoutMs: 9_000,
-    });
-    expect(next).toEqual({
+    await setInstanceAttribute('other', 'retryTimeoutMs', 1_000);
+    const next = await setInstanceAttribute('studio', 'retryTimeoutMs', 9_000);
+    expect(next.policies).toEqual({
       other: { retryTimeoutMs: 1_000 },
       studio: { retryTimeoutMs: 9_000 },
+    });
+  });
+
+  it('refuses a value below its declared floor instead of storing it', async () => {
+    // The control enforced nothing, so -5000 reached the client as a retry
+    // deadline already in the past, and only surfaced on the NEXT load -- where
+    // it read as storage being corrupt rather than as the control that wrote
+    // it. Validating on read and not on write is not a boundary.
+    const written = await setInstanceAttribute('studio', 'retryTimeoutMs', -5_000);
+    expect(written.rejected).toBeDefined();
+    expect(await getSetting(INSTANCE_POLICY_SETTING, null)).toBeNull();
+  });
+
+  it('keeps an entry this build cannot parse when a different machine is written', async () => {
+    // The write path used to round-trip the PARSED bag, so an override this
+    // build rejects was destroyed the next time any other machine was edited --
+    // while the load site's comment promised the opposite in as many words.
+    // Merging into the raw stored value is what that promise actually requires.
+    await setSetting(INSTANCE_POLICY_SETTING, {
+      fromALaterBuild: { retryTimeoutMs: 'not a number' },
+    });
+    await setInstanceAttribute('studio', 'retryTimeoutMs', 9_000);
+    const raw = (await getSetting<unknown>(INSTANCE_POLICY_SETTING, null)) as Record<string, unknown>;
+    expect(raw.fromALaterBuild).toEqual({ retryTimeoutMs: 'not a number' });
+    expect(raw.studio).toEqual({ retryTimeoutMs: 9_000 });
+  });
+
+  it('merges into what storage holds rather than into a caller-held bag', async () => {
+    // Two attributes written without the caller re-reading in between. A
+    // whole-policy setter built from a stale prop drops the first.
+    await setInstanceAttribute('studio', 'retryTimeoutMs', 9_000);
+    await setInstanceAttribute('studio', 'typicalCallMs', 4_000);
+    expect((await loadInstancePolicies()).policies.studio).toEqual({
+      retryTimeoutMs: 9_000,
+      typicalCallMs: 4_000,
     });
   });
 });

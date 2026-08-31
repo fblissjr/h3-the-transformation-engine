@@ -17,38 +17,36 @@ import { db, type StoredVersion } from './db';
 import { trace } from '../debug';
 
 /**
- * The next free id, read from storage rather than counted in memory.
+ * The highest id already used for a document, as a number.
  *
  * This was a module-level `let counter = 0`, described as "monotonic,
  * collision-free within a session". Both halves were true and the qualifier was
  * the bug: the counter resets on every page load, while `put` overwrites by key.
  * So the first version recorded after a reload was written to `v0001` -- on top
  * of whatever `v0001` already held. It destroyed the root of a real history, and
- * it would have destroyed one more version per reload, silently, forever.
+ * it would have destroyed one more version per reload, silently, forever. It
+ * also produced a version whose `parentId` was its own id, because the head
+ * being replaced was the id being written; see the cycle guard in `buildTree`.
  *
- * It also produced a version whose `parentId` was its own id, because the head
- * being replaced was the id being written. See the cycle guard in `buildTree`.
+ * Storage is the only thing that knows what has been taken, so storage is what
+ * is asked. Ids stay readable and diffable, which is what the counter was for;
+ * what they stop being is a function of how many times the page was opened.
  *
- * Storage is the only thing that knows what has been used, so storage is what is
- * asked. Ids stay readable and diffable, which is what the counter was for; what
- * they stop being is a function of how many times the page has been opened.
- *
- * Not safe against two writers racing, and it does not need to be: the app
- * issues one call at a time and this runs after the model returns. A second
- * writer would have to be a second tab, which would already be fighting over
- * `documents` as well.
+ * The first replacement read this in one call and wrote in another, justified
+ * on the app issuing one call at a time. That justification was false --
+ * `applyDirect` had no in-flight guard -- and a review found it before the race
+ * did. This function is now pure arithmetic and `recordVersion` does the read
+ * and the write in a single transaction, so the guarantee does not depend on
+ * who calls it.
  */
-async function nextId(documentId: string): Promise<string> {
-  const keys = await (await db()).getAllKeysFromIndex('versions', 'documentId', documentId);
-  const prefix = `${documentId}:v`;
-  const highest = keys.reduce((max, key) => {
+function highestSuffix(keys: readonly IDBValidKey[], prefix: string): number {
+  return keys.reduce<number>((max, key) => {
     if (typeof key !== 'string' || !key.startsWith(prefix)) return max;
     // A suffix this build did not write is skipped rather than guessed at, so
     // an id from a future scheme cannot drag the sequence backwards.
     const n = Number.parseInt(key.slice(prefix.length), 10);
     return Number.isFinite(n) && n > max ? n : max;
   }, 0);
-  return `${prefix}${String(highest + 1).padStart(4, '0')}`;
 }
 
 export async function recordVersion(params: {
@@ -58,8 +56,21 @@ export async function recordVersion(params: {
   label: string;
   operations?: AppliedOperation[];
 }): Promise<StoredVersion> {
+  // Allocated and written inside ONE transaction, which is the whole of the
+  // fix. Reading the highest id and then putting in a separate step is a
+  // read-then-write race, and the race is reachable: `applyDirect` had no
+  // in-flight guard, so two edits could each resolve the same highest id and
+  // the second `put` would destroy the first version row -- the same data loss
+  // the counter caused, in a narrower window. IndexedDB serialises overlapping
+  // readwrite transactions on a store, so inside this one the scan and the
+  // write cannot be interleaved by another writer.
+  const tx = (await db()).transaction('versions', 'readwrite');
+  const store = tx.objectStore('versions');
+  const prefix = `${params.documentId}:v`;
+  const keys = await store.index('documentId').getAllKeys(params.documentId);
+
   const version: StoredVersion = {
-    id: await nextId(params.documentId),
+    id: `${prefix}${String(highestSuffix(keys, prefix) + 1).padStart(4, '0')}`,
     documentId: params.documentId,
     parentId: params.parentId,
     createdAt: Date.now(),
@@ -72,7 +83,8 @@ export async function recordVersion(params: {
       rationale: o.rationale,
     })),
   };
-  await (await db()).put('versions', version);
+  await store.put(version);
+  await tx.done;
   trace('storage', 'storage.recordVersion', `recorded ${version.id} "${version.label}"`, {
     id: version.id,
     parentId: version.parentId,

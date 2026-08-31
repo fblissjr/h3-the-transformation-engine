@@ -95,28 +95,76 @@ export async function loadInstancePolicies(): Promise<StoredPolicies> {
   return parseStoredPolicies(await getSetting<unknown>(INSTANCE_POLICY_SETTING, null));
 }
 
+/** What a write did, and what it refused. */
+export interface PolicyWrite {
+  /** Every machine's overrides as they now stand, parsed. */
+  policies: Record<string, Policy>;
+  /** Why nothing was written, when nothing was. */
+  rejected?: string;
+}
+
 /**
- * Write one machine's overrides, or clear them.
+ * Set or clear ONE attribute on ONE machine, against what storage currently
+ * holds rather than against a bag the caller captured earlier.
  *
- * An empty policy removes the entry rather than storing `{}`. The two would
- * resolve identically today, and that is exactly the problem: two encodings of
- * "nothing set here" is what makes a settings panel say a value was overridden
- * to its inherited value. Same rule `pruneGlitch` follows.
+ * Two bugs are closed by that shape, both found in review rather than by use.
  *
- * Takes the whole bag and returns the next one, so the caller holds one piece
- * of state rather than reading storage back to find out what it now says.
+ * The first: the previous version took the whole parsed bag and wrote it back.
+ * `parseStoredPolicies` keeps only the entries that validate, so a machine
+ * holding an override this build rejects -- a later build's shape, say -- was
+ * dropped from storage permanently the next time any OTHER machine was edited.
+ * The load site's comment promised the opposite in as many words. Re-reading
+ * the raw value here and merging into it keeps entries this build cannot parse,
+ * which is what that promise actually requires.
+ *
+ * The second: a caller holding a stale bag could drop a sibling attribute
+ * written moments earlier. Taking one attribute rather than a whole policy
+ * removes the possibility instead of documenting it.
+ *
+ * Validation lives here, at the write, not in the control. `PolicyPanel` was
+ * the only writer and it enforced neither `min` nor integer-ness, so typing -5
+ * into the retry budget stored -5000: a deadline already in the past, handed to
+ * the client for the rest of the session, and then rejected on the next load --
+ * where it presented as storage being corrupt rather than as the control that
+ * wrote it. A boundary that validates on read and not on write is not a
+ * boundary.
  */
-export async function saveInstancePolicy(
-  policies: Record<string, Policy>,
+export async function setInstanceAttribute<K extends keyof Policy>(
   instanceId: string,
-  next: Policy,
-): Promise<Record<string, Policy>> {
-  const updated = { ...policies };
-  if (Object.keys(next).length === 0) {
-    delete updated[instanceId];
-  } else {
-    updated[instanceId] = next;
+  key: K,
+  value: Policy[K] | undefined,
+): Promise<PolicyWrite> {
+  const raw = await getSetting<unknown>(INSTANCE_POLICY_SETTING, null);
+  const bag: Record<string, unknown> =
+    typeof raw === 'object' && raw !== null && !Array.isArray(raw)
+      ? { ...(raw as Record<string, unknown>) }
+      : {};
+
+  if (value !== undefined) {
+    const check = validatorFor(key).safeParse(value);
+    if (!check.success) {
+      return {
+        policies: parseStoredPolicies(bag).policies,
+        rejected: `${key} rejected: ${check.error.issues.map((i) => i.message).join('; ')}`,
+      };
+    }
   }
-  await setSetting(INSTANCE_POLICY_SETTING, updated);
-  return updated;
+
+  const existing = bag[instanceId];
+  const entry: Record<string, unknown> =
+    typeof existing === 'object' && existing !== null && !Array.isArray(existing)
+      ? { ...(existing as Record<string, unknown>) }
+      : {};
+
+  if (value === undefined) delete entry[key];
+  else entry[key] = value;
+
+  // An entry with nothing left is removed rather than stored empty. `{}` and no
+  // entry must not be two states, or the panel reports a machine as customised
+  // to exactly its inherited values.
+  if (Object.keys(entry).length === 0) delete bag[instanceId];
+  else bag[instanceId] = entry;
+
+  await setSetting(INSTANCE_POLICY_SETTING, bag);
+  return { policies: parseStoredPolicies(bag).policies };
 }

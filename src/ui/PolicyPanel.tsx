@@ -35,7 +35,13 @@ interface Props {
   instancePolicy: Policy;
   /** The machine being configured, or null when this provider has no instances. */
   instanceId: string | null;
-  onChange: (next: Policy) => void;
+  /**
+   * Set or clear one attribute. Deliberately not "here is the new policy": a
+   * whole-policy setter built from a possibly stale prop can drop a sibling
+   * attribute, and the storage layer can only merge safely if it is told which
+   * one key changed.
+   */
+  onChange: <K extends keyof Policy>(key: K, value: Policy[K] | undefined) => void;
 }
 
 /** Where a value came from, in words rather than a scope key. */
@@ -104,16 +110,12 @@ function PolicyRow({
   policy: Policy;
   instancePolicy: Policy;
   editable: boolean;
-  onChange: (next: Policy) => void;
+  onChange: <K extends keyof Policy>(key: K, value: Policy[K] | undefined) => void;
 }) {
   const [draft, setDraft] = useState<string | null>(null);
   const overridden = instancePolicy[attribute] !== undefined;
 
-  const clear = () => {
-    const next = { ...instancePolicy };
-    delete next[attribute];
-    onChange(next);
-  };
+  const clear = () => onChange(attribute, undefined);
 
   const commit = (raw: string) => {
     setDraft(raw);
@@ -126,10 +128,11 @@ function PolicyRow({
     }
     const parsed = Number(raw);
     if (!Number.isFinite(parsed)) return;
-    onChange({
-      ...instancePolicy,
-      [attribute]: field.kind === 'duration-ms' ? parsed * 1000 : parsed,
-    });
+    // Half-typed input is not an error. A lone "-" parses as NaN and is caught
+    // above; "-5" is a real value and is refused by the storage layer, which
+    // says so, rather than by silence here. `type=number` with `min` does not
+    // stop either from being typed.
+    onChange(attribute, (field.kind === 'duration-ms' ? parsed * 1000 : parsed) as never);
   };
 
   return (

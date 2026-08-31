@@ -96,10 +96,10 @@ describe('every outcome is reportable and none is fatal', () => {
     // the status alone sent a transient, self-clearing wait down the `rejected`
     // path, whose advice is to refresh a roster that was never wrong.
     //
-    // The heylook side reports 1.79.53 aligns this route on 503. That is their
-    // claim and is not verified here -- so this case is not obsolete, it is the
-    // pre-.53 half of a version-skew pair, and the 503 case above is the other.
-    // Body recorded from the live server.
+    // 1.79.53 aligns this route on 503, confirmed by measuring it there. So
+    // this case is not obsolete: it is the pre-.53 half of a version-skew pair
+    // and the 503 case above is the other, and both are now measured rather
+    // than one of them assumed. Body recorded from the live server.
     const body = JSON.stringify({
       detail:
         "Failed to load model: MODEL_BUSY: cannot make room -- ['Qwen3.5-27B-8bit-mlx'] " +

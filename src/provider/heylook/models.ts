@@ -147,10 +147,14 @@ export function pickDefaultModel(models: HeylookModel[]): HeylookModel | null {
 /**
  * What a pre-flight load did, or why it could not.
  *
- * Never an exception, and that is the whole design: this call exists to make a
- * wait visible, so a failure of it must not become a failure of the thing it
- * was making visible. Every outcome is reportable and none is fatal -- the
- * generate that follows resolves the same provider anyway.
+ * Never an exception except a deliberate abort, and that is the whole design:
+ * this call exists to make a wait visible, so a failure of it must not become a
+ * failure of the thing it was making visible. Every outcome is reportable and
+ * none is fatal -- the generate that follows resolves the same provider anyway.
+ *
+ * The abort is the exception because a cancelled wait is not a failed one, and
+ * reporting it as a fault would blame the user for something they did. Callers
+ * that pass a signal must therefore still catch.
  */
 export type LoadOutcome =
   | { kind: 'loaded'; ms: number }
@@ -225,9 +229,22 @@ export async function loadModel(
   }
 
   const ms = Date.now() - started;
-  // Read once. The body is small on every branch, and a `detail` on the 400 is
-  // the only place the server says which ids it does have.
-  const body = await response.text();
+  // Read once, and inside a guard. The body is small on every branch, and a
+  // `detail` on the 400 is the only place the server says which ids it does
+  // have -- but a connection dropped after the headers and before the body
+  // rejects here, which would have made this function throw despite the
+  // contract above saying it never does. Found in review, not in use.
+  let body: string;
+  try {
+    body = await response.text();
+  } catch (cause) {
+    if (cause instanceof DOMException && (cause.name === 'AbortError' || cause.name === 'TimeoutError')) {
+      throw cause;
+    }
+    const detail = cause instanceof Error ? cause.message : String(cause);
+    trace('provider', 'provider.load.error', `heylook load body failed: ${detail}`, { model: modelId, cause }, { level: 'warn' });
+    return { kind: 'unreachable', detail };
+  }
 
   if (response.ok) {
     trace('provider', 'provider.load.response', `heylook loaded ${modelId} in ${ms}ms`, { model: modelId, ms, body }, { durationMs: ms });
@@ -241,9 +258,10 @@ export async function loadModel(
   // while one model was generating: `/v1/messages` answers 503 with
   // `code: model_overloaded` and `Retry-After: 1`, while this route answers
   // **500** carrying `MODEL_BUSY: cannot make room -- [<id>] is generating`.
-  // The heylook side has since reported that 1.79.53 makes this route answer
-  // 503 with the same envelope as the rest -- their fix, not verified here,
-  // because the server this was measured against is still .52.
+  // Fixed upstream in 1.79.53, and measured here on that build rather than
+  // taken on report: the same condition now answers 503 with `Retry-After: 1`,
+  // `X-RateLimit-Limit: 1` and the `model_overloaded` envelope, identical to
+  // the inference route.
   //
   // Both are handled and neither is redundant. The status check is the one that
   // will match on .53 and after; the token is the one that matches below it, and
