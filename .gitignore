@@ -11,3 +11,4 @@ scratch/
 internal/
 coderef/
 postmortems/
+update-coderef.sh
