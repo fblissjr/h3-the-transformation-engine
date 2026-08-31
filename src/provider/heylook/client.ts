@@ -18,8 +18,12 @@
  *    same refusal is a plain 400. The Gemini client does not stream either, and
  *    nothing in this app renders tokens as they arrive, so streaming would buy
  *    complexity and no feature.
- *  - **503 is normal, and retrying it is right.** Measured on this machine
- *    against an mlx model: only ONE mlx model is resident at a time, and asking
+ *  - **503 is normal, and retrying it is right.** Measured against heylook
+ *    1.79.53 (`GET /v1/capabilities` -> `server_version`), on an mlx model.
+ *    The version is named because the commit that first recorded these numbers
+ *    did not name one -- the same scope failure this session had just written a
+ *    rule about, committed inside the fix for it. Only ONE mlx model is
+ *    resident at a time, and asking
  *    for a second one while the first is generating is refused rather than
  *    queued -- `503`, `code: "model_overloaded"`, body "cannot make room --
  *    ['<other model>'] is generating. Stop the generation or wait for it to
@@ -27,7 +31,9 @@
  *    `x-ratelimit-remaining: 0`. The refusal arrived 0.58s into a 5.77s
  *    generation, so that `1` is a literal and not an estimate of the work
  *    remaining -- do not tune backoff to it, which is why `retryAfterMs` treats
- *    it as a floor. The server's own message says to wait, so this client's
+ *    it as a floor. Reproduced on .53 with the refusal arriving 2.5ms into a
+ *    4.29s generation: same header, 4.29s of work left, so `1` is not an
+ *    estimate of anything. The server's own message says to wait, so this client's
  *    retry loop is doing the right thing with it.
  *
  *    What is NOT established, and was previously asserted here as "the server
