@@ -326,21 +326,35 @@ export class HeylookClient implements InferenceClient {
         // without saying what it was a sample OF, which is the misquotation
         // shape: on an older server the same call logs a different thing.
         //
-        // Observed here, both non-streaming on /v1/messages, same session:
+        // Observed here against server 1.79.50, both non-streaming on
+        // /v1/messages, same session:
         //   google_gemma_4-E4B-it-bf16-mlx (mlx)  -> prompt_tps 352.6,
         //     generation_tps 100.3, peak_memory_gb 15.94, total_duration_ms
         //     4396, against a 4.40s wall clock.
         //   JonathanColetti_Qwen3.8-27B-...-GGUF  -> peak_memory_gb NULL.
-        // So on this server the memory figure tracks the backend rather than
-        // the wire. The server reported itself as 1.79.50 -- second-hand, via
-        // another agent, because no version endpoint answered here.
         //
-        // Relayed and NOT verified from this side: `peak_memory_gb` is said to
-        // be null on every non-streaming reply before 1.79.50, and
-        // `thinking_duration_ms` / `content_duration_ms` to be streaming-only
-        // by design and therefore always null here. Both are consistent with
-        // what was seen; neither was tested. A null in any of the three is
-        // expected, not a fault to chase.
+        // The version is read rather than assumed: `GET /v1/capabilities`
+        // carries `server_version`, and `GET /openapi.json` carries the same
+        // number under `info.version`. Both said 1.79.50. Neither /version nor
+        // /health exists, which is what made this look unknowable at first.
+        //
+        // A NULL HERE HAS TWO DIFFERENT MEANINGS, and the field tells you
+        // which. `peak_memory_gb` comes from the MLX engine, so a null on a
+        // gguf model is a backend fact and never a version question; a null on
+        // an MLX model means a server below 1.79.50, where the non-streaming
+        // builder overwrote `performance` with a three-key literal. Reported
+        // from a read of the server source, and consistent with both rows
+        // above -- the mlx figures are non-null precisely because this is .50.
+        //
+        // `thinking_duration_ms` and `content_duration_ms` are streaming-only
+        // by design and will be null on every call this client makes. Relayed,
+        // not tested here. All three nulls are expected, not faults to chase.
+        //
+        // The two modes also spell absence differently -- streaming omits a
+        // null field, non-streaming renders it as an explicit null. Nothing
+        // here branches on an inner field, so both spellings already pass
+        // through identically; keep it that way rather than adding a check
+        // that would have to know which mode produced the object.
         ...(body.performance != null ? { performance: body.performance } : {}),
       },
       { level: status === STOP_TRUNCATED ? 'warn' : 'info' },
