@@ -4,6 +4,12 @@ All notable changes to this project are documented here. Semantic versioning.
 
 ## [Unreleased]
 
+### Added
+
+- **`listModels` takes an injectable transport, and discovery finally has tests.** It was the most-used heylook path with no coverage at all, and the reason was structural rather than an oversight: it called the global `fetch`, nothing in the suite stubs one, and so its five throw sites were reachable only by standing up a server in each state -- while a server that is running produces exactly the one branch that needs no explaining. `fetchImpl` matches the idiom `loadModel` and `HeylookClientConfig` already carry, and the app never passes one.
+
+  What that buys is the app's answer to the commonest heylook question. The three-way message -- the server is down, the page policy refused it, or there are no CORS headers -- names three causes because they arrive indistinguishably, as a bare `TypeError` with no status and no body. Nothing had ever checked that a failure which is *not* one of those three avoids it. `test/heylook-discovery-wire.test.ts` asserts which cause is named rather than the wording, since the message is long prose that will be reworded and anchoring on a clause would make the file a change detector for the copy. Two mutations confirm it reaches the branch selection: routing a bad status into the three-way message turns one assertion red, and passing through only `AbortError` -- the bug that once made the caller's timeout branch unreachable -- turns another red.
+
 ### Fixed
 
 - **A discovery reply could describe a machine you had switched away from, and a failed one never healed.** Two defects in `refreshHeylookModels` from one missing idea, and the second was the worse of them. The roster, the error and the "asking ..." indicator were three separate `useState` slots written independently at the end of an async call, so a reply arriving after an instance switch overwrote any subset of them -- the picker listing one machine's models while every call went to another. The write that outlived the session was the one nobody had counted: a stale roster reached `setSetting(HEYLOOK_MODEL_SETTING, ...)` and persisted a model id chosen from the wrong machine's list, which came back on the next load as a selection that machine may never have served.

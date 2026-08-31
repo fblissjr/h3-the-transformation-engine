@@ -554,7 +554,7 @@ export function useEngine() {
       // panel saying "asking ..." with no way out but a reload. The post path
       // has had a budget for this class of failure since backpressure; this had
       // none.
-      const models = await listModels(origin, AbortSignal.timeout(20_000));
+      const models = await listModels(origin, { signal: AbortSignal.timeout(20_000) });
       setRoster((state) => reduceRoster(state, { type: 'resolved', instanceId: asked, models }));
 
       // Everything from here is a side effect the reducer cannot undo -- a

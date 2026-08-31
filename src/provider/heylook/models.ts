@@ -50,8 +50,21 @@ export class DiscoveryError extends Error {
  */
 export async function listModels(
   origin: string = HEYLOOK_INSTANCES[0].origin,
-  signal?: AbortSignal,
+  options: {
+    signal?: AbortSignal;
+    /**
+     * The transport, injectable for the reason `loadModel` and
+     * `HeylookClientConfig` carry one, and more sharply here: the five throw
+     * sites below are each a decision about what somebody else's server did,
+     * and the three-way message is this app's answer to the commonest heylook
+     * question. Driven only by a running server, none of that is reachable --
+     * and a running server produces exactly the one branch that needs no
+     * explaining. The app never passes one.
+     */
+    fetchImpl?: typeof fetch;
+  } = {},
 ): Promise<HeylookModel[]> {
+  const { signal, fetchImpl = fetch } = options;
   // Discovery runs outside `InferenceClient.call`, so the decorator in
   // `src/debug/instrument.ts` never sees it. Without these two lines the
   // commonest heylook question -- why is the model list empty -- leaves no
@@ -60,7 +73,7 @@ export async function listModels(
   trace('provider', 'provider.discovery.request', `heylook GET ${origin}/v1/models`, { origin });
   let response: Response;
   try {
-    response = await fetch(`${origin}/v1/models`, signal ? { signal } : {});
+    response = await fetchImpl(`${origin}/v1/models`, signal ? { signal } : {});
   } catch (cause) {
     // Both spellings pass through. `AbortSignal.timeout()` rejects with a
     // DOMException named `TimeoutError`, NOT `AbortError` -- so rethrowing only
