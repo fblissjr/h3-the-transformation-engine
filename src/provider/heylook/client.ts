@@ -315,16 +315,32 @@ export class HeylookClient implements InferenceClient {
           : [],
         textLength: text.length,
         // A sibling of `usage`, not a member of it, so `extractUsage` does not
-        // reach it and it would otherwise be dropped. Carries prompt_tps,
-        // generation_tps, peak_memory_gb and total_duration_ms.
+        // reach it and it would otherwise be dropped. Logged and deliberately
+        // NOT lifted onto `CallResult`: throughput is this provider's own
+        // reporting, and the seam has no such concept to give it.
         //
         // Measured rather than relayed, which is the bar this repo sets for a
-        // claim about software it does not control: one non-streaming call to
-        // google_gemma_4-E4B-it-bf16-mlx on 2026-08-31 returned
-        // {prompt_tps: 352.6, generation_tps: 100.3, peak_memory_gb: 15.94,
-        // total_duration_ms: 4396} against a 4.40s wall clock. It is logged and
-        // deliberately NOT lifted onto `CallResult`: throughput is this
-        // provider's own reporting, and the seam has no such concept to give it.
+        // claim about software it does not control -- AND the numbers travel
+        // with their scope, which is the other half of that rule and the half
+        // the first version of this comment got wrong. It named a sample
+        // without saying what it was a sample OF, which is the misquotation
+        // shape: on an older server the same call logs a different thing.
+        //
+        // Observed here, both non-streaming on /v1/messages, same session:
+        //   google_gemma_4-E4B-it-bf16-mlx (mlx)  -> prompt_tps 352.6,
+        //     generation_tps 100.3, peak_memory_gb 15.94, total_duration_ms
+        //     4396, against a 4.40s wall clock.
+        //   JonathanColetti_Qwen3.8-27B-...-GGUF  -> peak_memory_gb NULL.
+        // So on this server the memory figure tracks the backend rather than
+        // the wire. The server reported itself as 1.79.50 -- second-hand, via
+        // another agent, because no version endpoint answered here.
+        //
+        // Relayed and NOT verified from this side: `peak_memory_gb` is said to
+        // be null on every non-streaming reply before 1.79.50, and
+        // `thinking_duration_ms` / `content_duration_ms` to be streaming-only
+        // by design and therefore always null here. Both are consistent with
+        // what was seen; neither was tested. A null in any of the three is
+        // expected, not a fault to chase.
         ...(body.performance != null ? { performance: body.performance } : {}),
       },
       { level: status === STOP_TRUNCATED ? 'warn' : 'info' },
