@@ -20,7 +20,9 @@ All notable changes to this project are documented here. Semantic versioning.
 
   Only the terminal half moves. ref 5.4's decorative-punctuation clause is unconditional and stays that way; the two checks were already separate branches. Breakages run on both: dropping `fragment` from the disjunction turns the fragment test red and nothing else, and widening it to skip the decorative branch turns the decorative test red and nothing else.
 
-  It is optional in the planner schema where `voiceover` and `cutoff` are required, and that asymmetry is deliberate. Schema enforcement is off by default now, so a newly required field is a new way for a whole plan to fail `safeParse` when a model omits it. Absent means complete, which is the behaviour that already shipped.
+  It is optional in the planner schema where `voiceover` and `cutoff` are required, for two independent reasons, and the direction it degrades is the important one. Absent means complete, so a planner that never learns to set it gets the old strict behaviour and an over-strict rule stays loud; defaulting the other way would convert an over-strict rule into a dead one, silently stopping the check firing with nothing to report it. Separately, enforcement is off by default now, so a newly required field is a fresh way for a whole plan to fail `safeParse` when a model omits it.
+
+  One limit is recorded beside the rule rather than left to be found. No corpus document carries a planner-written fragment, so the exemption is exercised only by the fixtures written for it -- exactly where `crossesCut` and `cutoff` sat before a fixture used them, which the rule's own comment already described. What that cannot answer is whether a planner sets `fragment` correctly in practice; that is a question about the prompt, settled by reading real output rather than by this suite going green. The disjunction is also three independent terms on purpose: deriving `crossesCut` and `cutoff` from the new flag would be tidier and would move two working constraints somewhere nobody is looking.
 
 
 - **Two spec notes, both recording a distinction an outside audit got wrong from the outside.** No behaviour changes.

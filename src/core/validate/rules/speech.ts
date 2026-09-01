@@ -215,6 +215,18 @@ export const dialoguePunctuation: Rule = (doc) => {
     // leak in both directions. The guide's own reused-audio example is the
     // case: <d>[English] I'm lonely lonely lonely lonely lonely I'm lonely</d>,
     // printed with no terminal mark at ref-en:272.
+    // Reachability, stated because the paragraph above predicts it. No corpus
+    // document carries a planner-written fragment, so this exemption is
+    // exercised only by the fixtures written for it -- exactly the position
+    // crossesCut and cutoff were in before a fixture used them. What that
+    // cannot tell us is whether a planner sets `fragment` correctly in
+    // practice, which is a question about the prompt and is answered by
+    // reading real output, not by this suite going green.
+    //
+    // Three independent terms, deliberately not two. Deriving crossesCut and
+    // cutoff from the new flag would be tidier and would relocate two working
+    // constraints to somewhere nobody is looking, which is the failure this
+    // file spent the day cataloguing.
     const incomplete =
       d.crossesCut === 'starts' || d.cutoff === true || d.fragment === true;
 

@@ -220,11 +220,19 @@ const PlannedBeatSchema = z.object({
       voiceover: z.boolean(),
       crossesCut: z.enum(['starts', 'continues']).nullable(),
       cutoff: z.boolean(),
-      // Optional, unlike its neighbours, and the asymmetry is deliberate.
-      // Schema enforcement is off by default, so a newly required field is a
-      // new way for an entire plan to fail safeParse when a model simply omits
-      // it. Absent means "complete", which is the behaviour that already
-      // shipped.
+      // Optional, unlike its neighbours, and the asymmetry is deliberate for
+      // two independent reasons.
+      //
+      // The direction it degrades is the important one. Absent means
+      // "complete", so a planner that never learns to set this gets the old
+      // strict behaviour and an over-strict rule stays loud. Defaulting the
+      // other way would convert an over-strict rule into a dead one -- a model
+      // that omits the field would silently stop the check firing at all, and
+      // nothing would report it. Degrade toward loud.
+      //
+      // Separately, schema enforcement is off by default, so a newly required
+      // field is a new way for an entire plan to fail safeParse when a model
+      // simply omits it.
       fragment: z
         .boolean()
         .optional()
