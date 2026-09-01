@@ -93,9 +93,12 @@ can read it. Written at `4fb0869`.
       more speaker ids. Run the eight T2VA ideas both ways at the thinking
       setting the comparison below settles on, and read the placeholder and
       id columns separately.
-- [ ] **Decide the thinking default from the three-arm run** (off, medium,
-      xhigh on Qwen3.8-27B, in flight at the time of writing). Off is what the
-      app sends and was never a verdict.
+- [ ] **Decide the thinking default.** Off and medium are measured above;
+      xhigh is not, because the backend wedged. Before the xhigh arm is rerun,
+      settle what drops a connection past four minutes, or run that arm
+      streaming. Off is what the app sends and was never a verdict; medium
+      bought schema conformance and nothing at the prose level, at four and a
+      half times the time.
 - [x] **Re-check the seven wording assertions** in
       `test/creative-integration.test.ts` that the 2026-08-31 test audit
       showed blind to a reworded defect. Done 2026-09-01: the two negative
@@ -173,14 +176,40 @@ for the A/B in the to-do list and not as a result. The fixed seed does not
 reproduce: the same idea and seed gave a schema refusal in one run and a clean
 document in the next, so every comparison here is between distributions.
 
-**Thinking comparison, in flight.** Qwen3.8-27B over the eight T2VA ideas at
-thinking off, medium and xhigh, `internal/conformance-2026-09-01-thinking.jsonl`.
-The off arm finished at one clean, five with diagnostics, two schema refusals,
-about 41 seconds a call. Medium was running at about 155 seconds a call and its
-first two ideas both still carried the placeholder failure. Two new schema
-refusals appeared in the off arm that the first run had not shown: a speaker
-ordinal of zero, and a plan with no `style` field. One-offs; observations, not
-fixes. The table is filled in below when the run ends.
+**Thinking comparison, stopped before the third arm.** Qwen3.8-27B over the
+eight T2VA ideas, `internal/conformance-2026-09-01-thinking.jsonl`.
+
+| arm | clean | diagnostics | schema | provider | placeholder missing | speaker id missing | mean s | mean output tokens |
+|---|---|---|---|---|---|---|---|---|
+| off | 1 | 5 | 2 | 0 | 4 of 6 | 2 of 6 | 41 | 760 |
+| medium | 0 | 7 | 0 | 1 | 4 of 7 | 3 of 7 | 187 | 3588 |
+| xhigh | not measured | | | | | | | |
+
+The "of" denominators are the documents that assembled. Medium removed the
+schema refusals, cost four and a half times the wall clock, and did not touch
+the two prose-level failures: the placeholder and the per-beat id are missed
+at the same rate whether the model reasons or not. Two new schema refusals
+appeared in the off arm: a speaker ordinal of zero, and a plan with no `style`
+field. One-offs, recorded and not fixed. Eight calls an arm on one model.
+
+The xhigh arm produced no document, and why matters for the next run more than
+the arm does. Two server behaviours, both from the server log and the client
+rows together:
+
+- A generation past roughly four minutes of wall clock returns to this client
+  as a fetch failure with no status, while the server log shows it completing
+  later (one at 502 seconds, 9,114 tokens). What drops the connection is not
+  identified; nothing in the client sets a timeout. Until it is, thinking arms
+  need either streaming or a longer-lived connection, and a call that fails
+  this way leaves the server generating.
+- Once the server is mid-generation on a gguf model, the next request does not
+  queue with a 503. It waits on the llama-server subprocess for two minutes and
+  returns 500 "unreachable: timed out", which this client reads as the model
+  being broken and gives up on. So one dropped connection turned every
+  following xhigh call into a provider failure, and the model reports itself
+  as loaded again the moment the stray generation ends. That is a heylook
+  behaviour worth raising upstream: a busy gguf backend should answer 503 the
+  way the MLX path does.
 
 What this does not establish: anything about the prose. Both models write
 fluent, specific beats. Whether those beats condition H3 well is the render
