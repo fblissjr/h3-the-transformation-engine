@@ -788,7 +788,7 @@
           "source": "core",
           "conditional": false,
           "guide": "base 4.6, 4.7",
-          "note": "The sentence ranges and the N/A option are 4.6 and 4.7 verbatim. Which way to lean is not. 4.7 makes N/A conditional -- \"Use N/A when there is no non-diegetic music\" -- and its own worked examples lean the other way, four with a score and two without across the two guides. Defaulting to N/A when the request neither states nor implies music is house preference, recorded in notInTheGuides as music-default. 4.7's 1-3 sentences is scoped to the case where a score is present, and stays in vocab.ts unchanged.",
+          "note": "Wholly 4.6 and 4.7: the sentence ranges, the N/A option, and the condition that governs it. This block previously carried a house lean -- default to N/A unless music was asked for -- recorded in notInTheGuides as music-default, and it has been reverted. The reason is the kind of rule 4.7 states rather than the evidence tally: \"Use N/A when there is no non-diegetic music\" is a test applied to the scene in front of you, so a default answers it unconditionally and every clip then asserts it is unscored whether or not anything evaluated that. Both directions assert something, which is why neither is a safe default and the guide refuses to have one. The corroboration, which is not the argument: across the guides' worked examples and the three reproducible API payloads MiniMax ships, vendor practice is 2 of 8 toward N/A. Do not re-adopt the lean, and note that a prompt corpus leaning far harder on N/A exists outside this repo and is not a validated source for it.",
           "asserts": [
             "`soundscape`",
             "`music`",
@@ -843,7 +843,7 @@
           "source": "core",
           "conditional": false,
           "house": true,
-          "note": "How a surgical edit behaves: change only what was asked, keep register, preserve continuity. No guide describes editing an existing prompt. Carries the negation half of the planner's # What the frame can show, and only that half: the rule is asymmetric, since an edit that may write 'no other people' reintroduces exactly what the planner was stopped from writing. The rest of that block is composition guidance a surgical edit has no use for. Carries the edit half of music-default for the same reason: `music` is on PATCHABLE_LEAVES, so an edit is free to invent a score over an N/A the planner deliberately wrote.",
+          "note": "How a surgical edit behaves: change only what was asked, keep register, preserve continuity. No guide describes editing an existing prompt. Carries the negation half of the planner's # What the frame can show, and only that half: the rule is asymmetric, since an edit that may write 'no other people' reintroduces exactly what the planner was stopped from writing. The rest of that block is composition guidance a surgical edit has no use for. Tells the edit that an N/A in `music` is a judgement and not a gap, for the same asymmetry: `music` is on PATCHABLE_LEAVES, so an edit is otherwise free to invent a score over a silence the planner decided on per scene. This outlived the music-default lean it was introduced alongside -- it is ordinary edit conservatism over a field whose legitimate value looks like an empty one, and it does not restore a default.",
           "asserts": [
             "<d/>",
             "`summary`",
@@ -1002,14 +1002,6 @@
           "src/provider/prompts/planner.ts"
         ],
         "why": "Absence written as visible evidence, count and position over adjectives, every property present in one frame, and left/right fixed to the camera. Unsourced craft, kept only in the part the guides' worked examples do not contradict. The negation rule also reaches the patch prompt, because an edit free to write an absence undoes the planner's half of it."
-      },
-      {
-        "id": "music-default",
-        "paths": [
-          "src/provider/prompts/planner.ts",
-          "src/provider/prompts/patch.ts"
-        ],
-        "why": "base 4.7 sanctions N/A conditionally -- when there is no non-diegetic music -- and says nothing about which way to lean when the request is silent. Leaning to N/A unless music is asked for or the material implies it is house preference, on the grounds that an invented score is a claim about the scene the user never made and this is the field where a model supplies one by reflex. It runs mildly against the guides' own example distribution, which is four scores to two N/A, so it is preference and not a reading. Only the lean is adopted: the 1-3 sentence range is still 4.7's, scoped to the music-present case. The patch prompt carries the same rule because `music` is on PATCHABLE_LEAVES, which is the asymmetry the negation rule already has. A copy of the base guide circulating outside this repo states a stronger version as though it were the guide -- N/A as the normal answer, one sentence rather than 1-3, with unsourced hit-rate figures -- and none of that is taken."
       },
       {
         "id": "wildcards",

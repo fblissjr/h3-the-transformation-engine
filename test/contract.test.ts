@@ -834,18 +834,25 @@ describe('prompt blocks match the spec', () => {
 // ---------------------------------------------------------------------------
 
 /**
- * base 4.7 permits `N/A` when there is no score. Leaning to it when the request
- * is silent is house preference, declared as `music-default` in notInTheGuides,
- * and it has to hold in both prompts: `music` is on PATCHABLE_LEAVES, so an
- * assisted edit can put a score over an N/A the planner chose.
+ * base 4.7 makes `N/A` conditional: "Use N/A when there is no non-diegetic
+ * music". This repo carried a house lean the other way -- default to N/A unless
+ * music was asked for -- declared as `music-default` in notInTheGuides. It was
+ * reverted, and these assertions now guard the revert rather than the lean.
+ *
+ * Why it was reverted, since the note matters more than the assertions: 4.7
+ * states a test applied to the scene in front of you, so a default answers that
+ * question unconditionally and every clip emitted then asserts it is unscored
+ * whether or not anything evaluated it. Both directions assert something --
+ * writing a score claims a score, writing N/A claims silence -- which is why
+ * neither is a safe default and the guide declines to have one.
  *
  * The patch assertion is the load-bearing one. That prompt said nothing about
- * music at all, so its green here comes from text that had to be written; the
- * planner already named the field and would half-pass on the old wording. The
- * lean itself has no structural anchor -- it is a preference expressed in
- * prose -- so the last assertion below is a wording proxy and is marked as one.
+ * music at all, so its green comes from text that had to be written; the planner
+ * already names the field and would half-pass on wording alone. The patch rule
+ * survived the revert unchanged and deliberately: it is edit conservatism over a
+ * field whose legitimate value looks like an empty one, not a restored default.
  */
-describe('the music default reaches both prompts', () => {
+describe('the music condition reaches both prompts', () => {
   const planner = buildPlannerSystemPrompt(normalize(input), input);
   const patch = buildPatchSystemPrompt();
 
@@ -859,20 +866,36 @@ describe('the music default reaches both prompts', () => {
     expect(patch).toContain('"N/A"');
   });
 
-  it('declares the lean as house rather than as the guide', () => {
+  it('no longer declares a music lean as house, because there is none', () => {
     const ids = contract.notInTheGuides.items.map((i) => i.id);
-    expect(ids).toContain('music-default');
+    expect(ids, 'the lean was reverted; re-adding it here means re-adding the default').not.toContain(
+      'music-default',
+    );
     const audio = contract.prompts.planner.blocks.find((b) => b.heading === '# Audio');
     expect(audio?.guide).toBe('base 4.6, 4.7');
-    expect(audio?.note, '# Audio is now part house and must say so').toEqual(expect.any(String));
+    expect(audio?.note, '# Audio must record that the lean was reverted').toMatch(/reverted/);
   });
 
-  // Wording proxy: a failure here is a fact about this assertion, not about the
-  // prompt, unless the lean itself was removed. There is no rendered shape or
-  // field name that distinguishes "default to N/A" from base 4.7's conditional
-  // "use N/A when there is no score", so this reads the word.
-  it('leans to N/A in the planner (wording proxy)', () => {
-    expect(planner).toMatch(/Write "N\/A" unless/);
+  // Wording proxy, and marked as one: "decide per scene" and "default to N/A"
+  // render no differently -- there is no shape, field name or tag that tells
+  // them apart -- so this reads the words. A failure here is a fact about this
+  // assertion unless the condition itself was removed. Anchored on "only when",
+  // which is the shape base 4.7 states and which the soundscape rule two lines
+  // above already uses, so a legitimate rewording that keeps the condition
+  // keeps this green.
+  it('states the condition rather than a default in the planner (wording proxy)', () => {
+    expect(planner).toMatch(/use "N\/A" only when/i);
+  });
+
+  // Denylist, and it cannot be complete -- it names the phrasings the reverted
+  // lean actually used, not every phrasing a future lean could use. It is here
+  // because this is the one direction of change that has already happened once,
+  // and a named regression is worth more than nothing even when the set is open.
+  it('carries no population claim about how often scenes are scored', () => {
+    expect(planner).not.toMatch(/Write "N\/A" unless/);
+    expect(planner, 'a claim about most scenes is the sentence that inverts 4.7').not.toMatch(
+      /Most scenes do not have one/,
+    );
   });
 });
 
