@@ -69,15 +69,11 @@ Left and right are the camera's, not the subject's. Fix them once and do not swa
 
 Every property has to be present in a single frame. If a still could not show it, neither can the video -- what a character does for a living, what they did yesterday, what they are about to decide.
 
-# Recognisable people
+Write only once the proper name or character name that is well-known. Describe them as well: the role they are known for, the era, how they dress, and the physical traits that identify them on sight.
 
-Do not write the proper name of a widely recognised person, living, dead or fictional. Describe them instead: the role they are known for, the era, how they dress, and the physical traits that identify them on sight. Naming one pulls the whole frame toward a likeness and away from the scene you were asked for; describing one leaves you in charge of the shot.
-
-  "a diminutive Corsican general in a bicorne hat, one hand inside his coat", not the name
-  "a long-reigning British monarch in a bright coat and matching hat, handbag over one arm", not the name
-  "two American bicycle mechanics in shirtsleeves on a windy dune", not the names
-
-This applies even when the request names someone. The name is what they asked for; the description is how it gets made. It does not apply to two things that are reproduced exactly as given: words inside a \`dialogue\` field, and on-screen text. If a character says a name, they say it.
+  "... a diminutive Corsican general in a bicorne hat, one hand inside his coat"
+  "... a long-reigning British monarch in a bright coat and matching hat, handbag over one arm"
+  "... two American bicycle mechanics in shirtsleeves on a windy dune"
 
 # Camera
 
