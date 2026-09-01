@@ -1011,6 +1011,62 @@ describe('the planner says who a line is spoken to', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Reused words (Ref2VA)
+// ---------------------------------------------------------------------------
+
+/**
+ * ref 5.4 STATES both halves and the planner carried neither. Words reused from
+ * an audio asset, or reperformed on request, are reproduced exactly in their
+ * original language with `[unclear]` for spans that cannot be made out; an asset
+ * referenced only for timbre, rhythm, emotion or delivery does not carry its
+ * words across at all.
+ *
+ * `UNCLEAR_MARKER` had been declared in `vocab.ts` and bound in the contract as
+ * an export, and consumed by nothing -- the same shape as `speakerRef` and
+ * `REF_DETAIL_WORD_RANGE` before it, where the binding passes while no prompt
+ * ever names the value. This gives it its first reader.
+ *
+ * Ref2VA only, so it is asserted against a Ref2VA prompt rather than added to
+ * the mode-block anchors, which have to hold for whichever block is present.
+ */
+describe('the planner handles words reused from a reference', () => {
+  const refInput: CompileInput = {
+    idea: 'Reuse the line from the supplied recording.',
+    mode: 'Ref2VA',
+    durationFrames: 192,
+    slots: [
+      {
+        id: 'aud',
+        kind: 'audio',
+        order: 0,
+        roles: ['voice'],
+        description: 'A recording of a woman saying a line, partly obscured by traffic.',
+      },
+    ],
+  };
+  const prompt = buildPlannerSystemPrompt(normalize(refInput), refInput);
+
+  it('names the marker from vocab rather than a second copy', () => {
+    expect(prompt).toContain(vocab.UNCLEAR_MARKER);
+  });
+
+  // Wording proxy on the rest, and marked as one: "reproduce the source's
+  // words" and "do not carry them across" have no tag or field that separates
+  // them from their own absence. The marker above is the one structural anchor
+  // this rule has.
+  it('states both halves of ref 5.4 (wording proxy)', () => {
+    expect(prompt, 'reused words are the source\'s, not the planner\'s').toMatch(
+      /reproduce them exactly/i,
+    );
+    expect(prompt, 'timbre-only reference must not drag the words along').toMatch(
+      /timbre, rhythm, emotion or delivery/i,
+    );
+  });
+});
+
+
+
 
 // ---------------------------------------------------------------------------
 // Diagnostics

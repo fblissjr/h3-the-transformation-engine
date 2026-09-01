@@ -12,6 +12,15 @@ All notable changes to this project are documented here. Semantic versioning.
 
 ### Changed
 
+- **The planner handles words reused from a reference, and `[unclear]` finally has a reader.** ref 5.4 STATES two rules the Ref2VA block carried neither of. Words carried across from an audio asset, or reperformed because the request asked for it, are the source's: they are reproduced exactly in their original language, with `[unclear]` for a span that cannot be made out and never a guess or a paraphrase. And an asset referenced only for timbre, rhythm, emotion or delivery does not carry its words across at all -- it supplies how something sounds, not what is said.
+
+  `UNCLEAR_MARKER` was declared in `vocab.ts` and bound in the contract as an export, and consumed by nothing. That is the shape `speakerRef` and `REF_DETAIL_WORD_RANGE` had before it, where an export binding passes while no prompt ever names the value, and it is why CLAUDE.md says to check that something calls a constant before leaving it exported. It has a reader now.
+
+  One scoping is ours rather than the guide's, and it is stated in the spec. An audio slot reaches the planner as a written description and never as audio, so the unintelligible span ref 5.4 has in mind is, here, any span the description does not supply. That is what makes the marker the honest output rather than an invented line, and it is the same limitation the open-work note about audio reference analysis already records.
+
+  Found by diffing an independently written H3 system prompt against ours, which is also how the sung-line gap surfaced. Two rules of the four it prompted were already covered: the four cut-crossing phrasings are in `CONTINUITY_PHRASES` verbatim, and "no speaker id in `retention_analysis`" is enforced as a diagnostic in `validate/rules/sections.ts` rather than asked for in prose, which is the better home for something provably malformed. Breakage: deleting the rule turns both its assertions red.
+
+
 - **Schema enforcement now starts off.** The owner's judgement, from reading real output, that constrained decoding costs prompt quality. It was on because that is what shipped on Gemini, and neither state was ever a verdict -- the module comment in `src/provider/shape.ts` has always said the trade runs both ways, since grammar-constrained generation buys shape conformance by distorting the token distribution while the model is writing, and prose is the product here.
 
   Recorded as a judgement rather than a finding, because it is one. No A/B has been run in this repo, and `ENFORCE_SCHEMA_DEFAULT` says so at the point of decision so a later reader neither mistakes it for a measurement nor reverts it as an oversight. The toggle is unchanged and per-call: turning enforcement on for a single generation is still one click, and a backend that cannot enforce still shows the control disabled rather than hidden.

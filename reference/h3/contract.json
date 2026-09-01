@@ -799,7 +799,7 @@
           "heading": "# Active mode:",
           "source": "mode-block",
           "conditional": false,
-          "note": "One per mode; the heading carries the mode name. One block per mode. The keyframe semantics are base 3.1-3.3 and the full-reference differences are ref 5.2; the glitch-mark affordances appended to it are house and marked in notInTheGuides.",
+          "note": "One per mode; the heading carries the mode name. One block per mode. The keyframe semantics are base 3.1-3.3 and the full-reference differences are ref 5.2; the glitch-mark affordances appended to it are house and marked in notInTheGuides. The Ref2VA block also carries ref 5.4's two rules for reused words, which nothing stated before it: words carried across from an audio asset or reperformed on request are reproduced exactly in their original language with `[unclear]` for spans that cannot be made out, and an asset referenced only for timbre, rhythm, emotion or delivery does not carry its words across at all. `[unclear]` is not asserted here because this entry's anchors have to hold for whichever mode block is present, and the marker is Ref2VA's alone; it is asserted against a Ref2VA prompt in test/contract.test.ts instead. One scoping is ours rather than the guide's: an audio slot reaches the planner as a written description and never as audio, so the unintelligible span the guide has in mind is, here, any span the description does not supply -- which is what makes the marker the honest output rather than an invented line.",
           "guide": "base 3, ref 5",
           "asserts": [
             "[Shot 1]"

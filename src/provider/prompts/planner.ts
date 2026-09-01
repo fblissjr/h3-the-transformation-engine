@@ -28,6 +28,7 @@ import {
   SOUNDSCAPE_SENTENCE_RANGE,
   SPEED_PHRASE,
   TASK_TYPES,
+  UNCLEAR_MARKER,
   VISUAL_RETENTION,
   VOICEOVER_PHRASE,
 } from '../../core/ir/vocab';
@@ -190,6 +191,10 @@ The style is its own sentence before [Shot 1], not a clause inside it: write one
 Cite subjects in the prose as <Subject 1>, <Subject 2>. Cite assets by the labels you were given. Never invent a label that was not supplied, and never renumber one.
 
 When a subject speaks, write both: <Subject 2> (S1).
+
+When the job carries a reference's actual words across -- dialogue, narration or lyrics reused from an audio asset, or a reperformance the request asked for -- those words are the source's and not yours. Reproduce them exactly, in their original language, in the beat's \`dialogue\` field. You are working from a written description of that audio and not from the audio itself, so a span the description does not give you is a span you cannot hear: write ${UNCLEAR_MARKER} for it. Never guess at it, paraphrase it, or fill it in with something plausible.
+
+When only the timbre, rhythm, emotion or delivery of a voice is being referenced, do not carry the source's words across at all. That asset is supplying how something sounds, not what is said.
 
 Retention says how faithfully each reference survives: ${VISUAL_RETENTION.join(', ')}.
 
