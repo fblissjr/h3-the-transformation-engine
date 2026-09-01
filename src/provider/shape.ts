@@ -66,6 +66,26 @@ export function jsonShapeTrailer(schema: Record<string, unknown>): string {
   ].join('\n');
 }
 
+/**
+ * Whether a fresh session starts with constrained decoding on.
+ *
+ * Off, on the owner's observation that enforcement costs prompt quality. The
+ * standing they have is what matters here: this is a judgement from reading
+ * real output, not a measurement, and no A/B in this repo has been run. It is
+ * recorded as an owner call so a later reader does not mistake it for a finding
+ * and does not silently revert it as an oversight -- the module comment above
+ * already explains why the trade is real in both directions.
+ *
+ * A named constant rather than a literal in `useEngine`, for the reason
+ * `buildClient` exists: a default living inside a `useState` call is a default
+ * nothing can assert, and this one is the difference between the two code paths
+ * this file's whole comment is about.
+ *
+ * It is only the starting value. The toggle is per-call and the panel still
+ * offers it, so turning enforcement on for a single generation costs one click.
+ */
+export const ENFORCE_SCHEMA_DEFAULT = false;
+
 /** The system prompt as it is actually sent, when a shape was asked for. */
 export function withShapeTrailer(
   systemInstruction: string,

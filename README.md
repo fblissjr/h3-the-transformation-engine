@@ -257,7 +257,9 @@ Both halves come from one parse. They did not at first: `connect-src` was genera
 
 ### Enforcing the schema, or not
 
-A checkbox beside the provider picker. On — the default, and what has always happened on Gemini — the reply is produced under constrained decoding, so the planner's nested document parses by construction. Off, the shape is asked for in the system prompt and the reply is parsed defensively, which is what the local provider does at all times because neither of its wires can constrain decoding.
+A checkbox beside the provider picker. On, the reply is produced under constrained decoding, so the planner's nested document parses by construction. Off — now the default — the shape is asked for in the system prompt and the reply is parsed defensively, which is what the local provider does at all times because neither of its wires can constrain decoding.
+
+It was on for a long time, because that is what shipped on Gemini. It is off now on the owner's judgement that enforcement costs prompt quality, formed from reading real output. That is a judgement and not a finding: the A/B described below has still not been run, and `ENFORCE_SCHEMA_DEFAULT` in `src/provider/shape.ts` says so at the point of decision. Turning it back on for one generation is a click.
 
 It is a toggle rather than a constant because the trade runs both ways and the interesting direction is unmeasured. Constrained decoding buys shape conformance by distorting the token distribution *while the model is writing*, and the prose is the product here — so it is possible the hosted path has been paying for parseability in exactly the currency this project cares about. Nobody has measured it. The toggle is the instrument.
 

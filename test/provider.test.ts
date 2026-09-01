@@ -15,6 +15,9 @@
 import { describe, expect, it } from 'vitest';
 import { buildRequest, DEFAULT_MODEL, THINKING } from '../src/provider/gemini';
 import type { CallOptions } from '../src/provider/types';
+import { ENFORCE_SCHEMA_DEFAULT } from '../src/provider/shape';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 const base: CallOptions = {
   systemInstruction: 'You expand a creative request.',
@@ -130,5 +133,38 @@ describe('request shape', () => {
     const config = build().generation_config as Record<string, unknown>;
     expect(config).not.toHaveProperty('seed');
     expect(config).not.toHaveProperty('max_output_tokens');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The starting value of the enforcement toggle
+// ---------------------------------------------------------------------------
+
+/**
+ * Off, on the owner's observation that constrained decoding costs prompt
+ * quality. Not a measurement -- no A/B has been run in this repo, and the
+ * README says as much -- so this asserts the decision, not a finding.
+ *
+ * The second test is the load-bearing one and is why the constant exists.
+ * `useEngine` is a React hook with no test harness here, so a default written
+ * as `useState(true)` inside it was a default nothing could reach: flipping it
+ * broke no test, and flipping it back would break none either. That is the
+ * shape `buildClient` was extracted to fix. Reading the source is a proxy for
+ * rendering the hook, and it is named as one -- but it is a proxy for the thing
+ * that actually goes wrong, which is someone re-hardcoding the literal.
+ */
+describe('schema enforcement starts off', () => {
+  it('is the recorded default', () => {
+    expect(ENFORCE_SCHEMA_DEFAULT).toBe(false);
+  });
+
+  it('is what useEngine starts from, rather than a literal (source proxy)', () => {
+    const src = readFileSync(join(import.meta.dirname, '..', 'src/ui/useEngine.ts'), 'utf8');
+    expect(src, 'the engine must seed its toggle from the shared constant').toContain(
+      'useState(ENFORCE_SCHEMA_DEFAULT)',
+    );
+    expect(src, 're-hardcoding the literal puts the default back out of reach').not.toMatch(
+      /const \[enforceSchema, setEnforceSchemaState\] = useState\((true|false)\)/,
+    );
   });
 });

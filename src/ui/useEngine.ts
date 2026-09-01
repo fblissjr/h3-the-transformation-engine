@@ -20,6 +20,7 @@ import { contextFor, framesToSeconds } from '../core/normalize';
 import { inferMode } from '../core/normalize/mode';
 import { compile, edit, editDirect, inspect } from '../pipeline';
 import { buildClient } from '../provider/build';
+import { ENFORCE_SCHEMA_DEFAULT } from '../provider/shape';
 import { createSerialQueue } from './queue';
 import type { InferenceClient, ProviderId } from '../provider/types';
 import {
@@ -195,7 +196,7 @@ export function useEngine() {
    * be costing the prose quality this project is built around. That is
    * unmeasured, and a toggle is the instrument for measuring it.
    */
-  const [enforceSchema, setEnforceSchemaState] = useState(true);
+  const [enforceSchema, setEnforceSchemaState] = useState(ENFORCE_SCHEMA_DEFAULT);
   const [instanceId, setInstanceIdState] = useState<string>(HEYLOOK_INSTANCES[0].id);
   /**
    * Every machine's policy overrides, by instance id.
