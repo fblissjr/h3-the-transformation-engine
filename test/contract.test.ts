@@ -984,6 +984,25 @@ describe('the planner says who a line is spoken to', () => {
     expect(speech).toMatch(/spoken to/i);
     expect(speech, 'the addressee is named by what is visible, not by an id').toMatch(/addressee/i);
   });
+
+  /**
+   * ref 5.1 STATES it: "Write dialogue and lyrics as `<d>[Language] ...</d>`",
+   * and base 4.4 already treats lyrics as dialogue where one crosses a cut. The
+   * gap this closes was a one-sided rule: the block forbade naming a vocal act
+   * without supplying its words -- `sings` is in that list -- and then never
+   * said how sung words are supplied, so the only mention of singing in the
+   * whole prompt was a prohibition.
+   *
+   * Deliberately no assertion that the lyrics tokens are absent. The release
+   * declares a pair neither guide names, and the prompt closes that door by
+   * stating there is no separate tag rather than by naming the strings -- a
+   * denylist here would have to write the token into the repo to test for it,
+   * and naming a string is how a model learns it exists.
+   */
+  it('gives sung lines the same path as spoken ones', () => {
+    expect(speech, 'a sung line has no route into `dialogue` without this').toMatch(/sung line/i);
+    expect(speech).toMatch(/no separate tag for lyrics/i);
+  });
 });
 
 
