@@ -198,6 +198,19 @@ export interface Dialogue {
   /** True when speech is truncated by the end of the video -- renders <cutoff>. */
   cutoff?: boolean;
   /**
+   * True when these words are not a complete statement, question or
+   * exclamation -- a chant, an interjection, a repeated lyric phrase, a line
+   * that trails off.
+   *
+   * ref 5.4 scopes its terminal-mark rule to "complete statements, questions,
+   * and exclamations", and this is how a document says the rule does not apply.
+   * It is deliberately about completeness rather than about how the line is
+   * delivered: a sung line can be a complete statement and should be
+   * punctuated, and a spoken interjection is a fragment and should not be, so a
+   * `sung` flag would be a proxy that leaks in both directions.
+   */
+  fragment?: boolean;
+  /**
    * True when the words came from the user. The validator refuses to let a
    * patch alter them, which is the whole point of tracking this.
    */

@@ -49,6 +49,7 @@ const dialogueSchema = z.object({
   voiceover: z.boolean(),
   crossesCut: z.enum(['starts', 'continues']).optional(),
   cutoff: z.boolean().optional(),
+  fragment: z.boolean().optional(),
   userSupplied: z.boolean(),
 });
 
@@ -219,6 +220,15 @@ const PlannedBeatSchema = z.object({
       voiceover: z.boolean(),
       crossesCut: z.enum(['starts', 'continues']).nullable(),
       cutoff: z.boolean(),
+      // Optional, unlike its neighbours, and the asymmetry is deliberate.
+      // Schema enforcement is off by default, so a newly required field is a
+      // new way for an entire plan to fail safeParse when a model simply omits
+      // it. Absent means "complete", which is the behaviour that already
+      // shipped.
+      fragment: z
+        .boolean()
+        .optional()
+        .describe('True when the words are a fragment rather than a complete statement.'),
     })
     .nullable(),
   visibleText: z.array(z.string()).describe('Text visible on screen, verbatim, without quote marks.'),

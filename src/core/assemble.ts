@@ -99,6 +99,7 @@ export function assemble(
                 voiceover: beat.dialogue.voiceover,
                 ...(beat.dialogue.crossesCut ? { crossesCut: beat.dialogue.crossesCut } : {}),
                 ...(beat.dialogue.cutoff ? { cutoff: true } : {}),
+                ...(beat.dialogue.fragment ? { fragment: true } : {}),
                 userSupplied: (input.suppliedDialogue ?? []).some(
                   (line) => line.trim() === beat.dialogue!.text.trim(),
                 ),

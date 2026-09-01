@@ -956,7 +956,7 @@
       "COMPOUND_SPEAKER_INVALID": "base 4.4: (S1,S2) names already-numbered speakers",
       "DIALOGUE_PLACEHOLDER_MISSING": "house: the splice point for <d>",
       "DIALOGUE_PLACEHOLDER_ORPHAN": "house: a splice point with nothing to splice",
-      "DIALOGUE_BAD_TERMINAL": "ref 5.4: complete statements end . ? or ! -- scoped to dialogue the user did not supply, since base 4.4 preserves supplied punctuation verbatim",
+      "DIALOGUE_BAD_TERMINAL": "ref 5.4: complete statements end . ? or ! -- scoped to dialogue the user did not supply, since base 4.4 preserves supplied punctuation verbatim, and scoped to complete utterances, which is what `fragment` on the dialogue annotation records. This description had the guide's scope right while the rule did not: the code required a terminal on every line, so a chant or an interjection failed, and nothing compared the two because the spec binds a diagnostic's existence and not its condition. `fragment` joins crossesCut and cutoff in one incompleteness disjunction rather than arriving as a fourth unrelated flag; it is named for completeness and not for delivery, because a sung line can be a complete statement and a spoken interjection is a fragment, so `sung` would leak both ways.",
       "DIALOGUE_DECORATIVE_PUNCT": "ref 5.4: no repeated or decorative punctuation -- same scope, and for the same reason",
       "VOICEOVER_PHRASE_MISSING": "base 4.4: the exact phrase. The lips-closed clause the same section requires is a prompt instruction, not a check: the guide mandates the statement rather than a wording, so no allowlist can prove its absence",
       "SCENETRANS_UNPAIRED": "base 4.4: both sides of a line crossing a cut",

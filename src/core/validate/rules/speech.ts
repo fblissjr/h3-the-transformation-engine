@@ -193,20 +193,37 @@ export const dialoguePunctuation: Rule = (doc) => {
     const text = d.text.trim();
 
     // Ref 5.4 asks for a terminal mark on "complete statements, questions, and
-    // exclamations". Two shapes are incomplete by construction and would be
-    // wrong to punctuate: the first half of a line that runs across a cut, and
-    // speech the end of the video truncates, which is the whole meaning of
-    // <cutoff>. Both fired here until a fixture was written that used them --
-    // the corpus had never contained either, so the rule had never been handed
-    // one to be wrong about.
-    const incomplete = d.crossesCut === 'starts' || d.cutoff === true;
+    // exclamations". Three shapes are incomplete and would be wrong to
+    // punctuate: the first half of a line that runs across a cut, speech the
+    // end of the video truncates, which is the whole meaning of <cutoff>, and a
+    // line that is simply not a complete utterance -- a chant, an interjection,
+    // a repeated lyric phrase.
+    //
+    // The first two fired here until a fixture was written that used them; the
+    // corpus had never contained either, so the rule had never been handed one
+    // to be wrong about. The third was missing entirely, and this rule was
+    // therefore wider than the sentence it cites: any line without a terminal
+    // failed, so a planner-written "Hey" was rejected. The contract had the
+    // scope right all along -- its diagnostic reads "complete statements end
+    // . ? or !" -- and nothing compared the two, because the spec binds the
+    // code's existence and not its condition.
+    //
+    // `fragment` rather than `sung`, deliberately. Completeness is the property
+    // ref 5.4 names; how a line is delivered only correlates with it. A sung
+    // line can be a complete statement and should be punctuated, and a spoken
+    // interjection is a fragment and should not be, so a delivery flag would
+    // leak in both directions. The guide's own reused-audio example is the
+    // case: <d>[English] I'm lonely lonely lonely lonely lonely I'm lonely</d>,
+    // printed with no terminal mark at ref-en:272.
+    const incomplete =
+      d.crossesCut === 'starts' || d.cutoff === true || d.fragment === true;
 
     if (!incomplete && text !== '' && !DIALOGUE_TERMINALS.some((t) => text.endsWith(t))) {
       out.push(
         error(
           'DIALOGUE_BAD_TERMINAL',
           `${path}.dialogue.text`,
-          'Dialogue must end with ".", "?" or "!".',
+          'A complete statement, question or exclamation must end with ".", "?" or "!". Mark a fragment with `fragment: true`.',
         ),
       );
     }

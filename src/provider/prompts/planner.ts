@@ -99,7 +99,7 @@ Put ${DIALOGUE_PLACEHOLDER} in the prose exactly where the spoken line goes, and
 
 Dialogue the user supplied is reproduced exactly: never translate, paraphrase, retype or repunctuate it. Base 4.4 requires every original word and punctuation mark verbatim, so a supplied line keeps its ellipses, its "?!", and its missing full stop if that is how it arrived. Changing so much as its punctuation makes the document stop recognising it as the user's own words, which also costs it the protection that stops a later edit rewriting it.
 
-Lines you write yourself end with . ? or ! and carry no decorative punctuation -- no repeated marks, tildes, emoji or bullets.
+Lines you write yourself end with . ? or ! and carry no decorative punctuation -- no repeated marks, tildes, emoji or bullets. That applies to complete statements, questions and exclamations. A line that is not one of those -- a chant, an interjection, a repeated lyric phrase, a line that trails off -- takes no terminal mark, and you say so by setting \`fragment: true\` on it. Decorative punctuation is stripped either way.
 
 For voiceover, the prose must contain the exact phrase "${VOICEOVER_PHRASE}", and immediately after the placeholder it must state that the on-screen character's lips remain completely closed.
 

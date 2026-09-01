@@ -391,6 +391,53 @@ describe('dialogue punctuation scope', () => {
     expect(codesFor(doc)).not.toContain('DIALOGUE_BAD_TERMINAL');
   });
 
+  /**
+   * ref 5.4 scopes the terminal rule to "complete statements, questions, and
+   * exclamations". The rule was wider than that sentence: every line without a
+   * terminal failed, so a planner-written chant or interjection was rejected
+   * for punctuation the guide never asked of it. The contract's own diagnostic
+   * text had the scope right the whole time, and nothing compared the two
+   * because the spec binds a diagnostic's existence and not its condition.
+   *
+   * The flag is `fragment` and not `sung` on purpose. Completeness is the
+   * property ref 5.4 names; delivery only correlates with it. Both directions
+   * of that leak are asserted below.
+   */
+  it('leaves a fragment alone, since ref 5.4 asks only about complete utterances', () => {
+    const doc = supplied((d) => {
+      const dialogue = d.shots[0].beats[2].dialogue!;
+      dialogue.userSupplied = false;
+      dialogue.text = "I'm lonely lonely lonely lonely lonely I'm lonely";
+      dialogue.fragment = true;
+    });
+    expect(codesFor(doc)).not.toContain('DIALOGUE_BAD_TERMINAL');
+  });
+
+  it('still fires on a complete statement that happens to be sung', () => {
+    // The leak a `sung` flag would have had in one direction: this is a
+    // complete statement and takes a terminal mark whether or not it is sung.
+    const doc = supplied((d) => {
+      const dialogue = d.shots[0].beats[2].dialogue!;
+      dialogue.userSupplied = false;
+      dialogue.text = 'I left the light on down the hall';
+      dialogue.fragment = false;
+    });
+    expect(codesFor(doc)).toContain('DIALOGUE_BAD_TERMINAL');
+  });
+
+  it('strips decorative punctuation from a fragment all the same', () => {
+    // Only the terminal-mark half is scoped to complete utterances. ref 5.4's
+    // decorative-punctuation clause is unconditional, and this is the assertion
+    // that keeps the narrowing on one branch.
+    const doc = supplied((d) => {
+      const dialogue = d.shots[0].beats[2].dialogue!;
+      dialogue.userSupplied = false;
+      dialogue.text = 'lonely lonely lonely~~~';
+      dialogue.fragment = true;
+    });
+    expect(codesFor(doc)).toContain('DIALOGUE_DECORATIVE_PUNCT');
+  });
+
   it('still fires on a missing terminal mark once it is not user-supplied', () => {
     const doc = supplied((d) => {
       const dialogue = d.shots[0].beats[2].dialogue!;
