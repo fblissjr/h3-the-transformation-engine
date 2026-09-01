@@ -72,13 +72,30 @@ can read it. Written at `4fb0869`.
       1 at all: they ran this repo's `</d> <cutoff>` form through it and it
       passed with no warning. A green from the bridge says nothing about
       markers.
-- [ ] **Paired idea set with the sister project.** Use the coverage map from
-      their generated prompt bank (unused camera rows, unused Ref2VA task
-      types, unused frame counts) as the idea set for the harness, so both
-      projects grade the same scenes. Their prompts themselves are not drawn
-      from here.
+- [ ] **Paired idea set with the sister project.** Their bank is tracked now
+      (`prompt_bank/` with `bank.json` naming each prompt's mode, frame count
+      and, for Ref2VA, the donor graph; `docs/prompt_bank.md` derives the
+      coverage tables). That manifest is the bridge contract: the harness
+      should emit the same shape so their grader can read this repo's output
+      without a second format. Their prompts themselves are still not drawn
+      from here; the scenes and the coverage gaps are what is shared. Their
+      generated doc records the two house choices every prompt makes, no
+      `<scenetrans>` and the piped tight `<|cutoff|>`, as arguable because this
+      repo decides both the other way.
 - [ ] **Render the marker question** (decision 1). Cannot be done here; it
-      needs their render path.
+      needs their render path. Their audit item 4 now names the bank prompts
+      that serve it.
+- [ ] **A/B the worked-example block on a weaker model.** With the example in
+      the prompt, Qwen3.8-27B wrote its own filled dialogue tag into the prose
+      instead of the placeholder on five of eight T2VA ideas and two of four
+      in a rerun; with the block stripped, zero of four. DeepSeek never did it
+      either way. Four calls is not a decision, and the stripped run also lost
+      more speaker ids. Run the eight T2VA ideas both ways at the thinking
+      setting the comparison below settles on, and read the placeholder and
+      id columns separately.
+- [ ] **Decide the thinking default from the three-arm run** (off, medium,
+      xhigh on Qwen3.8-27B, in flight at the time of writing). Off is what the
+      app sends and was never a verdict.
 - [x] **Re-check the seven wording assertions** in
       `test/creative-integration.test.ts` that the 2026-08-31 test audit
       showed blind to a reworded defect. Done 2026-09-01: the two negative
@@ -147,6 +164,23 @@ which is ambience under the wrong heading. DeepSeek's cut-off line ends with
 an em dash inside the dialogue and no `<cutoff>` tag at all, and validates
 clean because `cutoff` was left false; that is a content miss no diagnostic
 can name.
+
+**Follow-up the same day.** The amplitude failures were `null`, which the
+schema now accepts as absent. Re-running four of the T2VA ideas on Qwen with
+the worked-example block stripped from the prompt gave zero placeholder
+failures against two of four with it in; four calls, recorded as the reason
+for the A/B in the to-do list and not as a result. The fixed seed does not
+reproduce: the same idea and seed gave a schema refusal in one run and a clean
+document in the next, so every comparison here is between distributions.
+
+**Thinking comparison, in flight.** Qwen3.8-27B over the eight T2VA ideas at
+thinking off, medium and xhigh, `internal/conformance-2026-09-01-thinking.jsonl`.
+The off arm finished at one clean, five with diagnostics, two schema refusals,
+about 41 seconds a call. Medium was running at about 155 seconds a call and its
+first two ideas both still carried the placeholder failure. Two new schema
+refusals appeared in the off arm that the first run had not shown: a speaker
+ordinal of zero, and a plan with no `style` field. One-offs; observations, not
+fixes. The table is filled in below when the run ends.
 
 What this does not establish: anything about the prose. Both models write
 fluent, specific beats. Whether those beats condition H3 well is the render
