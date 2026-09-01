@@ -1,6 +1,6 @@
 {
   "about": "The machine-readable H3 prompt contract. Read this before auditing, changing, or adding a prompt: it is the one place that states what the output must look like per mode, what vocabulary is legal, what blocks each system prompt carries and in what order, and which guide line each of those comes from. test/contract.test.ts binds every field here to the implementation, so a disagreement is a build failure rather than a stale document.",
-  "notWrittenByHand": "Nothing here is generated. It is written independently of the code on purpose -- a spec derived from the implementation cannot contradict it, and therefore cannot catch it being wrong.",
+  "notWrittenByHand": "Nothing here is generated. It is written independently of the code on purpose -- a spec derived from the implementation cannot contradict it, and therefore cannot catch it being wrong. Hand-written is not the same as unchecked, and the distinction matters most exactly where a long vocabulary would otherwise rot: every leaf carries `binds`, so `vocabulary.cameraTypes.values` is compared to the `CAMERA_TYPES` export rather than trusted as a transcription. The hand copy is what lets the spec contradict the code; the binding is what stops it drifting silently. Neither alone would do.",
   "version": "1.0.0",
   "sources": [
     {
@@ -736,6 +736,7 @@
           "heading": "# Camera",
           "source": "core",
           "conditional": false,
+          "note": "CAMERA_TYPES is an annotation vocabulary, not a filter on prose, and the difference is the first invariant. base 4.3's table is a set of motion concepts and base-en:117 immediately tells you to render them \"as a natural English action within the shot, rather than stacked as separate labels\" -- which is what the prose does, unconstrained. The closed set is compared only to `shots[].camera.type`, in `cameraTypeValid`, which returns early on a null annotation; `CAMERA_TYPES` is imported by that one rule and by nothing else in validate/ or serialize/. So a motion the table cannot name -- a focus pull, as in MiniMax's own fl2va reproducible payload -- is written freely in the prose with no annotation, and validates clean. Recorded because the closed set reads from outside like a restriction on what may be described, and an audit that assumed so would conclude this build rejects the vendor's own requests. It does not: all five worked examples in test/fixtures produce zero diagnostics. What would be true is the general form -- closed-set enforcement cannot be pointed at ingested prose, so if vendor payloads or an outside corpus were ever taken as fixtures the annotation would have to be extracted rather than the prose matched.",
           "guide": "base 4.3",
           "asserts": [
             "`camera`",
