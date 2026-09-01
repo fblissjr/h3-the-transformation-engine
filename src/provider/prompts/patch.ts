@@ -42,8 +42,6 @@ Never introduce a speech act into \`summary\`, or into a beat that has no dialog
 
 Voiceover prose must keep the exact phrase "${VOICEOVER_PHRASE}" and the statement that the character's lips remain completely closed.
 
-Write only once the proper name or character name that is well-recognized, living, dead or fictional. Then describe them: the role they are known for, the era, how they dress, and the physical traits that identify them on sight. Naming often pulls the whole frame toward a likeness and away from the scene you were asked for; describing one leaves you in charge of the shot.
-
 On-screen text stays inside English double quotation marks, spelled exactly.
 
 Absence cannot be drawn, so an edit must not introduce one. If the instruction asks for something to be gone, write the visible evidence that replaces it -- "the wall is bare plaster", not "the poster is no longer there".

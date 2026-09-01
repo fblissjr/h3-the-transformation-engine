@@ -69,12 +69,6 @@ Left and right are the camera's, not the subject's. Fix them once and do not swa
 
 Every property has to be present in a single frame. If a still could not show it, neither can the video -- what a character does for a living, what they did yesterday, what they are about to decide.
 
-Write only once the proper name or character name that is well-known. Describe them as well: the role they are known for, the era, how they dress, and the physical traits that identify them on sight.
-
-  "... a diminutive Corsican general in a bicorne hat, one hand inside his coat"
-  "... a long-reigning British monarch in a bright coat and matching hat, handbag over one arm"
-  "... two American bicycle mechanics in shirtsleeves on a windy dune"
-
 # Camera
 
 Write camera motion as natural action inside a sentence: "The camera pushes in with small amplitude at slow speed toward the key in her palm." Never as a detached label like "Camera: push in, slow."
