@@ -207,9 +207,12 @@ rows together:
   returns 500 "unreachable: timed out", which this client reads as the model
   being broken and gives up on. So one dropped connection turned every
   following xhigh call into a provider failure, and the model reports itself
-  as loaded again the moment the stray generation ends. That is a heylook
-  behaviour worth raising upstream: a busy gguf backend should answer 503 the
-  way the MLX path does.
+  as loaded again the moment the stray generation ends. Fixed the same day
+  in heylook (its 1.79.60, commit `c67cccb`): the llama-server provider now
+  takes the process generation gate before forwarding, so a busy backend
+  answers 503 with `Retry-After` like the MLX path. The fix is committed and
+  not yet running; the server the numbers above came from was 1.79.59. The
+  four-minute connection drop is still unexplained.
 
 What this does not establish: anything about the prose. Both models write
 fluent, specific beats. Whether those beats condition H3 well is the render
