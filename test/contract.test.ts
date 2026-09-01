@@ -860,9 +860,18 @@ describe('the music condition reaches both prompts', () => {
   // which of the two it matched.
   const musicRule = planner.split('\n').find((l) => l.startsWith('`music`'));
 
+  // Scoped for the same reason the two below are, and this one was safe only by
+  // accident of a value: `soundscape` renders its own "N-M sentences" token one
+  // line up, so an unscoped assertion cannot tell which line it matched. It
+  // passes today because the ranges differ -- 1-4 against 1-3 -- and would go
+  // false-green the moment they coincided, satisfied by the soundscape line
+  // with the music range deleted. Demonstrated by feeding it
+  // SOUNDSCAPE_SENTENCE_RANGE: the unscoped form accepted it, the scoped form
+  // rejects it.
   it('states the sentence range from vocab rather than a second copy', () => {
     const [lo, hi] = vocab.MUSIC_SENTENCE_RANGE;
-    expect(planner).toContain(`${lo}-${hi} sentences`);
+    expect(musicRule, 'no `music` line in the planner prompt').toBeTruthy();
+    expect(musicRule).toContain(`${lo}-${hi} sentences`);
   });
 
   it('tells the patch prompt that an N/A is deliberate', () => {
