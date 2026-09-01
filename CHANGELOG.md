@@ -12,6 +12,15 @@ All notable changes to this project are documented here. Semantic versioning.
 
 ### Changed
 
+- **The spec records what its diagnostic bindings do not reach, and the instance that proved it.** Two notes, no behaviour change.
+
+  `notWrittenByHand` gains a concrete payoff. The argument for hand-writing the spec -- that a spec derived from the implementation cannot contradict it, and therefore cannot catch it being wrong -- had been abstract since it was written. It is not now: `DIALOGUE_BAD_TERMINAL`'s description carried ref 5.4's "complete statements" scope while the rule demanded a terminal on every line it examined. The two artifacts disagreed for as long as both existed, with the suite green, and the disagreement was visible only because the spec had not been generated. A derived spec would have restated the wider rule and agreed with it perfectly.
+
+  `diagnostics.note` now says what the bindings cover and what they do not. They reach a code's existence -- the set matches what the rules emit -- and its provenance -- every reason cites a guide section or declares itself house. They do not reach its condition, which is how the divergence above survived.
+
+  No check is offered, and the reason is worth stating precisely because it is not the usual one. It is not that an instance is lacking; this repo has one. It is that the property is undecidable: whether a sentence describes a boolean expression is not mechanically answerable, there is no allowlist here whose growth is the dangerous direction, and a proxy over the message text would fail on every legitimate rewording -- the brittleness already hit twice this week. So the disclosure is permanent rather than pending, and the control is a person reading the description beside the rule when either changes.
+
+
 - **`DIALOGUE_BAD_TERMINAL` is narrowed to the sentence it cites.** The rule demanded a terminal mark on every line it examined, so a planner-written chant or interjection failed. ref 5.4 asks for one only on "complete statements, questions, and exclamations", and the guide prints its own counterexample at `ref-en:272` -- a reused-audio lyric, `<d>[English] I'm lonely lonely lonely lonely lonely I'm lonely</d>`, with no terminal mark. A document the guide itself prints is not provably malformed, which is the bar a diagnostic has to clear here.
 
   This is a narrowing, not an exemption. The rule was always wider than its citation, and `contract.json` had the scope right the whole time -- its diagnostic reads "complete statements end . ? or !" -- so the spec and the code disagreed and nothing compared them, because the spec binds a diagnostic's existence and not its condition. The reused-words rule added earlier today did not create the collision; it produced the first case anyone noticed.
