@@ -82,13 +82,20 @@ can read it. Written at `4fb0869`.
       from here.
 - [ ] **Render the marker question** (decision 1). Cannot be done here; it
       needs their render path.
-- [ ] **Re-check the seven wording assertions** in
+- [x] **Re-check the seven wording assertions** in
       `test/creative-integration.test.ts` that the 2026-08-31 test audit
-      showed blind to a reworded defect, and either anchor them structurally or
-      mark them as wording proxies.
-- [ ] **`src/debug/bus.ts`:** the oversized-event replacement carries an
-      unbounded key list and is never re-checked against `MAX_EVENT_BYTES`.
-      Low reach; it over-evicts rather than throws.
+      showed blind to a reworded defect. Done 2026-09-01: the two negative
+      assertions are now composition checks (the styled prompt must equal the
+      bare prompt plus exactly the derived directive), and the five positive
+      ones are marked as wording proxies. A table-derived negative assertion
+      was tried first and stayed green against the audit's own mutation,
+      because a reworded note matches no table entry either; a negative string
+      check cannot see text it does not know.
+- [x] **`src/debug/bus.ts`:** the oversized-event replacement's key list is
+      bounded in count and length and re-checked against the cap. Done
+      2026-09-01. The first version of its test stayed green with the bound
+      removed, because the fallback that drops the list satisfied the byte
+      assertion; the test now also requires that some keys survive.
 - [ ] After the harness has run once: decide items 2 and 3 above on its
       numbers, not before.
 
@@ -111,6 +118,18 @@ can read it. Written at `4fb0869`.
 - Treating a local writer model as a shared concern. It is this repo's alone.
 
 ## Relayed to the sister project on 2026-09-01
+
+Their reply, same day: all three findings held and are fixed in their
+`633e4cd`. The section 15 reference was not a wrong number. A same-day commit
+on their side had deleted the whole section while its message said the content
+had moved there, so the pointer this repo read as stale was pointing at text
+that had been lost; they restored it from the parent commit. The guess that it
+meant their section 9.6 was wrong in a way that helped. Their camera-check
+ledger now says what the check reaches: amplitude and speed go red, motion
+type is warn-only, a novel phrase is caught by neither. Their audit item 4 now
+renders the truncated line both ways beside the split line. The coverage map is
+still gitignored on their side, so nothing citable exists yet; promoting it is
+their owner's call.
 
 Verified against their tree at `b3823c5` before sending:
 

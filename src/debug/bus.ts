@@ -46,6 +46,9 @@ export const MAX_BYTES = 4_000_000;
  * document and a system prompt, both tens of kilobytes.
  */
 export const MAX_EVENT_BYTES = MAX_BYTES / 8;
+/** How much of an oversized payload's key list survives in its replacement. */
+export const MAX_OVERSIZED_KEYS = 32;
+export const MAX_OVERSIZED_KEY_CHARS = 64;
 
 type Listener = () => void;
 
@@ -76,13 +79,25 @@ export function emit(record: DebugRecord): void {
   let detail = record.detail === undefined ? undefined : redact(record.detail);
   let bytesFor = weigh(detail, summary);
   if (bytesFor > MAX_EVENT_BYTES) {
-    detail = {
-      oversized: true,
-      bytes: bytesFor,
-      keys: detail != null && typeof detail === 'object' ? Object.keys(detail) : [],
-      note: `This payload was ${bytesFor} bytes, over the ${MAX_EVENT_BYTES}-byte per-event cap, and was dropped.`,
-    };
+    // The replacement has to satisfy the cap it is standing in for, and its
+    // one unbounded part is the key list: a payload with enough long keys
+    // produced a replacement that was itself over the cap, which made the
+    // "always satisfiable" claim below false. So the list is bounded in count
+    // and in key length, and if the replacement is still over -- which the
+    // bounds make unreachable, but the check is cheaper than the argument --
+    // the keys are dropped and the note stands alone.
+    const keys =
+      detail != null && typeof detail === 'object'
+        ? Object.keys(detail).slice(0, MAX_OVERSIZED_KEYS).map((k) => k.slice(0, MAX_OVERSIZED_KEY_CHARS))
+        : [];
+    const dropped = bytesFor;
+    const note = `This payload was ${dropped} bytes, over the ${MAX_EVENT_BYTES}-byte per-event cap, and was dropped.`;
+    detail = { oversized: true, bytes: dropped, keys, note };
     bytesFor = weigh(detail, summary);
+    if (bytesFor > MAX_EVENT_BYTES) {
+      detail = { oversized: true, bytes: dropped, keys: [], note };
+      bytesFor = weigh(detail, summary);
+    }
   }
 
   const event: DebugEvent = {

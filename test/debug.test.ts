@@ -25,6 +25,8 @@ import {
   instrument,
   MAX_BYTES,
   MAX_EVENT_BYTES,
+  MAX_OVERSIZED_KEY_CHARS,
+  MAX_OVERSIZED_KEYS,
   MAX_EVENTS,
   MAX_SUMMARY,
   redact,
@@ -99,6 +101,24 @@ describe('the buffer is bounded, so a long session cannot grow without limit', (
     expect(huge.oversized).toBe(true);
     expect(huge.keys).toEqual(['parts']);
     expect(only('state.huge')[0].bytes).toBeLessThanOrEqual(MAX_EVENT_BYTES);
+  });
+
+  it('bounds the replacement for an oversized payload, key list included', () => {
+    // The replacement used to carry every key of the dropped payload at full
+    // length, so a payload large through its KEYS produced a replacement that
+    // was itself over the cap -- the one shape the cap did not bound.
+    const detail: Record<string, number> = {};
+    for (let i = 0; i < 5_000; i += 1) detail[`key-${i}-${'k'.repeat(200)}`] = i;
+    trace('state', 'state.keys', 'keys', detail);
+    const event = only('state.keys')[0];
+    const replaced = event.detail as { oversized: boolean; keys: string[] };
+    expect(replaced.oversized).toBe(true);
+    // Some keys survive. Without this the assertion below is satisfied by the
+    // fallback that drops the whole list, and an unbounded list stays green.
+    expect(replaced.keys.length).toBeGreaterThan(0);
+    expect(replaced.keys.length).toBeLessThanOrEqual(MAX_OVERSIZED_KEYS);
+    for (const key of replaced.keys) expect(key.length).toBeLessThanOrEqual(MAX_OVERSIZED_KEY_CHARS);
+    expect(event.bytes).toBeLessThanOrEqual(MAX_EVENT_BYTES);
   });
 
   it('evicts past the event ceiling', () => {

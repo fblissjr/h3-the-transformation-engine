@@ -17,6 +17,8 @@ export {
   isPaused,
   MAX_BYTES,
   MAX_EVENT_BYTES,
+  MAX_OVERSIZED_KEY_CHARS,
+  MAX_OVERSIZED_KEYS,
   MAX_EVENTS,
   resetBus,
   retainedBytes,

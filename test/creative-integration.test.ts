@@ -350,9 +350,22 @@ describe('glitch marks in the planner prompt', () => {
     }
   });
 
+  /**
+   * Asserted by composition rather than by absence. The 2026-08-31 test audit
+   * made the note unconditional and reworded it, and a quoted-string negative
+   * assertion stayed green; so did one that read every note off the table,
+   * because a reworded note matches no table entry either. No negative string
+   * check can see text it does not know. What can: a style-only record adds
+   * exactly the style directive to the bare prompt and nothing else, so the
+   * two prompts are compared whole.
+   */
   it('adds no mode note when the record has no marks', () => {
-    const prompt = buildPlannerSystemPrompt(ctx, { ...input, creativeMode: CLAY });
-    expect(prompt).not.toContain('Nothing in this scene is fixed by a reference');
+    const bare = buildPlannerSystemPrompt(ctx, input);
+    const styled = buildPlannerSystemPrompt(ctx, { ...input, creativeMode: CLAY });
+    const directive = styleDirective(CLAY.selection);
+    expect(directive).not.toBeNull();
+    expect(bare).toContain('\n\n# Supplied facts');
+    expect(styled).toBe(bare.replace('\n\n# Supplied facts', `\n\n${directive}\n\n# Supplied facts`));
   });
 });
 
@@ -395,6 +408,7 @@ describe('glitch marks in the patch prompt', () => {
    * reading applies -- the same shape of contradiction that once had `subtle`
    * strength and the core prompt disagreeing inside one prompt.
    */
+  /** Wording proxy: the framing has no structural anchor, so a rewording fails here. */
   it('frames the block as a description of what is there, not as a placement', () => {
     const prompt = buildPatchSystemPrompt(MARKED);
     expect(prompt).toContain('not as an instruction to place anything');
@@ -403,9 +417,20 @@ describe('glitch marks in the patch prompt', () => {
 
   /** An edit has no mode, so nothing mode-conditional may reach it. */
   it('carries no mode note, having no mode to carry one for', () => {
-    const prompt = buildPatchSystemPrompt(MARKED);
-    expect(prompt).not.toContain('<Picture 1> is the actual first frame and does not contain a mark');
-    expect(prompt).not.toContain('Marks go on the environment only');
+    const styled = buildPatchSystemPrompt(CLAY);
+    const marked = buildPatchSystemPrompt(MARKED);
+    // By composition where the shape allows it: the marked prompt is the
+    // styled prompt, then one glitch block that ends on the derived directive.
+    // Anything appended after the directive -- a mode note, reworded or not --
+    // fails here without being named.
+    expect(marked.startsWith(`${styled}\n\n# Active glitch marks\n`)).toBe(true);
+    expect(marked.endsWith(glitchDirective(MARKED.glitch) as string)).toBe(true);
+    // The block's own introduction sits between the heading and the directive
+    // and is prose, so a note spliced in there is reachable only by this
+    // table read, which is a proxy: a reworded note passes it.
+    for (const [mode, note] of Object.entries(GLITCH_MODE_NOTES)) {
+      expect(marked, mode).not.toContain(note);
+    }
   });
 });
 
@@ -500,6 +525,7 @@ describe('recognisable people', () => {
     }
   });
 
+  /** Wording proxy: an example phrase and a clause, neither structural. */
   it('teaches the substitution rather than only forbidding the name', () => {
     const prompt = buildPlannerSystemPrompt(ctx, input);
     expect(prompt).toContain('the role they are known for');
@@ -511,6 +537,8 @@ describe('recognisable people', () => {
    * given. Never translate, paraphrase or tidy user-supplied lines" -- two
    * instructions in one prompt telling the model opposite things about the same
    * words.
+   *
+   * Wording proxy: the exemption has no field name or tag of its own to anchor on.
    */
   it('exempts the two fields that are reproduced verbatim', () => {
     const prompt = buildPlannerSystemPrompt(ctx, input);
@@ -518,6 +546,7 @@ describe('recognisable people', () => {
     expect(prompt).toContain('If a character says a name, they say it.');
   });
 
+  /** Wording proxy: the patch prompt states the rule in prose with no anchor. */
   it('is in the patch prompt, so an edit cannot introduce one', () => {
     const prompt = buildPatchSystemPrompt();
     expect(prompt).toContain('A recognisable person is described, never named');
@@ -665,6 +694,11 @@ describe('the prompt describes the contract it is compiling for', () => {
     for (const phrase of CONTINUITY_PHRASES) expect(prompt).toContain(phrase);
   });
 
+  /**
+   * Wording proxy. The negative assertion below names the one unscoped phrasing
+   * that shipped and cannot be complete; a differently worded unscoped
+   * instruction would pass it.
+   */
   it('scopes the punctuation instruction away from words the user supplied', () => {
     const prompt = promptFor('T2VA');
     expect(prompt).toContain('Lines you write yourself end with . ? or !');
