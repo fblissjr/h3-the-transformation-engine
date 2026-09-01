@@ -33,6 +33,13 @@ All notable changes to this project are documented here. Semantic versioning.
 
 ### Changed
 
+- **The planner says where `<cutoff>` goes.** It asked for the marker and said nothing about placement, so a model could have written it anywhere in the beat -- and both guides leave the question open: base 4.4 and ref 5.1 name the marker in prose and neither places it in a single worked example. House rule, recorded as `cutoff-placement`: immediately after the line it truncates, one space. The marker asserts that this speech is cut off by the video ending, so adjacency to that speech is the whole of its meaning.
+
+  The sentence beside it is not house. base 4.4 states that only the language tag and the spoken words go inside the dialogue, and `dialogueBlock` already makes anything else structurally impossible -- it renders `<d>[Language] words</d>` and nothing more. It is restated in the prompt anyway because a nearby project shipped exactly that construction in a document that instructs a model, having recorded the same construction as a contradiction of 4.4 hours earlier. Nothing here was reachable; the sentence is cheap insurance against someone making it so.
+
+  Found by an outside prompt bank rather than by reading: the looseness needed the first truncated line to exist before it was visible, which is what writing prompts does that auditing them does not.
+
+
 - **The spec records what its diagnostic bindings do not reach, and the instance that proved it.** Two notes, no behaviour change.
 
   `notWrittenByHand` gains a concrete payoff. The argument for hand-writing the spec -- that a spec derived from the implementation cannot contradict it, and therefore cannot catch it being wrong -- had been abstract since it was written. It is not now: `DIALOGUE_BAD_TERMINAL`'s description carried ref 5.4's "complete statements" scope while the rule demanded a terminal on every line it examined. The two artifacts disagreed for as long as both existed, with the suite green, and the disagreement was visible only because the spec had not been generated. A derived spec would have restated the wider rule and agreed with it perfectly.

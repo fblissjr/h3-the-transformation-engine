@@ -1016,6 +1016,13 @@
         "why": "Absence written as visible evidence, count and position over adjectives, every property present in one frame, and left/right fixed to the camera. Unsourced craft, kept only in the part the guides' worked examples do not contradict. The negation rule also reaches the patch prompt, because an edit free to write an absence undoes the planner's half of it."
       },
       {
+        "id": "cutoff-placement",
+        "paths": [
+          "src/provider/prompts/planner.ts"
+        ],
+        "why": "Where <cutoff> goes. Both guides state only when to use it -- base 4.4 and ref 5.1 name the marker in prose and neither places it in any worked example -- so the prompt asked for the tag and said nothing about where, and a model could have written it anywhere in the beat. House rule: immediately after the line it truncates, one space. The marker asserts that this speech is cut off by the video ending, so adjacency to that speech is the whole of its meaning. The prohibition beside it is not house: base 4.4 states that only the language tag and the spoken words go inside <d>, and the serializer already makes that structurally impossible -- it is restated because a nearby project put the marker inside the tag in a document that instructs a model, hours after recording that same construction as a contradiction of 4.4. Ours was never reachable; the sentence is cheap insurance against someone making it so."
+      },
+      {
         "id": "wildcards",
         "paths": [
           "src/core/wildcards"

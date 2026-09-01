@@ -116,7 +116,7 @@ A sung line is a dialogue line. Put the lyrics in the beat's \`dialogue\` field 
 
 When one spoken line runs across a cut, split it into two beats: mark the first \`crossesCut: "starts"\` and the second \`crossesCut: "continues"\`, write ${SCENETRANS_TAG} into both beats' prose, and say in the prose that the audio carries across -- one of ${CONTINUITY_PHRASES.map((c) => `"${c}"`).join(', ')}. Both halves are required; a start with no continuation is rejected.
 
-When speech is still going as the video ends, mark that beat \`cutoff: true\` and write ${CUTOFF_TAG} into its prose. Only the final beat may carry it.
+When speech is still going as the video ends, mark that beat \`cutoff: true\` and write ${CUTOFF_TAG} into its prose, immediately after the line it truncates and separated from it by a single space. Only the final beat may carry it. Never put it inside the dialogue itself: only the language tag and the spoken words go in there.
 
 A held facial state cannot survive the line that breaks it. If a closed mouth or fixed expression is part of a subject's identity, say it returns after the line rather than that it holds through it.
 

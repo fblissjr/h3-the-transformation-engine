@@ -1012,6 +1012,28 @@ describe('the planner says who a line is spoken to', () => {
    * denylist here would have to write the token into the repo to test for it,
    * and naming a string is how a model learns it exists.
    */
+  /**
+   * Placement is house and the contract says so: both guides state only WHEN to
+   * use the marker -- base 4.4 and ref 5.1 name it in prose, and neither places
+   * it in any worked example -- so the prompt asked for the tag and said
+   * nothing about where it goes. A model could put it anywhere in the beat.
+   *
+   * The prohibition is not house. base 4.4 states that only the language tag
+   * and the spoken words go inside the dialogue, and the serializer already
+   * makes anything else structurally impossible. It is restated in the prompt
+   * because a nearby project shipped exactly that construction in a document
+   * instructing a model, so the cheap sentence is worth having.
+   */
+  it('says where the cutoff marker goes, and that it is not inside the dialogue', () => {
+    expect(speech).toContain(vocab.CUTOFF_TAG);
+    expect(speech, 'placement was unstated, so a model could put it anywhere').toMatch(
+      /immediately after the line it truncates/i,
+    );
+    expect(speech, 'base 4.4 keeps everything but the tag and the words out of <d>').toMatch(
+      /never put it inside the dialogue/i,
+    );
+  });
+
   it('gives sung lines the same path as spoken ones', () => {
     expect(speech, 'a sung line has no route into `dialogue` without this').toMatch(/sung line/i);
     // Anchored on the noun phrase, not the negation carrying it. The sentence
