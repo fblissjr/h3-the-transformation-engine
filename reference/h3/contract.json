@@ -757,7 +757,7 @@
           "source": "core",
           "conditional": false,
           "guide": "base 4.4",
-          "note": "Carries the continuity fields the planner schema requires -- crossesCut, cutoff, <scenetrans>, <cutoff> and the four phrasings of base 4.4 -- which no prompt named until a review found that a model doing the right thing produced an unclearable SCENETRANS_UNPAIRED. The punctuation instruction is scoped to lines the planner writes: base 4.4 preserves supplied words verbatim, and rewriting one makes the document stop recognising it as the user's.",
+          "note": "Carries the continuity fields the planner schema requires -- crossesCut, cutoff, <scenetrans>, <cutoff> and the four phrasings of base 4.4 -- which no prompt named until a review found that a model doing the right thing produced an unclearable SCENETRANS_UNPAIRED. The punctuation instruction is scoped to lines the planner writes: base 4.4 preserves supplied words verbatim, and rewriting one makes the document stop recognising it as the user's. Also carries addressing -- who a line is spoken to. base 4.4 STATES the slot: \"Place the speaker's identifying phrase, ID, action, and delivery outside `<d>`\", and an addressee is reached through that action. ref 5.4 SHOWS the one worked instance either guide contains -- `<Subject 2> (S1) turns toward the woman and says, <d>[English] ...</d>` -- which is why an addressee is named by visible description or subject label and never by a speaker id: a listener who does not speak has no `(Sx)`, and inventing one creates a vocal source the clip then has to fill. The slot is the guide's; the emphasis is house, because one instance across both guides is not evidence a model follows it reliably.",
           "asserts": [
             "(S1,S2)",
             "crossesCut",
@@ -830,7 +830,7 @@
           "note": "Last on purpose, so the facts have the final word. Computed values handed to the model as fact -- duration, latest legal cut, label assignments, budgets -- so it never derives arithmetic. The values trace to the guides; presenting them this way does not.",
           "house": true,
           "asserts": [
-            "Spoken-word budget across the whole clip:"
+            "Spoken-word budget for the whole clip, as a ceiling and not a target:"
           ]
         }
       ]
@@ -1022,14 +1022,14 @@
         "paths": [
           "src/core/normalize/budgets.ts"
         ],
-        "why": "2.5 words per second is an estimate, supplied to the planner as advice."
+        "why": "2.5 words per second is an estimate, supplied to the planner as advice. Its shape is assumed rather than measured and it is not cited as a finding anywhere. It is now presented to the model as a ceiling rather than a target, with the difference stated: a fast exchange is many turns and few words, so a short total is not a shortfall, and a budget read as a target gets padded toward. That is the same anti-padding instruction the Ref2VA block already carried for ref 5.2's word range, which the base path had gone without."
       },
       {
         "id": "beat-density",
         "paths": [
           "src/core/normalize/budgets.ts"
         ],
-        "why": "MS_PER_BEAT, one dominant beat per 2.5 seconds. House judgement. Neither guide contains a density rule, and the comment here attributed one to the guide until an outside audit searched for it."
+        "why": "MS_PER_BEAT, one dominant beat per 2.5 seconds. House judgement. Neither guide contains a density rule, and the comment here attributed one to the guide until an outside audit searched for it. The density is unchanged, deliberately: a scene built to push fast back-and-forth to its limit is an extreme point and cannot retune a default, and the constant is still right for scenes that are not that one. What was added is a floor rather than a new density -- `recommendedBeats` takes the supplied dialogue count and never returns fewer beats than there are lines. That half is structural and not a judgement: a beat carries at most one `dialogue` object, so N lines need N beats before any action beat exists. It raises and never lowers."
       },
       {
         "id": "slot-ceilings",

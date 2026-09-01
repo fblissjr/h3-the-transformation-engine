@@ -55,9 +55,25 @@ export function spokenWordBudget(durationSeconds: number): number {
   return Math.floor(durationSeconds * WORDS_PER_SECOND);
 }
 
-/** Suggested number of action beats across the clip. */
-export function recommendedBeats(durationSeconds: number): number {
-  return Math.max(1, Math.round((durationSeconds * 1000) / MS_PER_BEAT));
+/**
+ * Suggested number of action beats across the clip.
+ *
+ * `dialogueLines` is a floor, not an adjustment to the density. A beat carries
+ * at most one `dialogue` object, so N supplied lines need N beats before any
+ * action beat exists at all -- that is a property of the schema rather than a
+ * judgement about pacing, which is why it raises the number and never lowers
+ * it. MS_PER_BEAT keeps governing everything else.
+ *
+ * The case it exists for: fast back-and-forth is turn-dense and word-sparse at
+ * the same time, so the duration heuristic and the word budget both under-count
+ * it while pointing in opposite directions. Eight short turns in fifteen
+ * seconds needs eight beats and about seventeen words, against a duration-only
+ * suggestion of six beats and a budget of thirty-seven. Without the floor the
+ * advice steers toward fewer, longer speeches.
+ */
+export function recommendedBeats(durationSeconds: number, dialogueLines = 0): number {
+  const byDuration = Math.max(1, Math.round((durationSeconds * 1000) / MS_PER_BEAT));
+  return Math.max(byDuration, dialogueLines);
 }
 
 // Four exports were removed from here: `MIN_SHOT_MS`, `comfortableLatestCutMs`,

@@ -939,6 +939,53 @@ describe('the music condition reaches both prompts', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Addressing: who a line is spoken to
+// ---------------------------------------------------------------------------
+
+/**
+ * base 4.4 STATES the slot -- "Place the speaker's identifying phrase, ID,
+ * action, and delivery outside `<d>`" -- and an addressee is reached through
+ * that action. ref 5.4 SHOWS the one worked instance either guide contains:
+ * `<Subject 2> (S1) turns toward the woman and says, <d>[English] ...</d>`.
+ * Note what that example does with the listener: names her by description and
+ * gives her no id, because she is not speaking.
+ *
+ * So the slot is the guide's and the emphasis is house. One instance across
+ * both guides is not evidence a model uses it reliably, which is exactly why
+ * the rule is written down rather than assumed.
+ *
+ * Scoped to the `# Speech` block. The whole prompt mentions speakers in four
+ * places and an unscoped assertion could not say which one it matched -- the
+ * defect this file has now produced three times.
+ */
+describe('the planner says who a line is spoken to', () => {
+  const prompt = buildPlannerSystemPrompt(normalize(input), input);
+  const speech = prompt.slice(prompt.indexOf('# Speech')).split('\n# ')[0];
+
+  it('extracts the block it means to read', () => {
+    expect(speech, 'no # Speech block in the planner prompt').toBeTruthy();
+    expect(speech).toContain('(S1)');
+  });
+
+  // Structural: a listener taking a speaker id is the failure mode with a
+  // consequence -- an invented id is a vocal source the clip has to fill, which
+  // is the same class as naming a vocal act with no words. The id form is a
+  // rendered shape, so this is an anchor rather than a proxy.
+  it('forbids giving a speaker id to someone who is only listening', () => {
+    expect(speech).toMatch(/listener never receives a speaker id/i);
+  });
+
+  // Wording proxy, and marked as one: "say who it is spoken to" has no tag,
+  // field name or rendered shape that distinguishes it from its own absence, so
+  // this reads the words. A failure here is a fact about this assertion unless
+  // the addressing rule itself was removed.
+  it('tells the planner to name the addressee (wording proxy)', () => {
+    expect(speech).toMatch(/spoken to/i);
+    expect(speech, 'the addressee is named by what is visible, not by an id').toMatch(/addressee/i);
+  });
+});
+
 
 // ---------------------------------------------------------------------------
 // Diagnostics

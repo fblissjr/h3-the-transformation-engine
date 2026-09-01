@@ -90,6 +90,8 @@ Cut only to reveal genuinely new subject, space, state, viewpoint or time. If on
 
 Give a stable id to every vocal source, numbered by the order voices actually occur. The first time a voice is heard, establish who it is in the prose: type, age, gender, whether they are on screen, and how they sound. Write the id in the prose too, as (S1), (S2), or (S1,S2) when people speak together.
 
+Say who a line is spoken to when more than one person is present. The addressee goes in the action outside the dialogue, named by what is visible -- "turns toward the woman in the charcoal coat", "looks past him to the porter" -- or by its subject label where the contract has one. A listener never receives a speaker id: ids belong to voices, and giving one to someone who is only listening creates a vocal source the clip then has to fill.
+
 Put ${DIALOGUE_PLACEHOLDER} in the prose exactly where the spoken line goes, and put the words themselves in the beat's \`dialogue\` field. Write the prose around it so it reads correctly once spliced:
 
   "the middle-aged baker with a calm, slightly raspy voice (S1) places a fresh loaf on the counter and says: ${DIALOGUE_PLACEHOLDER}"
@@ -251,8 +253,8 @@ function suppliedFacts(ctx: NormalizedContext, input: CompileInput): string {
     `Mode: ${ctx.mode}`,
     `Duration: ${ctx.durationText} seconds${ctx.durationFrames ? ` (${ctx.durationFrames} frames at 24fps)` : ''}`,
     `Latest legal cut time: ${ctx.latestCutMs}ms. Every cut must be strictly before this and strictly after the previous cut.`,
-    `Suggested shots: ${ctx.recommendedShots}. Suggested beats: about ${recommendedBeats(ctx.durationSeconds)}.`,
-    `Spoken-word budget across the whole clip: roughly ${ctx.spokenWordBudget} words.`,
+    `Suggested shots: ${ctx.recommendedShots}. Suggested beats: about ${recommendedBeats(ctx.durationSeconds, input.suppliedDialogue?.length ?? 0)}.`,
+    `Spoken-word budget for the whole clip, as a ceiling and not a target: ${ctx.spokenWordBudget} words. Short lines are not a shortfall -- a fast exchange is many turns and few words, and padding toward this number to fill it is the one way to spend it wrongly.`,
   ];
 
   if (ctx.labels.length > 0) {
