@@ -871,9 +871,16 @@ describe('the music condition reaches both prompts', () => {
     expect(ids, 'the lean was reverted; re-adding it here means re-adding the default').not.toContain(
       'music-default',
     );
+    // Structural, deliberately. Whether the note records the withdrawal is a
+    // documentation call -- and a good one, since a reader who remembers the
+    // lean needs to see it was withdrawn rather than quietly reworded -- but it
+    // is not a contract to police by regex. An earlier version of this asserted
+    // the note matched /reverted/, which is a wording proxy on prose wearing no
+    // label: improving that note's English would have gone red for nothing.
     const audio = contract.prompts.planner.blocks.find((b) => b.heading === '# Audio');
-    expect(audio?.guide).toBe('base 4.6, 4.7');
-    expect(audio?.note, '# Audio must record that the lean was reverted').toMatch(/reverted/);
+    expect(audio?.guide, '# Audio is wholly 4.6 and 4.7 and claims no house deviation').toBe(
+      'base 4.6, 4.7',
+    );
   });
 
   // Wording proxy, and marked as one: "decide per scene" and "default to N/A"
