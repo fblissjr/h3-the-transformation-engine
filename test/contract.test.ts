@@ -855,6 +855,10 @@ describe('prompt blocks match the spec', () => {
 describe('the music condition reaches both prompts', () => {
   const planner = buildPlannerSystemPrompt(normalize(input), input);
   const patch = buildPatchSystemPrompt();
+  // The `music` rule alone. `soundscape` states its own N/A condition one line
+  // up in the same block, and an assertion over the whole prompt cannot tell
+  // which of the two it matched.
+  const musicRule = planner.split('\n').find((l) => l.startsWith('`music`'));
 
   it('states the sentence range from vocab rather than a second copy', () => {
     const [lo, hi] = vocab.MUSIC_SENTENCE_RANGE;
@@ -886,12 +890,32 @@ describe('the music condition reaches both prompts', () => {
   // Wording proxy, and marked as one: "decide per scene" and "default to N/A"
   // render no differently -- there is no shape, field name or tag that tells
   // them apart -- so this reads the words. A failure here is a fact about this
-  // assertion unless the condition itself was removed. Anchored on "only when",
-  // which is the shape base 4.7 states and which the soundscape rule two lines
-  // above already uses, so a legitimate rewording that keeps the condition
-  // keeps this green.
+  // assertion unless the condition itself was removed.
+  //
+  // The "only" is base 4.6's construction, not 4.7's, and an earlier version of
+  // this comment got that wrong in both directions -- it claimed "only when" was
+  // the shape 4.7 states and that the soundscape rule two lines above already
+  // used it. Neither is true. 4.7 is bare: "Use `N/A` when there is no
+  // non-diegetic music". 4.6 is the sentence carrying the "only": "Use `N/A`
+  // only when the user explicitly requests complete silence throughout the
+  // video". And the planner's own soundscape line says "only if", not
+  // "only when". Keeping "only" in the music rule is a deliberate strengthening
+  // on 4.6's model -- it is the right reading of a conditional and it forecloses
+  // the lean -- but it is borrowed, and this comment says whose it is.
+  //
+  // Hence both connectives. Anchoring on "only when" alone would go red for the
+  // obvious future tidy of making the two audio rules read identically, whichever
+  // way that lands -- a rewording that keeps the condition perfectly intact, and
+  // exactly the failure this comment exists to prevent.
+  //
+  // Scoped to the `music` line, and that scoping is load-bearing rather than
+  // tidiness. Asserted against the whole prompt this passed for the wrong
+  // reason: the soundscape line already contains `use "N/A" only if`, so the
+  // music proxy was satisfied by a different rule and stayed green when the
+  // music condition was replaced by the lean outright. The breakage found it.
   it('states the condition rather than a default in the planner (wording proxy)', () => {
-    expect(planner).toMatch(/use "N\/A" only when/i);
+    expect(musicRule, 'no `music` line in the planner prompt').toBeTruthy();
+    expect(musicRule).toMatch(/use "N\/A" only (when|if)/i);
   });
 
   // Denylist, and it cannot be complete -- it names the phrasings the reverted
@@ -899,8 +923,8 @@ describe('the music condition reaches both prompts', () => {
   // because this is the one direction of change that has already happened once,
   // and a named regression is worth more than nothing even when the set is open.
   it('carries no population claim about how often scenes are scored', () => {
-    expect(planner).not.toMatch(/Write "N\/A" unless/);
-    expect(planner, 'a claim about most scenes is the sentence that inverts 4.7').not.toMatch(
+    expect(musicRule).not.toMatch(/Write "N\/A" unless/);
+    expect(musicRule, 'a claim about most scenes is the sentence that inverts 4.7').not.toMatch(
       /Most scenes do not have one/,
     );
   });
