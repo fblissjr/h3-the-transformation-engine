@@ -118,6 +118,9 @@ can read it. Written at `4fb0869`.
 
 ## Measured 2026-09-01: two local models through the real pipeline
 
+Postmortem for this session: `postmortems/2026-09-01_session_conformance-harness.md`
+(local, gitignored).
+
 `scripts/conformance-heylook.mjs`, eleven ideas (eight T2VA covering each
 speech feature and on-screen text, three Ref2VA with written descriptions
 only), 192 frames, seed 7, thinking off, no constrained decoding, the shipped
