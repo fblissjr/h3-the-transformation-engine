@@ -92,6 +92,16 @@ was a truncated string rather than a wrong shape. `scripts/music-lean-heylook.mj
 is the instrument. One model, one session: a data point, not a guarantee, and it
 says nothing about the smaller models in the roster.
 
+`scripts/conformance-heylook.mjs` is the standing instrument for that question.
+It drives the real pipeline over a fixed idea set and reports the stage each
+call reached as separate columns. **heylook serves one generation at a time, so
+run one instrument at a time, and not beside the app.** A second caller queues
+behind the first on 503s, and past the five-minute backpressure budget it fails
+as `provider` -- which in the harness output reads as a model failure and is
+not one. The harness itself is sequential over one client and never issues two
+requests at once; the trap is two invocations, or one beside a browser tab
+that is generating.
+
 **Break a check where its green could be hollow, and not where it could not.** The question a breakage answers is whether the check reaches its subject — so spend one where a green might come from never arriving: across a schema, a barrel export, an assembly step, a UI path, or beside a second guard that could be carrying the assertion alone. Where the assertion reads the value under test directly, breaking it is a tautology and proves nothing; changing a constant to watch its own equality assertion fail is theatre, and doing it out of habit trains you to read "went red" as "is sound".
 
 That is not a licence to skip it, because this is exactly where the gaps have been. Deleting `if (input.creativeMode) doc.creativeMode = ...` from `compile` left all 400-odd tests green, because it sat past the model call where nothing could reach it. The same for the roll record. `{setting}` and `{setting:random}` drew separately for a while with no control at all, under a describe block whose name claimed the case was covered. And the two prototype guards in `matrix.ts` only go red together, which the breakage has to say out loud or the next reader concludes one of them is dead.

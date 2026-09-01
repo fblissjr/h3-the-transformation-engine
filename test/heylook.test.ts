@@ -184,6 +184,27 @@ describe('the Messages wire', () => {
     expect(build({}, null)).not.toHaveProperty('thinking');
   });
 
+  it('sends the thinking preference, and depth only where the row advertises it', () => {
+    // Off is the default and what the app sends; the harness turns it on. The
+    // effort value is per-model vocabulary and reaches the chat template
+    // unchecked, so it is gated on the `reasoning_effort` capability and on
+    // thinking being on -- an effort with thinking off is a contradiction.
+    const EFFORT_MODEL: HeylookModel = { ...TEXT_MODEL, capabilities: ['chat', 'thinking', 'reasoning_effort'] };
+    const on = buildRequest(base, [], EFFORT_MODEL, { on: true, effort: 'xhigh' });
+    expect(on.thinking).toBe(true);
+    expect(on.reasoning_effort).toBe('xhigh');
+
+    const noEffortCapability = buildRequest(base, [], TEXT_MODEL, { on: true, effort: 'xhigh' });
+    expect(noEffortCapability.thinking).toBe(true);
+    expect(noEffortCapability).not.toHaveProperty('reasoning_effort');
+
+    const offWithEffort = buildRequest(base, [], EFFORT_MODEL, { on: false, effort: 'xhigh' });
+    expect(offWithEffort.thinking).toBe(false);
+    expect(offWithEffort).not.toHaveProperty('reasoning_effort');
+
+    expect(buildRequest(base, [], null, { on: true, effort: 'xhigh' })).not.toHaveProperty('thinking');
+  });
+
   it('omits the model id entirely when none was resolved', () => {
     // Rather than sending a guess. With no id the server falls back to whatever
     // it has loaded, which is a better answer than a 400 on a wrong name.
@@ -408,6 +429,32 @@ describe('the retry loop itself, not just the header arithmetic', () => {
     const started = Date.now();
     await client.call({ ...base, maxOutputTokens: 8 });
     expect(Date.now() - started).toBeGreaterThanOrEqual(900);
+  });
+
+  it('carries the thinking preference from construction to the wire', async () => {
+    // `buildRequest` is pure and tested above; this is the wiring past it. A
+    // preference held on the client and never handed to the builder would leave
+    // every builder test green and every real call thinking-off, which is the
+    // gap the harness would then be measuring without knowing.
+    let body: Record<string, unknown> | null = null;
+    const capture = (async (_url: string, init?: RequestInit) => {
+      body = JSON.parse(String(init?.body));
+      return new Response(
+        JSON.stringify({ id: 'msg_1', content: [{ type: 'text', text: 'ok' }], stop_reason: 'end_turn' }),
+        { status: 200 },
+      );
+    }) as unknown as typeof fetch;
+    const EFFORT_MODEL: HeylookModel = { ...TEXT_MODEL, capabilities: ['chat', 'thinking', 'reasoning_effort'] };
+    const client = new HeylookClient({
+      origin: 'http://x',
+      model: EFFORT_MODEL,
+      fetchImpl: capture,
+      thinking: { on: true, effort: 'medium' },
+    });
+    await client.call({ ...base, maxOutputTokens: 8 });
+    expect(body).not.toBeNull();
+    expect((body as unknown as Record<string, unknown>).thinking).toBe(true);
+    expect((body as unknown as Record<string, unknown>).reasoning_effort).toBe('medium');
   });
 
   it('refuses a per-call model switch rather than silently ignoring it', async () => {

@@ -37,10 +37,18 @@ import {
 // Shared leaves
 // ---------------------------------------------------------------------------
 
+/**
+ * `null` is accepted for amplitude and speed and means absent. The prompt says
+ * medium and normal are expressed by leaving the field out, and a model doing
+ * exactly that in JSON writes `null` -- measured 2026-09-01, three of eight
+ * T2VA plans from a local model refused on `amplitude: null` and nothing else.
+ * `assemble` drops the null, so the document type never carries one and the
+ * vocabulary stays the guide's two values.
+ */
 const cameraSchema = z.object({
   type: z.enum(CAMERA_TYPES),
-  amplitude: z.enum(AMPLITUDES).optional(),
-  speed: z.enum(SPEEDS).optional(),
+  amplitude: z.enum(AMPLITUDES).nullable().optional(),
+  speed: z.enum(SPEEDS).nullable().optional(),
 });
 
 const dialogueSchema = z.object({

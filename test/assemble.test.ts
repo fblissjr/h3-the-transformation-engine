@@ -10,6 +10,7 @@
 import { describe, expect, it } from 'vitest';
 import { assemble, AssembleError } from '../src/core/assemble';
 import type { CreativeModeRecord } from '../src/core/creative';
+import { PlannerOutputSchema, plannerJsonSchema } from '../src/core/ir/schema';
 import type { PlannerOutput } from '../src/core/ir/schema';
 import type { CompileInput } from '../src/core/ir/types';
 import { normalize } from '../src/core/normalize';
@@ -177,5 +178,36 @@ describe('input metadata on the assembled document', () => {
     const doc = assemble(plan, input, normalize(input), { id: 'd' });
     expect('creativeMode' in doc).toBe(false);
     expect('roll' in doc).toBe(false);
+  });
+});
+
+describe('null amplitude and speed are a spelling of absent', () => {
+  // The prompt says medium and normal are expressed by leaving the field out,
+  // and a model doing exactly that in JSON writes null. Measured 2026-09-01:
+  // three of eight T2VA plans from a local model were refused on
+  // `amplitude: null` and nothing else. The schema accepts it and the document
+  // never carries it, so the vocabulary is still the guide's two values.
+  it('parses, assembles without the key, and validates clean', () => {
+    const withNulls = structuredClone(plan);
+    withNulls.shots[0].camera = { type: 'Push In', amplitude: null, speed: null } as never;
+    const parsed = PlannerOutputSchema.safeParse(withNulls);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) return;
+    const ctx = normalize(input);
+    const doc = assemble(parsed.data, input, ctx, { id: 'nulls', modeLocked: true });
+    expect(doc.shots[0].camera).toEqual({ type: 'Push In' });
+    expect(Object.keys(doc.shots[0].camera ?? {})).not.toContain('amplitude');
+    expect(validate(doc, ctx).diagnostics).toEqual([]);
+  });
+
+  it('advertises null in the JSON schema the trailer sends, so the model is told it is legal', () => {
+    // The JSON Schema is what a local model reads; a value accepted by zod but
+    // not shown there is a leniency the model cannot discover.
+    const text = JSON.stringify(plannerJsonSchema());
+    expect(text).toContain('"amplitude"');
+    // The window after the key, since the schema nests anyOf inside anyOf and a
+    // bracket-matching regex is more test than the claim deserves.
+    const window = text.slice(text.indexOf('"amplitude":'), text.indexOf('"amplitude":') + 120);
+    expect(window, window).toMatch(/"null"/);
   });
 });

@@ -56,11 +56,13 @@
  *    ceilings are real opinions so they are sent; nothing else is invented.
  *  - **`thinking` is a bool**, not Anthropic's config object -- it is the local
  *    template's `enable_thinking` switch, a different mechanism with the same
- *    name. It is sent as false, and only to models whose row advertises the
- *    capability. Depth (`reasoning_effort`) is NOT sent at all: measured across
- *    low/medium/high/xhigh on a 27B gguf, every level produced a worse planner
- *    document than omitting the field, so there is nothing to gate. This
- *    paragraph previously described gating that no line of this file performed.
+ *    name. It is sent only to models whose row advertises the capability, and
+ *    its value is a per-client preference (`ThinkingPreference`) that defaults
+ *    to off. Depth (`reasoning_effort`) is sent only with thinking on and only
+ *    where the row advertises it. One earlier measurement across
+ *    low/medium/high/xhigh on a 27B gguf found every level worse than omitting
+ *    the field, which is why off is the default and not a verdict; the
+ *    conformance harness is where the comparison is re-run.
  *  - **A thinking model returns a `thinking` block beside `text`.** Only `text`
  *    blocks are joined; joining everything puts the model's reasoning into the
  *    planner's JSON and nothing parses.
@@ -118,7 +120,28 @@ const MAX_RETRY_MS = 15_000;
 /** A server that says "retry immediately" still should not be polled in a tight loop. */
 const MIN_RETRY_MS = 1000;
 
+/**
+ * Whether to ask a thinking model to think, and how hard.
+ *
+ * Off by default, which is what shipped: the reasoning arrives as a separate
+ * block the client discards, and it spends the output ceiling the document
+ * needs. But that was one measurement on one 27B gguf, and the owner's view is
+ * that thinking may account for a good part of the prose quality -- so it is a
+ * per-client choice rather than a constant, and the conformance harness runs
+ * the comparison. `effort` is heylook's `reasoning_effort`, whose vocabulary is
+ * per model; it is sent only where the model's row advertises the capability,
+ * since a value the chat template does not know returns a 500.
+ */
+export interface ThinkingPreference {
+  on: boolean;
+  effort?: string;
+}
+
+export const THINKING_DEFAULT: ThinkingPreference = { on: false };
+
 export interface HeylookClientConfig {
+  /** See `ThinkingPreference`. Absent means off. */
+  thinking?: ThinkingPreference;
   /**
    * Where to send requests.
    *
@@ -170,6 +193,7 @@ export function buildRequest(
   options: CallOptions,
   images: ImageAttachment[],
   model: HeylookModel | null,
+  thinking: ThinkingPreference = THINKING_DEFAULT,
 ): Record<string, unknown> {
   // Media first, then the question: the prompt then reads as instructions
   // about material already presented. Same ordering as the Gemini client, for
@@ -200,10 +224,14 @@ export function buildRequest(
     stream: false,
   };
 
-  // Thinking is off for a JSON-producing call. The reasoning arrives as a
-  // separate block that has to be discarded anyway, and it spends the token
-  // budget that the document needs.
-  if (canServe(model, 'thinking')) request.thinking = false;
+  // Thinking is a per-client preference (see `ThinkingPreference`), sent only
+  // to a model whose row has the switch. Depth goes only where the row also
+  // advertises `reasoning_effort`, and only when thinking is on -- an effort
+  // with thinking off is a contradiction the template would have to resolve.
+  if (canServe(model, 'thinking')) request.thinking = thinking.on;
+  if (thinking.on && thinking.effort != null && canServe(model, 'reasoning_effort')) {
+    request.reasoning_effort = thinking.effort;
+  }
 
   return request;
 }
@@ -221,8 +249,10 @@ export class HeylookClient implements InferenceClient {
   readonly model: HeylookModel | null;
   private readonly fetchImpl: typeof fetch;
   private readonly backpressureBudgetMs: number;
+  private readonly thinking: ThinkingPreference;
 
   constructor(config: HeylookClientConfig = {}) {
+    this.thinking = config.thinking ?? THINKING_DEFAULT;
     this.origin = config.origin ?? HEYLOOK_INSTANCES[0].origin;
     this.model = config.model ?? null;
     this.fetchImpl = config.fetchImpl ?? ((...args) => fetch(...args));
@@ -301,7 +331,7 @@ export class HeylookClient implements InferenceClient {
       });
     }
 
-    const request = buildRequest(options, images, this.model);
+    const request = buildRequest(options, images, this.model, this.thinking);
 
     // The body as posted, not a re-derivation from `options`: the images above
     // have already been resized by this point, so anything rebuilt from the raw

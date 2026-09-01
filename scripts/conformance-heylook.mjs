@@ -32,11 +32,17 @@
  *
  * Usage:
  *   bun scripts/conformance-heylook.mjs --model=<id>[,<id>...] [--set=t2va|ref2va|all]
- *        [--n=N] [--out=path.jsonl] [--probe]
+ *        [--n=N] [--only=key,key] [--out=path.jsonl] [--probe] [--strip-example]
+ *        [--thinking=on|off] [--effort=<value>]
  *
  * `--probe` makes one call on the first idea and stops, to see latency and
  * whether the shape survives at all before spending a run. Reads
  * VITE_HEYLOOK_ORIGIN, defaulting to the local server.
+ *
+ * Calls are sequential over one client, because heylook serves one generation
+ * at a time. Do not run two of these at once, or one beside the app while it is
+ * generating: the second caller queues on 503s and, past the backpressure
+ * budget, lands in the `provider` column looking like a model failure.
  */
 
 import { appendFileSync } from 'node:fs';
@@ -56,8 +62,18 @@ const arg = (name, fallback) => {
 const MODELS = arg('model', '').split(',').filter(Boolean);
 const SET = arg('set', 'all');
 const N = Number(arg('n', '0')) || 0;
+const ONLY = arg('only', '').split(',').filter(Boolean);
 const OUT = arg('out', `internal/conformance-${new Date().toISOString().slice(0, 10)}.jsonl`);
 const PROBE = process.argv.includes('--probe');
+/**
+ * Drop the "# What your plan becomes" block from the system prompt before it
+ * is sent. An A/B on the worked example: it shows a finished prompt with the
+ * dialogue tag filled in, and a model copying it may write the tag into its
+ * prose instead of the placeholder. Harness-only; the app has no such switch.
+ */
+const STRIP_EXAMPLE = process.argv.includes('--strip-example');
+/** `--thinking=on|off` and `--effort=<per-model value>`; see ThinkingPreference in the client. */
+const THINKING = { on: arg('thinking', 'off') === 'on', ...(arg('effort', '') ? { effort: arg('effort', '') } : {}) };
 
 if (MODELS.length === 0) {
   console.error('usage: bun scripts/conformance-heylook.mjs --model=<id>[,<id>...] [--set=t2va|ref2va|all] [--n=N] [--out=path] [--probe]');
@@ -125,7 +141,8 @@ function jobsFor(set) {
   if (set === 'ref2va' || set === 'all') {
     for (const j of REF2VA) jobs.push({ ...j, mode: 'Ref2VA' });
   }
-  return N > 0 ? jobs.slice(0, N) : jobs;
+  const chosen = ONLY.length > 0 ? jobs.filter((j) => ONLY.includes(j.key)) : jobs;
+  return N > 0 ? chosen.slice(0, N) : chosen;
 }
 
 // ---------------------------------------------------------------------------
@@ -149,6 +166,21 @@ function capture() {
   };
 }
 
+/** A client that forwards every call with the worked-example block removed. */
+function stripExample(inner) {
+  return {
+    providerId: inner.providerId,
+    canEnforceSchema: inner.canEnforceSchema,
+    call(options) {
+      const text = options.systemInstruction;
+      const start = text.indexOf('# What your plan becomes');
+      const end = text.indexOf('\n\n# ', start + 1);
+      if (start < 0 || end < 0) throw new Error('--strip-example: the example block is not where this expects it');
+      return inner.call({ ...options, systemInstruction: text.slice(0, start) + text.slice(end + 2) });
+    },
+  };
+}
+
 function classify(error) {
   if (error instanceof PlanError) return 'schema';
   if (error instanceof AssembleError) return 'assemble';
@@ -165,7 +197,7 @@ async function runOne(client, job, modelId) {
   const input = { idea: job.idea, mode: job.mode, durationFrames: 192, slots: job.slots };
   const cap = capture();
   const started = Date.now();
-  const row = { model: modelId, key: job.key, mode: job.mode, idea: job.idea, durationFrames: 192 };
+  const row = { model: modelId, key: job.key, mode: job.mode, idea: job.idea, durationFrames: 192, strippedExample: STRIP_EXAMPLE, thinking: THINKING };
   try {
     const result = await compile(client, input, { id: `conf-${job.key}`, seed: 7 });
     const doc = result.doc;
@@ -180,6 +212,7 @@ async function runOne(client, job, modelId) {
       musicNA: isNA(doc.music),
       renderedWords: words(result.rendered.text),
       rendered: result.rendered.text,
+      doc,
       usage: result.usage,
     });
   } catch (error) {
@@ -199,7 +232,7 @@ async function runOne(client, job, modelId) {
 
 const roster = await listModels(ORIGIN);
 const jobs = jobsFor(SET);
-console.log(`origin ${ORIGIN}; ${jobs.length} idea(s) x ${MODELS.length} model(s); writing ${OUT}`);
+console.log(`origin ${ORIGIN}; ${jobs.length} idea(s) x ${MODELS.length} model(s); writing ${OUT}${STRIP_EXAMPLE ? '; worked example stripped' : ''}; thinking ${THINKING.on ? `on${THINKING.effort ? ' at ' + THINKING.effort : ''}` : 'off'}`);
 
 const all = [];
 for (const modelId of MODELS) {
@@ -212,7 +245,8 @@ for (const modelId of MODELS) {
   const load = await loadModel(ORIGIN, modelId);
   console.log(`\n${modelId}: load ${load.kind} in ${Date.now() - loadStarted}ms; capabilities ${JSON.stringify(model.capabilities)}`);
 
-  const client = new HeylookClient({ origin: ORIGIN, model });
+  const inner = new HeylookClient({ origin: ORIGIN, model, thinking: THINKING });
+  const client = STRIP_EXAMPLE ? stripExample(inner) : inner;
   for (const job of PROBE ? jobs.slice(0, 1) : jobs) {
     const row = await runOne(client, job, modelId);
     all.push(row);

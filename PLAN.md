@@ -60,13 +60,10 @@ can read it. Written at `4fb0869`.
 
 ## To do, in order
 
-- [ ] **Local-model conformance harness.** Generalise
-      `scripts/music-lean-heylook.mjs`: a fixed idea set per mode, run through
-      each roster model, reporting parse rate, validator diagnostics and
-      assembly refusals as separate columns. Answers "which local models hold
-      the shape", which `CLAUDE.md` names as the open question on this
-      provider. Needs no new app code. Score assembly failures separately from
-      prose, or an off-arm defect reads as a verdict on the prompt.
+- [x] **Local-model conformance harness.** `scripts/conformance-heylook.mjs`,
+      done 2026-09-01 and run once; results below. Answers "which local models
+      hold the shape", which `CLAUDE.md` names as the open question on this
+      provider.
 - [ ] **Grader bridge.** A script that writes serialized prompts to a
       directory in the shape the sister project's `bench/grade_prompt_text.py`
       consumes (mode and frame count per file, donor stem for Ref2VA). An
@@ -98,6 +95,62 @@ can read it. Written at `4fb0869`.
       assertion; the test now also requires that some keys survive.
 - [ ] After the harness has run once: decide items 2 and 3 above on its
       numbers, not before.
+
+## Measured 2026-09-01: two local models through the real pipeline
+
+`scripts/conformance-heylook.mjs`, eleven ideas (eight T2VA covering each
+speech feature and on-screen text, three Ref2VA with written descriptions
+only), 192 frames, seed 7, thinking off, no constrained decoding, the shipped
+prompt with the worked example in it. One run each. Stages are separate
+columns and are not summed.
+
+| model | clean | diagnostics | schema | mean s |
+|---|---|---|---|---|
+| DeepSeek-V4-Flash-0731-UD-IQ4_XS (text only) | 5 | 3 | 3 | 34 |
+| unsloth_Qwen3.8-27B-UD-Q8_K_XL (vision) | 2 | 7 | 2 | 48 |
+
+Neither model produced a reply without JSON, a truncation, an assembly refusal
+or a provider error. Both hold the shape most of the time; every failure below
+is a specific field or a specific rule, which is what the columns are for.
+
+What failed, by cause:
+
+- **`camera.amplitude` outside the enum**, DeepSeek, three of eight T2VA. The
+  prompt says medium is expressed by leaving the field out; the model writes a
+  value anyway. The received values are being captured in a follow-up run.
+  Same field the 0.8B Qwen failed on in the 2026-08-31 note.
+- **Speaker id written once, not per beat**, both models. The prompt said
+  "write the id in the prose too" and nothing about every line; the validator
+  checks every dialogue-carrying beat. Fixed in the prompt the same day.
+- **Dialogue placeholder missing**, Qwen, five of eight T2VA. The render shows
+  the model's own filled `<d>[English] ...</d>` where the `<d/>` placeholder
+  should be, which is exactly what the worked example in the prompt shows.
+  DeepSeek did not do this. Whether the example causes it is the A/B in the
+  follow-up run: the same four ideas with the example block stripped.
+- **`citesSubjects` omitted on one beat**, Qwen, one. A required array that is
+  always empty under the base contract.
+- **A subject with no sources**, Qwen, one Ref2VA (a voice-only reference). The
+  "filling the silence" class the `suppliedFacts` else-branch was written for,
+  reached here through a slot that exists but supplies nothing visible.
+- **`<scenetrans>` set on beats in a single-shot document**, both models, one
+  each: `crossesCut` annotations with no cut to cross.
+- **Voiceover phrase and lips-closed sentence missing on the second beat**,
+  both models: each wrote the exact phrase on the first voiceover beat and
+  paraphrased it on the next.
+- **Visible text not quoted**, Qwen, one. The document is stored in the
+  follow-up run so the field can be read against the prose.
+
+Two things the validator cannot see and that a reader should. DeepSeek's
+"quiet" locksmith scene, with no speech asked for, was given two spoken lines,
+and its `non_diegetic_music` for that scene describes a ticking and a whir,
+which is ambience under the wrong heading. DeepSeek's cut-off line ends with
+an em dash inside the dialogue and no `<cutoff>` tag at all, and validates
+clean because `cutoff` was left false; that is a content miss no diagnostic
+can name.
+
+What this does not establish: anything about the prose. Both models write
+fluent, specific beats. Whether those beats condition H3 well is the render
+question, unchanged.
 
 ## Not doing
 

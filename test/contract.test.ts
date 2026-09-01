@@ -998,6 +998,17 @@ describe('the planner says who a line is spoken to', () => {
     expect(speech, 'the addressee is named by what is visible, not by an id').toMatch(/addressee/i);
   });
 
+  // The validator's SPEAKER_REF_MISSING_IN_PROSE checks every beat that carries
+  // dialogue for its speaker id, and the prompt said only "write the id in the
+  // prose too" -- which a model read as once. Measured on 2026-09-01: a local
+  // model wrote (S1) and (S2) on first appearance and nothing on the three
+  // later lines, and the document was refused for it. A prompt that cannot
+  // satisfy the validator it feeds is a defect regardless of the id rule's
+  // standing. Wording proxy: "every beat" has no rendered shape of its own.
+  it('tells the planner the id goes on every beat that speaks, not the first only (wording proxy)', () => {
+    expect(speech).toMatch(/on every beat where that voice speaks/i);
+  });
+
   /**
    * ref 5.1 STATES it: "Write dialogue and lyrics as `<d>[Language] ...</d>`",
    * and base 4.4 already treats lyrics as dialogue where one crosses a cut. The

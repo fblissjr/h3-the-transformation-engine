@@ -96,7 +96,7 @@ Cut only to reveal genuinely new subject, space, state, viewpoint or time. If on
 
 # Speech
 
-Give a stable id to every vocal source, numbered by the order voices actually occur. The first time a voice is heard, establish who it is in the prose: type, age, gender, whether they are on screen, and how they sound. Write the id in the prose too, as (S1), (S2), or (S1,S2) when people speak together.
+Give a stable id to every vocal source, numbered by the order voices actually occur. The first time a voice is heard, establish who it is in the prose: type, age, gender, whether they are on screen, and how they sound. Write the id in the prose too, as (S1), (S2), or (S1,S2) when people speak together -- and write it on every beat where that voice speaks, not only the first. Each spoken line is checked for its id, so a line whose beat names the speaker by description alone is refused.
 
 Say who a line is spoken to when more than one person is present. The addressee goes in the action outside the dialogue, named by what is visible -- "turns toward the woman in the charcoal coat", "looks past him to the porter" -- or by its subject label where the contract has one. A listener never receives a speaker id: ids belong to voices, and giving one to someone who is only listening creates a vocal source the clip then has to fill.
 

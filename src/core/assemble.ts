@@ -12,6 +12,7 @@
  */
 
 import type {
+  CameraAnnotation,
   CompileInput,
   H3Document,
   NormalizedContext,
@@ -24,6 +25,19 @@ import type { PlannerOutput } from './ir/schema';
 import type { LabelKind } from './ir/vocab';
 
 export class AssembleError extends Error {}
+
+/**
+ * The planner schema accepts `null` for amplitude and speed as a spelling of
+ * absent; the document never carries one. A null camera stays null.
+ */
+function cameraWithoutNulls(camera: PlannerOutput['shots'][number]['camera']): CameraAnnotation | null {
+  if (camera == null) return null;
+  return {
+    type: camera.type,
+    ...(camera.amplitude == null ? {} : { amplitude: camera.amplitude }),
+    ...(camera.speed == null ? {} : { speed: camera.speed }),
+  };
+}
 
 export interface AssembleOptions {
   /** Document id. Supplied so the caller controls identity across regenerations. */
@@ -79,7 +93,7 @@ export function assemble(
     // The first shot never carries a timestamp, whatever the planner returned.
     cutAtMs: i === 0 ? null : shot.cutAtMs,
     ...(shot.cutStyle ? { cutStyle: shot.cutStyle } : {}),
-    camera: shot.camera,
+    camera: cameraWithoutNulls(shot.camera),
     beats: shot.beats.map((beat, j) => {
       const speaker = beat.speaker != null ? speakerByOrdinal.get(beat.speaker) : undefined;
       if (beat.speaker != null && !speaker) {
