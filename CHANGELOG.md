@@ -10,6 +10,27 @@ All notable changes to this project are documented here. Semantic versioning.
 
   What that buys is the app's answer to the commonest heylook question. The three-way message -- the server is down, the page policy refused it, or there are no CORS headers -- names three causes because they arrive indistinguishably, as a bare `TypeError` with no status and no body. Nothing had ever checked that a failure which is *not* one of those three avoids it. `test/heylook-discovery-wire.test.ts` asserts which cause is named rather than the wording, since the message is long prose that will be reworded and anchoring on a clause would make the file a change detector for the copy. Two mutations confirm it reaches the branch selection: routing a bad status into the three-way message turns one assertion red, and passing through only `AbortError` -- the bug that once made the caller's timeout branch unreachable -- turns another red.
 
+### Added
+
+- **The planner is shown a finished prompt.** It carried roughly 2,500 words of rules and no instance of the artifact those rules describe, while both guides teach this format mostly by worked example -- four Cases in base 5, one complete example in ref 7. A model was being given every constraint and never the target. This is the one change aimed at prompt quality rather than at a defect, and it is also the one nothing here can verify.
+
+  MiniMax's five rather than a house-authored set, for a reason that outranks the alternatives: these are what H3 was trained near. A prompt that grades conformant is conformant, which is a different and weaker property. One example ships per call because the mode block selects it -- 220 to 265 tokens for a base mode, about 960 for Ref2VA.
+
+  The framing is load-bearing rather than decorative. The model returns a plan and this is the output, so an example presented without that distinction invites finished prompt text back and fails the schema. Every sentence around it says which side of the line it sits on, and a marked wording proxy asserts that framing survives.
+
+  The music distribution was measured before adopting the set rather than after: three of the five carry a real score, two are `N/A`. A set skewed to `N/A` would have reinstated by demonstration the lean reverted earlier this week, and no rule in the prompt would have countered it -- a model copies a distribution more reliably than it follows a stated condition. An outside bank of seventeen examples was offered and not drawn from for the same reason plus provenance: it is 53% `N/A`, against the vendor's 29%.
+
+  `src/core/ir/examples.ts` is new and holds the five rendered strings, moved out of `test/fixtures/` so the prompt and the tests read one copy. They were relocated byte-for-byte rather than retyped, and `test/guide-fidelity.test.ts` -- which compares them to the guide files on disk -- is what proves the move did not corrupt them.
+
+  The anchor-uniqueness rule needed a real exemption, not a patch. A block quoting a finished prompt contains the camera phrasing, dialogue tags and field labels that other blocks anchor on: `with small amplitude` is in the T2VA example because the vendor wrote it there. Counting such a block would make every anchor in the spec a function of five worked examples. `quotesOutput` marks it, and dropping the flag reproduces the collision, so it is doing work rather than decorating.
+
+  One check got stronger on the way past. `names golden fixtures that are exported` read the fixture source for `export const <name>` -- a claim about declaration form, which went red when the text moved and the fixtures re-exported it, though every export still resolved. It now imports the module and asserts the name carries the text, which is the property rather than a proxy for it.
+
+  Breakages, all three discriminating: unwiring the example from the prompt turns nine assertions red; wiring I2VA to the T2VA example turns exactly the I2VA case red, which is the likelier mistake than the example vanishing; removing `quotesOutput` restores the anchor collision.
+
+  What none of this establishes is whether showing an example improves H3's output. That is the open question `CLAUDE.md` already records as planner tuning against real generations, it is not answerable by this suite, and the block is deliberately one function and one spec entry so that removing it wholesale is cheap if a render says it did not land.
+
+
 ### Changed
 
 - **The spec records what its diagnostic bindings do not reach, and the instance that proved it.** Two notes, no behaviour change.

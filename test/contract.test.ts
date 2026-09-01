@@ -41,6 +41,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import contract from '../reference/h3/contract.json';
 import * as vocab from '../src/core/ir/vocab';
+import * as examples from '../src/core/ir/examples';
 import type { H3Mode } from '../src/core/ir/vocab';
 import { serialize } from '../src/core/serialize';
 import { DIALOGUE_PLACEHOLDER } from '../src/core/serialize/shared';
@@ -783,11 +784,23 @@ describe('prompt blocks match the spec', () => {
       // An anchor that appears in a neighbouring block too would pass while pointing at
       // the wrong text, which is the proxy-used-silently failure in a new place. It also
       // guards the slicer: a slice that returned the whole prompt would match everywhere.
+      //
+      // A `quotesOutput` block sits outside this on both sides, and the exemption is
+      // structural rather than a convenience. It quotes a real finished prompt, so it
+      // contains the camera phrasing, the dialogue tags and the field labels that other
+      // blocks anchor on -- `with small amplitude` is in the T2VA example because the
+      // vendor wrote it there. Counting it would make every anchor in the file a
+      // function of five worked examples, and the next person choosing one would have
+      // to diff it against all of them. Such a block still has its own anchors asserted
+      // present, by the per-block check above; what it does not do is participate in
+      // uniqueness.
       for (const { text, blocks } of Object.values(sides)) {
         const headings = blocks.map((b) => b.heading);
+        const quotes = (b: unknown) => (b as { quotesOutput?: boolean }).quotesOutput === true;
         for (const block of blocks) {
+          if (quotes(block)) continue;
           for (const anchor of block.asserts) {
-            const hits = blocks.filter((_, j) => slice(text, headings, j).includes(anchor));
+            const hits = blocks.filter((b, j) => !quotes(b) && slice(text, headings, j).includes(anchor));
             expect(hits.length, `${anchor} appears in ${hits.length} blocks`).toBe(1);
           }
         }
@@ -1012,6 +1025,53 @@ describe('the planner says who a line is spoken to', () => {
 });
 
 // ---------------------------------------------------------------------------
+// The worked example
+// ---------------------------------------------------------------------------
+
+/**
+ * The prompt carried 2,500 words of rules and no instance of the artifact they
+ * describe, while the guides teach this format mostly by worked example. These
+ * assert the example arrives, is the right one for the mode, and is framed as
+ * output rather than as something to return.
+ *
+ * The per-mode loop is the load-bearing part. A single-mode check would pass
+ * with four modes wired to the same example, which is the likelier mistake than
+ * the example going missing altogether.
+ */
+describe('each mode block carries its own worked example', () => {
+  const cases = [
+    ['T2VA', examples.t2vaBakerExpected],
+    ['I2VA', examples.i2vaTrainExpected],
+    ['FL2VA', examples.fl2vaUmbrellaExpected],
+    ['L2VA', examples.l2vaGlassExpected],
+    ['Ref2VA', examples.ref2vaCoffeeShopExpected],
+  ] as const;
+
+  for (const [mode, expected] of cases) {
+    it(`${mode} shows the guide's example for ${mode}, and no other`, () => {
+      const modeInput = { ...input, mode: mode as typeof input.mode };
+      const prompt = buildPlannerSystemPrompt(normalize(modeInput), modeInput);
+      expect(prompt, `${mode} prompt is missing its worked example`).toContain(expected);
+      for (const [other, otherText] of cases) {
+        if (other === mode) continue;
+        expect(prompt, `${mode} also carries ${other}'s example`).not.toContain(otherText);
+      }
+    });
+  }
+
+  // Wording proxy, and marked as one. There is no rendered shape that separates
+  // "this is the output" from "return this", so it reads the words -- but the
+  // failure it guards is concrete: an example presented without that
+  // distinction invites finished prompt text back instead of a plan, which
+  // fails the schema rather than degrading quietly.
+  it('frames the example as output, not as the thing to return (wording proxy)', () => {
+    const prompt = buildPlannerSystemPrompt(normalize(input), input);
+    expect(prompt).toContain('You do not write this');
+    expect(prompt).toMatch(/assembles from the plan you return/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Reused words (Ref2VA)
 // ---------------------------------------------------------------------------
 
@@ -1097,13 +1157,17 @@ describe('the diagnostic list matches the rules', () => {
 // ---------------------------------------------------------------------------
 
 describe('the spec points at things that exist', () => {
+  // Asserts the property rather than a proxy for it. This read the fixture
+  // sources for `export const <name>`, which is a claim about declaration form:
+  // it went red when the text moved to src/ and the fixtures re-exported it,
+  // even though every named export still resolved. Importing the module answers
+  // the question the spec is actually making -- does this name exist, and does
+  // it carry the golden text -- and survives the next move.
   it('names golden fixtures that are exported', () => {
-    const source = [
-      readFileSync(join(import.meta.dirname, 'fixtures/guide-examples.ts'), 'utf8'),
-      readFileSync(join(import.meta.dirname, 'fixtures/ref-example.ts'), 'utf8'),
-    ].join('\n');
     for (const spec of Object.values(contract.output)) {
-      expect(source, spec.goldenFixture).toContain(`export const ${spec.goldenFixture}`);
+      const text = (examples as Record<string, unknown>)[spec.goldenFixture];
+      expect(text, `${spec.goldenFixture} is not exported`).toBeTypeOf('string');
+      expect((text as string).length, spec.goldenFixture).toBeGreaterThan(0);
     }
   });
 

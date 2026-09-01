@@ -807,6 +807,17 @@
           ]
         },
         {
+          "heading": "# What your plan becomes",
+          "source": "mode-block",
+          "conditional": false,
+          "quotesOutput": true,
+          "guide": "base 5, ref 7",
+          "note": "MiniMax's worked example for the active mode, quoted whole. The prompt was rules with no instance of the artifact they describe, and both guides teach this format mostly by worked example -- four Cases in base 5, one complete example in ref 7. The vendor's five rather than a house-authored set because these are what H3 was trained near, which outranks grading conformant. One ships per call, since the mode selects it. The framing around it is load-bearing rather than decorative: the model returns a plan and this is the output, so an example presented without that distinction invites finished prompt text back and a schema failure. `quotesOutput` exempts this block from anchor uniqueness, and that flag is why it is a separate block rather than an appendix to the mode block -- a block quoting a real prompt contains the camera phrasing, the dialogue tags and the field labels that other blocks anchor on, so it would collide with them by construction and every future anchor would have to be chosen to avoid five worked examples. Its own anchors are still asserted present by the per-block check above.",
+          "asserts": [
+            "overall_soundscape:"
+          ]
+        },
+        {
           "heading": "# Style direction",
           "source": "derived:styleDirective",
           "conditional": true,

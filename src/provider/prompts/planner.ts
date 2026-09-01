@@ -32,6 +32,13 @@ import {
   VISUAL_RETENTION,
   VOICEOVER_PHRASE,
 } from '../../core/ir/vocab';
+import {
+  fl2vaUmbrellaExpected,
+  i2vaTrainExpected,
+  l2vaGlassExpected,
+  ref2vaCoffeeShopExpected,
+  t2vaBakerExpected,
+} from '../../core/ir/examples';
 import { glitchDirective, styleDirective } from '../../core/creative';
 import { DIALOGUE_PLACEHOLDER } from '../../core/serialize/shared';
 import { recommendedBeats } from '../../core/normalize/budgets';
@@ -204,6 +211,57 @@ Aim for ${REF_DETAIL_WORD_RANGE[0]}-${REF_DETAIL_WORD_RANGE[1]} words across all
 };
 
 // ---------------------------------------------------------------------------
+// The worked example, per mode
+// ---------------------------------------------------------------------------
+
+/**
+ * MiniMax's own worked example for each mode, appended to that mode's block.
+ *
+ * The prompt above is rules and carried no instance of the thing it describes.
+ * Both guides teach this format mostly by worked example -- four Cases in the
+ * base guide, one complete example in the ref guide -- and a model was being
+ * given the constraints without ever being shown the artifact.
+ *
+ * The vendor's five rather than any other set, for one reason that outranks
+ * the rest: these are what H3 was trained near. House-authored prompts that
+ * grade conformant are conformant, which is a different and weaker property.
+ *
+ * One example ships per call, since the mode block is selected -- 220 to 265
+ * tokens for a base mode, about 960 for Ref2VA.
+ *
+ * The framing is load-bearing and is why this is not simply pasted in. The
+ * model returns a PLAN and this is the OUTPUT, so an example presented without
+ * that distinction is a near-miss that invites it to emit finished prompt text
+ * and fail the schema. Every sentence below says which side of the line the
+ * example sits on.
+ *
+ * The music distribution was measured before adopting the set, not after: three
+ * of the five carry a real score and two are N/A. A set skewed to N/A would
+ * have reinstated the lean reverted earlier by demonstration, which no rule in
+ * the prompt would have countered -- a model copies a distribution more
+ * reliably than it follows a stated condition.
+ */
+const MODE_EXAMPLES: Record<H3Mode, string> = {
+  T2VA: t2vaBakerExpected,
+  I2VA: i2vaTrainExpected,
+  FL2VA: fl2vaUmbrellaExpected,
+  L2VA: l2vaGlassExpected,
+  Ref2VA: ref2vaCoffeeShopExpected,
+};
+
+function workedExample(mode: H3Mode): string {
+  return [
+    '# What your plan becomes',
+    '',
+    "Here is a finished prompt of this kind, written by MiniMax as this mode's worked example.",
+    '',
+    'You do not write this. It is what code assembles from the plan you return, and every label, timestamp, section header and alignment line in it is added afterwards. Read it for what the sentences carry and how much of the clip they account for, then write beats that would assemble into something of this density. Do not copy its subject, its setting or its wording.',
+    '',
+    MODE_EXAMPLES[mode],
+  ].join('\n');
+}
+
+// ---------------------------------------------------------------------------
 // Glitch marks, per mode
 // ---------------------------------------------------------------------------
 
@@ -327,7 +385,7 @@ function suppliedFacts(ctx: NormalizedContext, input: CompileInput): string {
 }
 
 export function buildPlannerSystemPrompt(ctx: NormalizedContext, input: CompileInput): string {
-  const blocks = [CORE, MODE_BLOCKS[ctx.mode]];
+  const blocks = [CORE, MODE_BLOCKS[ctx.mode], workedExample(ctx.mode)];
 
   const directive = input.creativeMode ? styleDirective(input.creativeMode.selection) : null;
   if (directive) blocks.push(directive);
