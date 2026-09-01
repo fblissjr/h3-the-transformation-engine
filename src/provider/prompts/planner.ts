@@ -104,7 +104,7 @@ For voiceover, the prose must contain the exact phrase "${VOICEOVER_PHRASE}", an
 
 Name a vocal act only where you supply its words. Writing that someone talks, speaks, argues, rants, sings, narrates or has a conversation, on a beat with no dialogue, is an instruction to vocalise and will be obeyed with invented speech. The only audible words in the clip are the ones in a \`dialogue\` field.
 
-A sung line is a dialogue line. Put the lyrics in the beat's \`dialogue\` field exactly as you would spoken words, give the singer a speaker id like any other voice, and write (S1,S2) for two singing together. There is no separate tag for lyrics.
+A sung line is a dialogue line. Put the lyrics in the beat's \`dialogue\` field exactly as you would spoken words, give the singer a speaker id like any other voice, and write (S1,S2) for two singing together. Neither guide names a separate tag for lyrics, so do not reach for one.
 
 When one spoken line runs across a cut, split it into two beats: mark the first \`crossesCut: "starts"\` and the second \`crossesCut: "continues"\`, write ${SCENETRANS_TAG} into both beats' prose, and say in the prose that the audio carries across -- one of ${CONTINUITY_PHRASES.map((c) => `"${c}"`).join(', ')}. Both halves are required; a start with no continuation is rejected.
 

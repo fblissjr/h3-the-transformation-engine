@@ -1001,7 +1001,13 @@ describe('the planner says who a line is spoken to', () => {
    */
   it('gives sung lines the same path as spoken ones', () => {
     expect(speech, 'a sung line has no route into `dialogue` without this').toMatch(/sung line/i);
-    expect(speech).toMatch(/no separate tag for lyrics/i);
+    // Anchored on the noun phrase, not the negation carrying it. The sentence
+    // was first written "there is no separate tag for lyrics", which overclaims:
+    // the release declares a lyrics token pair, so that reads as a false
+    // statement about the release rather than a true one about the guides.
+    // Scoping it to "neither guide names" is the fix, and an anchor tied to the
+    // old negation would have gone red for it.
+    expect(speech).toMatch(/separate tag for lyrics/i);
   });
 });
 
