@@ -1,189 +1,180 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 380" width="1200" height="380" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" width="1200" height="360" fill="none">
   <defs>
-    <!-- Background Gradients -->
-    <linearGradient id="bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#060911"/>
-      <stop offset="50%" stop-color="#0b1120"/>
-      <stop offset="100%" stop-color="#070a14"/>
+    <!-- Card Background Gradient -->
+    <linearGradient id="friendly-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fff8f6"/>
+      <stop offset="35%" stop-color="#faf5ff"/>
+      <stop offset="70%" stop-color="#f0f9ff"/>
+      <stop offset="100%" stop-color="#f6fffa"/>
     </linearGradient>
-    <radialGradient id="glow-cyan" cx="20%" cy="20%" r="60%">
-      <stop offset="0%" stop-color="#0284c7" stop-opacity="0.22"/>
-      <stop offset="100%" stop-color="#0284c7" stop-opacity="0"/>
-    </radialGradient>
-    <radialGradient id="glow-violet" cx="80%" cy="80%" r="60%">
-      <stop offset="0%" stop-color="#7c3aed" stop-opacity="0.20"/>
-      <stop offset="100%" stop-color="#7c3aed" stop-opacity="0"/>
-    </radialGradient>
 
-    <!-- Node & Accent Gradients -->
+    <!-- Warm Title Gradient -->
     <linearGradient id="title-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#38bdf8"/>
-      <stop offset="50%" stop-color="#818cf8"/>
-      <stop offset="100%" stop-color="#c084fc"/>
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="50%" stop-color="#1e1b4b"/>
+      <stop offset="100%" stop-color="#312e81"/>
     </linearGradient>
 
-    <linearGradient id="box-grad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#1e293b" stop-opacity="0.8"/>
-      <stop offset="100%" stop-color="#0f172a" stop-opacity="0.9"/>
-    </linearGradient>
-
-    <linearGradient id="arrow-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#38bdf8"/>
-      <stop offset="100%" stop-color="#818cf8"/>
-    </linearGradient>
-
-    <!-- Filters -->
-    <filter id="soft-glow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="6" result="blur"/>
-      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    <!-- Soft Drop Shadows -->
+    <filter id="card-shadow" x="-5%" y="-5%" width="110%" height="115%">
+      <feDropShadow dx="0" dy="6" stdDeviation="12" flood-color="#0f172a" flood-opacity="0.06"/>
+    </filter>
+    <filter id="pill-shadow" x="-10%" y="-15%" width="120%" height="140%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#334155" flood-opacity="0.05"/>
     </filter>
   </defs>
 
-  <!-- Background Base -->
-  <rect width="1200" height="380" rx="16" fill="url(#bg-grad)"/>
-  <rect width="1200" height="380" rx="16" fill="url(#glow-cyan)"/>
-  <rect width="1200" height="380" rx="16" fill="url(#glow-violet)"/>
-
-  <!-- Border Frame -->
-  <rect x="1" y="1" width="1198" height="378" rx="15" stroke="#1e293b" stroke-width="2"/>
-  <rect x="2" y="2" width="1196" height="376" rx="14" stroke="#38bdf8" stroke-opacity="0.12" stroke-width="1"/>
-
-  <!-- Subtle Matrix / Technical Grid Background -->
-  <g stroke="#334155" stroke-opacity="0.15" stroke-width="1">
-    <line x1="100" y1="0" x2="100" y2="380"/>
-    <line x1="250" y1="0" x2="250" y2="380"/>
-    <line x1="400" y1="0" x2="400" y2="380"/>
-    <line x1="550" y1="0" x2="550" y2="380"/>
-    <line x1="700" y1="0" x2="700" y2="380"/>
-    <line x1="850" y1="0" x2="850" y2="380"/>
-    <line x1="1000" y1="0" x2="1000" y2="380"/>
-    <line x1="1100" y1="0" x2="1100" y2="380"/>
-
-    <line x1="0" y1="70" x2="1200" y2="70"/>
-    <line x1="0" y1="160" x2="1200" y2="160"/>
-    <line x1="0" y1="260" x2="1200" y2="260"/>
-    <line x1="0" y1="330" x2="1200" y2="330"/>
+  <!-- Outer Card Container -->
+  <g filter="url(#card-shadow)">
+    <rect x="12" y="10" width="1176" height="340" rx="24" fill="url(#friendly-bg)" stroke="#e2e8f0" stroke-width="1.5"/>
   </g>
 
-  <!-- Geometric Accent Circles -->
-  <circle cx="90" cy="80" r="3" fill="#38bdf8" fill-opacity="0.4"/>
-  <circle cx="1110" cy="80" r="3" fill="#818cf8" fill-opacity="0.4"/>
-  <circle cx="90" cy="300" r="3" fill="#38bdf8" fill-opacity="0.4"/>
-  <circle cx="1110" cy="300" r="3" fill="#c084fc" fill-opacity="0.4"/>
+  <!-- Whimsical Background Doodles & Accents -->
+  <!-- Sparkles & Stars -->
+  <g fill="#f59e0b" opacity="0.75">
+    <!-- Star top-left -->
+    <path d="M 95 65 Q 95 80 80 80 Q 95 80 95 95 Q 95 80 110 80 Q 95 80 95 65 Z" fill="#fbbf24"/>
+    <circle cx="125" cy="55" r="3" fill="#f43f5e"/>
+    <circle cx="70" cy="105" r="2.5" fill="#3b82f6"/>
+    
+    <!-- Star top-right -->
+    <path d="M 1100 65 Q 1100 80 1085 80 Q 1100 80 1100 95 Q 1100 80 1115 80 Q 1100 80 1100 65 Z" fill="#818cf8"/>
+    <circle cx="1065" cy="55" r="3.5" fill="#ec4899"/>
+    <circle cx="1125" cy="100" r="2.5" fill="#10b981"/>
 
-  <!-- Header Category Tag -->
-  <g transform="translate(600, 52)">
-    <rect x="-140" y="-14" width="280" height="28" rx="14" fill="#0369a1" fill-opacity="0.25" stroke="#38bdf8" stroke-opacity="0.4" stroke-width="1"/>
-    <text text-anchor="middle" y="4" fill="#7dd3fc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="11.5" font-weight="700" letter-spacing="2.5">
-      MINIMAX H3 PROMPT COMPILER
+    <!-- Bottom accents -->
+    <path d="M 75 270 Q 75 280 65 280 Q 75 280 75 290 Q 75 280 85 280 Q 75 280 75 270 Z" fill="#38bdf8"/>
+    <circle cx="100" cy="295" r="3" fill="#fbbf24"/>
+    <path d="M 1115 260 Q 1115 270 1105 270 Q 1115 270 1115 280 Q 1115 270 1125 270 Q 1115 270 1115 260 Z" fill="#fb7185"/>
+  </g>
+
+  <!-- Playful Floating Confetti Rings & Blobs -->
+  <circle cx="160" cy="70" r="14" fill="none" stroke="#fed7aa" stroke-width="3" stroke-linecap="round" stroke-dasharray="4 6"/>
+  <circle cx="1025" cy="75" r="12" fill="none" stroke="#c7d2fe" stroke-width="3" stroke-linecap="round" stroke-dasharray="3 5"/>
+  <rect x="1080" y="160" width="12" height="12" rx="3" fill="#fbcfe8" transform="rotate(25 1086 166)"/>
+  <rect x="105" y="175" width="10" height="10" rx="3" fill="#bae6fd" transform="rotate(-15 110 180)"/>
+
+  <!-- Friendly Top Category Badge -->
+  <g transform="translate(600, 48)">
+    <rect x="-145" y="-14" width="290" height="28" rx="14" fill="#fff" stroke="#f43f5e" stroke-opacity="0.3" stroke-width="1.5"/>
+    <text text-anchor="middle" y="4.5" fill="#e11d48" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif" font-size="11" font-weight="700" letter-spacing="1.5">
+      ✨ THE MINIMAX H3 PROMPT COMPILER ✨
     </text>
   </g>
 
-  <!-- Main Title -->
-  <text x="600" y="112" text-anchor="middle" fill="url(#title-grad)" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="38" font-weight="900" letter-spacing="2">
-    H3 TRANSFORMATION ENGINE
+  <!-- Title -->
+  <text x="600" y="112" text-anchor="middle" fill="url(#title-grad)" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="37" font-weight="800" letter-spacing="-0.5">
+    H3 Transformation Engine
   </text>
 
   <!-- Subtitle -->
-  <text x="600" y="146" text-anchor="middle" fill="#94a3b8" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="15" font-weight="400" letter-spacing="0.5">
-    Deterministic Prompt Compiler, Strict AST Validator &amp; Structured IR Editor
+  <text x="600" y="146" text-anchor="middle" fill="#64748b" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="15.5" font-weight="500">
+    Turning wild video ideas into structured, byte-exact MiniMax prompts 🎬✨
   </text>
 
-  <!-- Pipeline Diagram Nodes -->
-  <g transform="translate(100, 185)">
-    <!-- Stage 1: AST / IR -->
-    <g transform="translate(0, 0)">
-      <rect width="140" height="64" rx="8" fill="url(#box-grad)" stroke="#38bdf8" stroke-opacity="0.6" stroke-width="1.5"/>
-      <text x="70" y="27" text-anchor="middle" fill="#38bdf8" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="700" letter-spacing="1">INPUT</text>
-      <text x="70" y="47" text-anchor="middle" fill="#f8fafc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="600">Document AST</text>
+  <!-- Playful Visual Pipeline -->
+  <g transform="translate(125, 175)">
+    <!-- Stage 1: Idea -->
+    <g transform="translate(0, 0)" filter="url(#pill-shadow)">
+      <rect width="145" height="66" rx="18" fill="#fff" stroke="#fcd34d" stroke-width="2"/>
+      <rect x="8" y="8" width="30" height="30" rx="10" fill="#fef3c7"/>
+      <text x="23" y="28" text-anchor="middle" font-size="16">💡</text>
+      <text x="46" y="25" fill="#b45309" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="700" letter-spacing="0.5">INPUT</text>
+      <text x="46" y="44" fill="#1e293b" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="700">Story Idea</text>
     </g>
 
-    <!-- Arrow 1 -->
-    <path d="M 148 32 L 176 32 M 170 26 L 176 32 L 170 38" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Connector 1 -->
+    <g transform="translate(152, 28)">
+      <path d="M 0 5 Q 16 -4 32 5" fill="none" stroke="#cbd5e1" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="3 4"/>
+      <path d="M 28 2 L 34 5 L 30 10" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
 
     <!-- Stage 2: Normalize -->
-    <g transform="translate(184, 0)">
-      <rect width="140" height="64" rx="8" fill="url(#box-grad)" stroke="#60a5fa" stroke-opacity="0.6" stroke-width="1.5"/>
-      <text x="70" y="27" text-anchor="middle" fill="#60a5fa" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="700" letter-spacing="1">24 FPS MATH</text>
-      <text x="70" y="47" text-anchor="middle" fill="#f8fafc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="600">Normalize</text>
+    <g transform="translate(192, 0)" filter="url(#pill-shadow)">
+      <rect width="145" height="66" rx="18" fill="#fff" stroke="#93c5fd" stroke-width="2"/>
+      <rect x="8" y="8" width="30" height="30" rx="10" fill="#eff6ff"/>
+      <text x="23" y="28" text-anchor="middle" font-size="16">⏱️</text>
+      <text x="46" y="25" fill="#0284c7" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="700" letter-spacing="0.5">24 FPS MATH</text>
+      <text x="46" y="44" fill="#1e293b" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="700">Normalize</text>
     </g>
 
-    <!-- Arrow 2 -->
-    <path d="M 332 32 L 360 32 M 354 26 L 360 32 L 354 38" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-
-    <!-- Stage 3: Planner / Model -->
-    <g transform="translate(368, 0)">
-      <rect width="140" height="64" rx="8" fill="url(#box-grad)" stroke="#818cf8" stroke-opacity="0.6" stroke-width="1.5"/>
-      <text x="70" y="27" text-anchor="middle" fill="#818cf8" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="700" letter-spacing="1">INFERENCE</text>
-      <text x="70" y="47" text-anchor="middle" fill="#f8fafc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="600">Plan &amp; Assemble</text>
+    <!-- Connector 2 -->
+    <g transform="translate(344, 28)">
+      <path d="M 0 5 Q 16 14 32 5" fill="none" stroke="#cbd5e1" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="3 4"/>
+      <path d="M 28 0 L 34 5 L 30 10" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
     </g>
 
-    <!-- Arrow 3 -->
-    <path d="M 516 32 L 544 32 M 538 26 L 544 32 L 538 38" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Stage 3: Plan -->
+    <g transform="translate(384, 0)" filter="url(#pill-shadow)">
+      <rect width="150" height="66" rx="18" fill="#fff" stroke="#c084fc" stroke-width="2"/>
+      <rect x="8" y="8" width="30" height="30" rx="10" fill="#faf5ff"/>
+      <text x="23" y="28" text-anchor="middle" font-size="16">🪄</text>
+      <text x="46" y="25" fill="#7e22ce" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="700" letter-spacing="0.5">INFERENCE</text>
+      <text x="46" y="44" fill="#1e293b" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="700">Plan &amp; Prose</text>
+    </g>
+
+    <!-- Connector 3 -->
+    <g transform="translate(541, 28)">
+      <path d="M 0 5 Q 16 -4 32 5" fill="none" stroke="#cbd5e1" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="3 4"/>
+      <path d="M 28 2 L 34 5 L 30 10" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
 
     <!-- Stage 4: Validate -->
-    <g transform="translate(552, 0)">
-      <rect width="140" height="64" rx="8" fill="url(#box-grad)" stroke="#34d399" stroke-opacity="0.6" stroke-width="1.5"/>
-      <text x="70" y="27" text-anchor="middle" fill="#34d399" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="700" letter-spacing="1">29 RULES</text>
-      <text x="70" y="47" text-anchor="middle" fill="#f8fafc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="600">Validate</text>
+    <g transform="translate(581, 0)" filter="url(#pill-shadow)">
+      <rect width="150" height="66" rx="18" fill="#fff" stroke="#86efac" stroke-width="2"/>
+      <rect x="8" y="8" width="30" height="30" rx="10" fill="#f0fdf4"/>
+      <text x="23" y="28" text-anchor="middle" font-size="16">🔍</text>
+      <text x="46" y="25" fill="#15803d" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="700" letter-spacing="0.5">29 RULES</text>
+      <text x="46" y="44" fill="#1e293b" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="700">Check Errors</text>
     </g>
 
-    <!-- Arrow 4 -->
-    <path d="M 700 32 L 728 32 M 722 26 L 728 32 L 722 38" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-
-    <!-- Stage 5: Patch / Edit -->
-    <g transform="translate(736, 0)">
-      <rect width="124" height="64" rx="8" fill="url(#box-grad)" stroke="#fbbf24" stroke-opacity="0.6" stroke-width="1.5"/>
-      <text x="62" y="27" text-anchor="middle" fill="#fbbf24" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="700" letter-spacing="1">SURGICAL</text>
-      <text x="62" y="47" text-anchor="middle" fill="#f8fafc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="600">Patch</text>
+    <!-- Connector 4 -->
+    <g transform="translate(738, 28)">
+      <path d="M 0 5 Q 16 14 32 5" fill="none" stroke="#cbd5e1" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="3 4"/>
+      <path d="M 28 0 L 34 5 L 30 10" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
     </g>
 
-    <!-- Arrow 5 -->
-    <path d="M 868 32 L 896 32 M 890 26 L 896 32 L 890 38" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-
-    <!-- Stage 6: Serialize -->
-    <g transform="translate(904, 0)">
-      <rect width="96" height="64" rx="8" fill="url(#box-grad)" stroke="#f43f5e" stroke-opacity="0.7" stroke-width="1.5"/>
-      <text x="48" y="27" text-anchor="middle" fill="#f43f5e" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="700" letter-spacing="1">OUTPUT</text>
-      <text x="48" y="47" text-anchor="middle" fill="#f8fafc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="600">Prompt</text>
+    <!-- Stage 5: Serialize Output -->
+    <g transform="translate(778, 0)" filter="url(#pill-shadow)">
+      <rect width="168" height="66" rx="18" fill="#fff" stroke="#fda4af" stroke-width="2"/>
+      <rect x="8" y="8" width="30" height="30" rx="10" fill="#fff1f2"/>
+      <text x="23" y="28" text-anchor="middle" font-size="16">🎬</text>
+      <text x="46" y="25" fill="#be123c" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="700" letter-spacing="0.5">H3 PROMPT</text>
+      <text x="46" y="44" fill="#1e293b" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="700">Ready to Render</text>
     </g>
   </g>
 
-  <!-- Bottom Pills: Guarantees & Features -->
-  <g transform="translate(600, 310)">
-    <!-- Pill 1: Pure TS -->
-    <g transform="translate(-480, 0)">
-      <rect width="220" height="30" rx="15" fill="#0f172a" stroke="#1e293b" stroke-width="1"/>
-      <circle cx="20" cy="15" r="4" fill="#38bdf8"/>
-      <text x="32" y="20" fill="#cbd5e1" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="500">
-        Pure TypeScript Kernel
+  <!-- Friendly Pill Badges across bottom -->
+  <g transform="translate(600, 298)">
+    <!-- Pill 1 -->
+    <g transform="translate(-460, 0)">
+      <rect width="210" height="32" rx="16" fill="#fff" stroke="#e2e8f0" stroke-width="1.5"/>
+      <text x="105" y="20.5" text-anchor="middle" fill="#334155" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="600">
+        🌱 Pure TypeScript Kernel
       </text>
     </g>
 
-    <!-- Pill 2: 36 Diagnostics -->
-    <g transform="translate(-240, 0)">
-      <rect width="220" height="30" rx="15" fill="#0f172a" stroke="#1e293b" stroke-width="1"/>
-      <circle cx="20" cy="15" r="4" fill="#34d399"/>
-      <text x="32" y="20" fill="#cbd5e1" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="500">
-        36 Diagnostics • Errors Only
+    <!-- Pill 2 -->
+    <g transform="translate(-230, 0)">
+      <rect width="220" height="32" rx="16" fill="#fff" stroke="#e2e8f0" stroke-width="1.5"/>
+      <text x="110" y="20.5" text-anchor="middle" fill="#334155" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="600">
+        🎯 36 Zero-Cry-Wolf Errors
       </text>
     </g>
 
-    <!-- Pill 3: Byte-Exact -->
-    <g transform="translate(0, 0)">
-      <rect width="230" height="30" rx="15" fill="#0f172a" stroke="#1e293b" stroke-width="1"/>
-      <circle cx="20" cy="15" r="4" fill="#fbbf24"/>
-      <text x="32" y="20" fill="#cbd5e1" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="500">
-        Byte-Exact MiniMax Fidelity
+    <!-- Pill 3 -->
+    <g transform="translate(10, 0)">
+      <rect width="220" height="32" rx="16" fill="#fff" stroke="#e2e8f0" stroke-width="1.5"/>
+      <text x="110" y="20.5" text-anchor="middle" fill="#334155" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="600">
+        📐 Byte-Exact MiniMax Fidelity
       </text>
     </g>
 
-    <!-- Pill 4: Providers -->
+    <!-- Pill 4 -->
     <g transform="translate(250, 0)">
-      <rect width="230" height="30" rx="15" fill="#0f172a" stroke="#1e293b" stroke-width="1"/>
-      <circle cx="20" cy="15" r="4" fill="#c084fc"/>
-      <text x="32" y="20" fill="#cbd5e1" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="500">
-        Gemini &amp; heylook Providers
+      <rect width="210" height="32" rx="16" fill="#fff" stroke="#e2e8f0" stroke-width="1.5"/>
+      <text x="105" y="20.5" text-anchor="middle" fill="#334155" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="600">
+        🏡 Local &amp; Hosted Providers
       </text>
     </g>
   </g>
