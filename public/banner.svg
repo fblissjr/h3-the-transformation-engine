@@ -1,181 +1,239 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" width="1200" height="360" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 420" width="1200" height="420" fill="none">
   <defs>
-    <!-- Card Background Gradient -->
-    <linearGradient id="friendly-bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#fff8f6"/>
-      <stop offset="35%" stop-color="#faf5ff"/>
-      <stop offset="70%" stop-color="#f0f9ff"/>
-      <stop offset="100%" stop-color="#f6fffa"/>
-    </linearGradient>
-
-    <!-- Warm Title Gradient -->
-    <linearGradient id="title-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#0f172a"/>
-      <stop offset="50%" stop-color="#1e1b4b"/>
-      <stop offset="100%" stop-color="#312e81"/>
-    </linearGradient>
-
-    <!-- Soft Drop Shadows -->
+    <!-- Card & Panel Shadows -->
     <filter id="card-shadow" x="-5%" y="-5%" width="110%" height="115%">
-      <feDropShadow dx="0" dy="6" stdDeviation="12" flood-color="#0f172a" flood-opacity="0.06"/>
+      <feDropShadow dx="0" dy="6" stdDeviation="12" flood-color="#0f172a" flood-opacity="0.07"/>
     </filter>
-    <filter id="pill-shadow" x="-10%" y="-15%" width="120%" height="140%">
-      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#334155" flood-opacity="0.05"/>
+    <filter id="frame-shadow" x="-10%" y="-10%" width="120%" height="125%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#0f172a" flood-opacity="0.12"/>
     </filter>
+    <filter id="cinematic-glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="glow"/>
+      <feComposite in="SourceGraphic" in2="glow" operator="over"/>
+    </filter>
+    <filter id="soft-blur" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="6"/>
+    </filter>
+
+    <!-- Gradients for Cinematic Scene -->
+    <linearGradient id="sky-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1e1b4b"/>
+      <stop offset="25%" stop-color="#431407"/>
+      <stop offset="50%" stop-color="#c2410c"/>
+      <stop offset="70%" stop-color="#f97316"/>
+      <stop offset="90%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#fef08a"/>
+    </linearGradient>
+
+    <radialGradient id="sun-glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#fffbeb" stop-opacity="1"/>
+      <stop offset="30%" stop-color="#fef08a" stop-opacity="0.9"/>
+      <stop offset="60%" stop-color="#f59e0b" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#ea580c" stop-opacity="0"/>
+    </radialGradient>
+
+    <linearGradient id="flare-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0"/>
+      <stop offset="45%" stop-color="#38bdf8" stop-opacity="0.7"/>
+      <stop offset="50%" stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="55%" stop-color="#818cf8" stop-opacity="0.7"/>
+      <stop offset="100%" stop-color="#818cf8" stop-opacity="0"/>
+    </linearGradient>
+
+    <linearGradient id="mountain-bg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#78350f" stop-opacity="0.7"/>
+      <stop offset="100%" stop-color="#292524"/>
+    </linearGradient>
+
+    <linearGradient id="fog-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#ea580c" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Clip Paths for Framed Artwork -->
+    <clipPath id="ms-paint-clip">
+      <rect x="0" y="0" width="410" height="260" rx="12"/>
+    </clipPath>
+    <clipPath id="cinema-clip">
+      <rect x="0" y="0" width="410" height="260" rx="12"/>
+    </clipPath>
   </defs>
 
-  <!-- Outer Card Container -->
+  <!-- Base White / Light Card Container -->
   <g filter="url(#card-shadow)">
-    <rect x="12" y="10" width="1176" height="340" rx="24" fill="url(#friendly-bg)" stroke="#e2e8f0" stroke-width="1.5"/>
+    <rect x="15" y="12" width="1170" height="396" rx="22" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5"/>
   </g>
 
-  <!-- Whimsical Background Doodles & Accents -->
-  <!-- Sparkles & Stars -->
-  <g fill="#f59e0b" opacity="0.75">
-    <!-- Star top-left -->
-    <path d="M 95 65 Q 95 80 80 80 Q 95 80 95 95 Q 95 80 110 80 Q 95 80 95 65 Z" fill="#fbbf24"/>
-    <circle cx="125" cy="55" r="3" fill="#f43f5e"/>
-    <circle cx="70" cy="105" r="2.5" fill="#3b82f6"/>
-    
-    <!-- Star top-right -->
-    <path d="M 1100 65 Q 1100 80 1085 80 Q 1100 80 1100 95 Q 1100 80 1115 80 Q 1100 80 1100 65 Z" fill="#818cf8"/>
-    <circle cx="1065" cy="55" r="3.5" fill="#ec4899"/>
-    <circle cx="1125" cy="100" r="2.5" fill="#10b981"/>
-
-    <!-- Bottom accents -->
-    <path d="M 75 270 Q 75 280 65 280 Q 75 280 75 290 Q 75 280 85 280 Q 75 280 75 270 Z" fill="#38bdf8"/>
-    <circle cx="100" cy="295" r="3" fill="#fbbf24"/>
-    <path d="M 1115 260 Q 1115 270 1105 270 Q 1115 270 1115 280 Q 1115 270 1125 270 Q 1115 270 1115 260 Z" fill="#fb7185"/>
-  </g>
-
-  <!-- Playful Floating Confetti Rings & Blobs -->
-  <circle cx="160" cy="70" r="14" fill="none" stroke="#fed7aa" stroke-width="3" stroke-linecap="round" stroke-dasharray="4 6"/>
-  <circle cx="1025" cy="75" r="12" fill="none" stroke="#c7d2fe" stroke-width="3" stroke-linecap="round" stroke-dasharray="3 5"/>
-  <rect x="1080" y="160" width="12" height="12" rx="3" fill="#fbcfe8" transform="rotate(25 1086 166)"/>
-  <rect x="105" y="175" width="10" height="10" rx="3" fill="#bae6fd" transform="rotate(-15 110 180)"/>
-
-  <!-- Friendly Top Category Badge -->
-  <g transform="translate(600, 48)">
-    <rect x="-145" y="-14" width="290" height="28" rx="14" fill="#fff" stroke="#f43f5e" stroke-opacity="0.3" stroke-width="1.5"/>
-    <text text-anchor="middle" y="4.5" fill="#e11d48" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif" font-size="11" font-weight="700" letter-spacing="1.5">
-      ✨ THE MINIMAX H3 PROMPT COMPILER ✨
-    </text>
-  </g>
-
-  <!-- Title -->
-  <text x="600" y="112" text-anchor="middle" fill="url(#title-grad)" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="37" font-weight="800" letter-spacing="-0.5">
+  <!-- Clean Title -->
+  <text x="600" y="62" text-anchor="middle" fill="#0f172a" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="34" font-weight="900" letter-spacing="-0.5">
     H3 Transformation Engine
   </text>
 
-  <!-- Subtitle -->
-  <text x="600" y="146" text-anchor="middle" fill="#64748b" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="15.5" font-weight="500">
-    Turning wild video ideas into structured, byte-exact MiniMax prompts 🎬✨
-  </text>
+  <!-- ======================================================== -->
+  <!-- LEFT: POORLY DRAWN MS PAINT STYLE DRAWING               -->
+  <!-- ======================================================== -->
+  <g transform="translate(75, 95)" filter="url(#frame-shadow)">
+    <!-- Window / Paper border -->
+    <rect width="410" height="260" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>
 
-  <!-- Playful Visual Pipeline -->
-  <g transform="translate(125, 175)">
-    <!-- Stage 1: Idea -->
-    <g transform="translate(0, 0)" filter="url(#pill-shadow)">
-      <rect width="145" height="66" rx="18" fill="#fff" stroke="#fcd34d" stroke-width="2"/>
-      <rect x="8" y="8" width="30" height="30" rx="10" fill="#fef3c7"/>
-      <text x="23" y="28" text-anchor="middle" font-size="16">💡</text>
-      <text x="46" y="25" fill="#b45309" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="700" letter-spacing="0.5">INPUT</text>
-      <text x="46" y="44" fill="#1e293b" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="700">Story Idea</text>
+    <!-- Drawing Area (Clipped) -->
+    <g clip-path="url(#ms-paint-clip)">
+      <!-- MS Paint Canvas Background: solid pure white with crude sky blue top -->
+      <rect width="410" height="150" fill="#a5f3fc"/>
+      <rect y="150" width="410" height="110" fill="#86efac"/>
+
+      <!-- MS Paint Sun: Crooked circle with spiky stick rays -->
+      <circle cx="65" cy="55" r="26" fill="#fde047" stroke="#ca8a04" stroke-width="3"/>
+      <path d="M 65 20 L 65 8 M 65 90 L 65 102 M 30 55 L 18 55 M 100 55 L 112 55 M 40 30 L 30 20 M 90 80 L 100 90 M 40 80 L 30 90 M 90 30 L 100 20" stroke="#ca8a04" stroke-width="3" stroke-linecap="round"/>
+      <!-- Sun smiley face drawn badly -->
+      <circle cx="56" cy="50" r="2.5" fill="#000"/>
+      <circle cx="74" cy="50" r="2.5" fill="#000"/>
+      <path d="M 57 63 Q 65 72 73 63" stroke="#000" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+
+      <!-- Clumsy Cloud -->
+      <path d="M 170 45 Q 185 30 205 40 Q 225 25 245 42 Q 260 50 250 65 Q 230 75 190 70 Q 165 65 170 45 Z" fill="#ffffff" stroke="#94a3b8" stroke-width="3"/>
+
+      <!-- Lumpy Hill dividing ground -->
+      <path d="M -10 170 Q 90 130 200 160 Q 310 190 420 150 L 420 270 L -10 270 Z" fill="#4ade80" stroke="#15803d" stroke-width="4"/>
+
+      <!-- MS Paint Tree: Brown block trunk, lumpy green blob top -->
+      <rect x="315" y="125" width="22" height="65" fill="#92400e" stroke="#451a03" stroke-width="3.5"/>
+      <path d="M 325 125 C 290 120 280 85 310 70 C 315 45 350 45 360 65 C 385 60 395 90 375 115 C 390 135 345 140 325 125 Z" fill="#16a34a" stroke="#14532d" stroke-width="4"/>
+      <!-- Red apple blobs on tree -->
+      <circle cx="318" cy="85" r="4.5" fill="#dc2626"/>
+      <circle cx="345" cy="72" r="4.5" fill="#dc2626"/>
+      <circle cx="362" cy="100" r="4.5" fill="#dc2626"/>
+
+      <!-- Poorly Drawn Stick Figure Guy -->
+      <!-- Head -->
+      <circle cx="155" cy="115" r="14" fill="#fde047" stroke="#000000" stroke-width="3.5"/>
+      <!-- Crooked Smile & Eyes -->
+      <circle cx="150" cy="112" r="2" fill="#000"/>
+      <circle cx="161" cy="111" r="2" fill="#000"/>
+      <path d="M 149 121 Q 156 128 163 120" stroke="#000" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+      <!-- Body -->
+      <line x1="155" y1="129" x2="155" y2="175" stroke="#000000" stroke-width="4" stroke-linecap="round"/>
+      <!-- Arms: Left arm waving up high, right arm down -->
+      <path d="M 155 142 L 132 125 L 128 110" stroke="#000000" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      <path d="M 155 142 L 180 155" stroke="#000000" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+      <!-- Legs -->
+      <line x1="155" y1="175" x2="138" y2="215" stroke="#000000" stroke-width="4" stroke-linecap="round"/>
+      <line x1="155" y1="175" x2="172" y2="215" stroke="#000000" stroke-width="4" stroke-linecap="round"/>
+
+      <!-- Crude little flower -->
+      <line x1="90" y1="215" x2="90" y2="200" stroke="#15803d" stroke-width="3"/>
+      <circle cx="90" cy="196" r="6" fill="#f43f5e"/>
+      <circle cx="90" cy="196" r="2.5" fill="#fef08a"/>
+
+      <!-- Spray-can dots artifact -->
+      <g fill="#0284c7" opacity="0.6">
+        <circle cx="130" cy="85" r="1.5"/>
+        <circle cx="135" cy="82" r="1.5"/>
+        <circle cx="133" cy="90" r="1.5"/>
+        <circle cx="140" cy="87" r="1.5"/>
+      </g>
     </g>
 
-    <!-- Connector 1 -->
-    <g transform="translate(152, 28)">
-      <path d="M 0 5 Q 16 -4 32 5" fill="none" stroke="#cbd5e1" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="3 4"/>
-      <path d="M 28 2 L 34 5 L 30 10" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    </g>
-
-    <!-- Stage 2: Normalize -->
-    <g transform="translate(192, 0)" filter="url(#pill-shadow)">
-      <rect width="145" height="66" rx="18" fill="#fff" stroke="#93c5fd" stroke-width="2"/>
-      <rect x="8" y="8" width="30" height="30" rx="10" fill="#eff6ff"/>
-      <text x="23" y="28" text-anchor="middle" font-size="16">⏱️</text>
-      <text x="46" y="25" fill="#0284c7" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="700" letter-spacing="0.5">24 FPS MATH</text>
-      <text x="46" y="44" fill="#1e293b" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="700">Normalize</text>
-    </g>
-
-    <!-- Connector 2 -->
-    <g transform="translate(344, 28)">
-      <path d="M 0 5 Q 16 14 32 5" fill="none" stroke="#cbd5e1" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="3 4"/>
-      <path d="M 28 0 L 34 5 L 30 10" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    </g>
-
-    <!-- Stage 3: Plan -->
-    <g transform="translate(384, 0)" filter="url(#pill-shadow)">
-      <rect width="150" height="66" rx="18" fill="#fff" stroke="#c084fc" stroke-width="2"/>
-      <rect x="8" y="8" width="30" height="30" rx="10" fill="#faf5ff"/>
-      <text x="23" y="28" text-anchor="middle" font-size="16">🪄</text>
-      <text x="46" y="25" fill="#7e22ce" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="700" letter-spacing="0.5">INFERENCE</text>
-      <text x="46" y="44" fill="#1e293b" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="700">Plan &amp; Prose</text>
-    </g>
-
-    <!-- Connector 3 -->
-    <g transform="translate(541, 28)">
-      <path d="M 0 5 Q 16 -4 32 5" fill="none" stroke="#cbd5e1" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="3 4"/>
-      <path d="M 28 2 L 34 5 L 30 10" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    </g>
-
-    <!-- Stage 4: Validate -->
-    <g transform="translate(581, 0)" filter="url(#pill-shadow)">
-      <rect width="150" height="66" rx="18" fill="#fff" stroke="#86efac" stroke-width="2"/>
-      <rect x="8" y="8" width="30" height="30" rx="10" fill="#f0fdf4"/>
-      <text x="23" y="28" text-anchor="middle" font-size="16">🔍</text>
-      <text x="46" y="25" fill="#15803d" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="700" letter-spacing="0.5">29 RULES</text>
-      <text x="46" y="44" fill="#1e293b" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="700">Check Errors</text>
-    </g>
-
-    <!-- Connector 4 -->
-    <g transform="translate(738, 28)">
-      <path d="M 0 5 Q 16 14 32 5" fill="none" stroke="#cbd5e1" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="3 4"/>
-      <path d="M 28 0 L 34 5 L 30 10" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    </g>
-
-    <!-- Stage 5: Serialize Output -->
-    <g transform="translate(778, 0)" filter="url(#pill-shadow)">
-      <rect width="168" height="66" rx="18" fill="#fff" stroke="#fda4af" stroke-width="2"/>
-      <rect x="8" y="8" width="30" height="30" rx="10" fill="#fff1f2"/>
-      <text x="23" y="28" text-anchor="middle" font-size="16">🎬</text>
-      <text x="46" y="25" fill="#be123c" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="700" letter-spacing="0.5">H3 PROMPT</text>
-      <text x="46" y="44" fill="#1e293b" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="700">Ready to Render</text>
+    <!-- Playful label in MS Paint style font -->
+    <g transform="translate(14, 22)">
+      <rect width="84" height="20" rx="4" fill="#ffffff" fill-opacity="0.9" stroke="#94a3b8" stroke-width="1"/>
+      <text x="42" y="14" text-anchor="middle" fill="#475569" font-family="'Comic Sans MS', 'Chalkboard SE', cursive, sans-serif" font-size="10.5" font-weight="700">IDEA.BMP</text>
     </g>
   </g>
 
-  <!-- Friendly Pill Badges across bottom -->
-  <g transform="translate(600, 298)">
-    <!-- Pill 1 -->
-    <g transform="translate(-460, 0)">
-      <rect width="210" height="32" rx="16" fill="#fff" stroke="#e2e8f0" stroke-width="1.5"/>
-      <text x="105" y="20.5" text-anchor="middle" fill="#334155" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="600">
-        🌱 Pure TypeScript Kernel
-      </text>
-    </g>
+  <!-- ======================================================== -->
+  <!-- CENTER: WHIMSICAL TRANSFORMATION BEAM                    -->
+  <!-- ======================================================== -->
+  <g transform="translate(505, 185)">
+    <!-- Curved dotted transformation arrow -->
+    <path d="M 15 45 C 55 15, 135 15, 175 45" fill="none" stroke="#f59e0b" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="6 8"/>
+    <path d="M 166 33 L 178 45 L 162 52" fill="none" stroke="#f59e0b" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
 
-    <!-- Pill 2 -->
-    <g transform="translate(-230, 0)">
-      <rect width="220" height="32" rx="16" fill="#fff" stroke="#e2e8f0" stroke-width="1.5"/>
-      <text x="110" y="20.5" text-anchor="middle" fill="#334155" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="600">
-        🎯 36 Zero-Cry-Wolf Errors
-      </text>
-    </g>
+    <!-- Sparkling magic particles & stars -->
+    <path d="M 95 10 Q 95 25 80 25 Q 95 25 95 40 Q 95 25 110 25 Q 95 25 95 10 Z" fill="#ec4899"/>
+    <path d="M 50 65 Q 50 75 40 75 Q 50 75 50 85 Q 50 75 60 75 Q 50 75 50 65 Z" fill="#8b5cf6"/>
+    <path d="M 140 65 Q 140 75 130 75 Q 140 75 140 85 Q 140 75 150 75 Q 140 75 140 65 Z" fill="#06b6d4"/>
 
-    <!-- Pill 3 -->
-    <g transform="translate(10, 0)">
-      <rect width="220" height="32" rx="16" fill="#fff" stroke="#e2e8f0" stroke-width="1.5"/>
-      <text x="110" y="20.5" text-anchor="middle" fill="#334155" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="600">
-        📐 Byte-Exact MiniMax Fidelity
-      </text>
-    </g>
+    <circle cx="75" cy="50" r="3" fill="#fbbf24"/>
+    <circle cx="115" cy="48" r="3.5" fill="#f43f5e"/>
+    <circle cx="95" cy="72" r="2.5" fill="#3b82f6"/>
 
-    <!-- Pill 4 -->
-    <g transform="translate(250, 0)">
-      <rect width="210" height="32" rx="16" fill="#fff" stroke="#e2e8f0" stroke-width="1.5"/>
-      <text x="105" y="20.5" text-anchor="middle" fill="#334155" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="600">
-        🏡 Local &amp; Hosted Providers
-      </text>
+    <!-- Subtle magic prompt tag -->
+    <g transform="translate(95, 96)">
+      <rect x="-38" y="-11" width="76" height="22" rx="11" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+      <text text-anchor="middle" y="4" fill="#6366f1" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10.5" font-weight="800" letter-spacing="1">H3 COMPILE</text>
+    </g>
+  </g>
+
+  <!-- ======================================================== -->
+  <!-- RIGHT: THE GORGEOUS CINEMATIC SCENE                      -->
+  <!-- ======================================================== -->
+  <g transform="translate(715, 95)" filter="url(#frame-shadow)">
+    <!-- Outer Dark Cinema Frame -->
+    <rect width="410" height="260" rx="12" fill="#090d16" stroke="#1e293b" stroke-width="2"/>
+
+    <!-- Cinematic Artwork Area (Clipped) -->
+    <g clip-path="url(#cinema-clip)">
+      <!-- Epic Sunset Sky -->
+      <rect width="410" height="260" fill="url(#sky-grad)"/>
+
+      <!-- Volumetric Sun Glow -->
+      <circle cx="110" cy="115" r="90" fill="url(#sun-glow)" filter="url(#soft-blur)"/>
+      <circle cx="110" cy="115" r="24" fill="#fffbeb" filter="url(#cinematic-glow)"/>
+
+      <!-- Atmospheric Distant Mountains -->
+      <path d="M 0 160 Q 60 130 140 148 Q 220 120 310 155 Q 365 140 410 152 L 410 260 L 0 260 Z" fill="url(#mountain-bg)"/>
+
+      <!-- Golden Mist / Fog Layer -->
+      <rect y="135" width="410" height="50" fill="url(#fog-grad)"/>
+
+      <!-- Foreground Rolling Cinematic Ridge -->
+      <path d="M -10 175 Q 80 155 170 172 Q 270 190 420 158 L 420 260 L -10 260 Z" fill="#0c0a09"/>
+
+      <!-- Majestic Wind-Swept Tree (Matches MS Paint tree position) -->
+      <g transform="translate(330, 85)" fill="#0c0a09">
+        <!-- Organic Gnarled Trunk -->
+        <path d="M 12 100 Q 15 65 8 50 Q 0 40 -12 35 Q 0 32 10 38 Q 22 25 35 15 Q 26 30 20 48 Q 28 65 24 100 Z"/>
+        <!-- Fine branches reaching out -->
+        <path d="M 8 50 Q 2 30 -18 25 Q 5 28 14 36"/>
+        <path d="M 16 38 Q 30 18 42 12 Q 32 24 20 42"/>
+        <!-- Windblown foliage clusters with golden rim highlights -->
+        <ellipse cx="-15" cy="22" rx="26" ry="14" fill="#1c1917" transform="rotate(-15 -15 22)"/>
+        <ellipse cx="12" cy="15" rx="32" ry="16" fill="#1c1917" transform="rotate(-5 12 15)"/>
+        <ellipse cx="38" cy="12" rx="24" ry="13" fill="#1c1917" transform="rotate(10 38 12)"/>
+        <!-- Warm golden rim light accents on tree edge -->
+        <path d="M -35 20 Q -15 10 10 8 Q 35 6 55 12" stroke="#fef08a" stroke-width="1.5" stroke-opacity="0.75" fill="none"/>
+      </g>
+
+      <!-- Majestic Silhouette Protagonist (Matches stick figure on ridge) -->
+      <g transform="translate(160, 138)" fill="#0c0a09">
+        <!-- Head & Wind-swept hair -->
+        <circle cx="0" cy="0" r="5.5"/>
+        <path d="M -2 -4 Q -8 -2 -11 2 Q -6 0 -1 -1 Z"/>
+        <!-- Heroic Posture & Flowing Coat/Cape Catching the Wind -->
+        <path d="M -4 5 L 4 5 L 6 22 L -7 24 Z"/>
+        <!-- Billowing duster/coat flowing in wind toward right -->
+        <path d="M -5 10 Q -16 18 -26 26 Q -15 23 -4 20 Z" fill="#1c1917"/>
+        <path d="M -4 10 Q -20 22 -32 30 Q -18 25 -3 21 Z" fill="#0c0a09"/>
+        <!-- Legs standing firmly on the ridge rock -->
+        <path d="M -5 23 L -8 40 L -4 41 L 0 24 Z"/>
+        <path d="M 3 23 L 8 40 L 12 40 L 5 24 Z"/>
+        <!-- Golden Rim Light on Silhouette -->
+        <path d="M -1 -5 Q 5 -3 4 5 L 6 22 L 8 40" stroke="#fde047" stroke-width="1.2" stroke-opacity="0.8" fill="none"/>
+      </g>
+
+      <!-- Anamorphic Blue / Cyan Lens Flare Streak across the frame -->
+      <line x1="0" y1="125" x2="410" y2="125" stroke="url(#flare-grad)" stroke-width="3" opacity="0.85"/>
+      <ellipse cx="110" cy="125" rx="28" ry="7" fill="#ffffff" opacity="0.6" filter="url(#soft-blur)"/>
+
+      <!-- Letterbox Bars for authentic 2.39:1 Cinema Feel -->
+      <rect width="410" height="18" fill="#000000" opacity="0.85"/>
+      <rect y="242" width="410" height="18" fill="#000000" opacity="0.85"/>
+
+      <!-- Small Cinema Badge in corner -->
+      <g transform="translate(345, 14)">
+        <text text-anchor="middle" fill="#ffffff" fill-opacity="0.75" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="8.5" font-weight="700" letter-spacing="1">2.39 : 1 • 4K</text>
+      </g>
     </g>
   </g>
 </svg>
