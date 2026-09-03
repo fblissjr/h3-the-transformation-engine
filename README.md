@@ -1,318 +1,112 @@
-# H3 Transformation Engine
+<p align="center">
+  <img src="./public/banner.svg" alt="H3 Transformation Engine" width="100%">
+</p>
 
-A prompt compiler and structured editor for MiniMax H3. It turns prompts into data: the saved artifact is a document, and the H3 prompt text is a pure function of it.
+<p align="center">
+  <strong>A deterministic prompt compiler and structured IR editor for MiniMax H3.</strong><br>
+  Turns prompts into data: the saved artifact is a document, and the prompt text is a pure function of it.
+</p>
 
-Prompt-only. Nothing here generates video.
+<p align="center">
+  <a href="#quickstart">Quickstart</a> •
+  <a href="#core-invariants">Core Invariants</a> •
+  <a href="#pipeline">Pipeline</a> •
+  <a href="#knowledge-base-llm-wiki">LLM-Wiki</a> •
+  <a href="#security--privacy">Security</a>
+</p>
 
-This is one person tinkering. It is not a product, there is no roadmap, no support, and quite possibly no users — it is public because the code may as well be. Nothing here has been reviewed by anyone else. Treat it accordingly, and see [Security](#security) before you point it at anything you care about.
+---
 
-## Security
+> **Prompt-only.** Nothing here generates video. The engine produces byte-exact, specification-compliant multimodal conditioning prompts and character-level source maps for MiniMax H3 video generation models (`T2VA`, `I2VA`, `FL2VA`, `L2VA`, and `Ref2VA`).
 
-Everything runs in your browser. There is no account, no backend, and no server owned by this project.
+---
 
-- **Your API key** sits in `localStorage`, encrypted with AES-GCM. By default the encryption key is one the browser generates and will not hand back, so the stored blob cannot be opened on another browser or machine. It does not stop anyone using *this* browser profile, since the app has to be able to decrypt it. Passphrase mode covers that case.
-- **Your documents and their version history** sit in IndexedDB, unencrypted. Browser storage is scoped to one origin in one browser profile on this machine, and there is no server, so what can read it is whatever can use this browser profile or run script on this origin.
-- **Your prompts** go wherever the provider picker in the header points. On Gemini they go to Google's endpoint, and what Google keeps is governed by the terms attached to your key rather than by anything in this code — free-tier terms permit Google to use prompts and responses to improve its products. On **heylook** they go to a server on your own network and nowhere else, which is the reason that provider exists. There is no automatic fallback between the two: a local server that is down is an error, never a silent hosted call.
-- **Erasing it** is the `local data` button in the header. Two scopes: documents and history, or that plus the stored key. It reports counts re-read from storage afterwards.
+## Core Invariants
 
-That shape suits a personal tool on a machine you control. It is the wrong shape for anything shared, multi-user, or public. If the contents of your prompts matter, use passphrase mode and a paid-tier key.
+1. **Beats carry prose; enums are validated annotations.**  
+   The planner writes the actual descriptive sentences. The serializer only assembles structure around them (labels, timestamps, tags, section headers, alignment lines, ordering) and never expands an enum into a sentence. H3 conditions on descriptive quality; canned clauses produce the "detached command stack" vendor guides explicitly warn against.
+2. **The prompt text is a pure function of the document.**  
+   `serialize(doc, ctx)` is total, pure, and deterministic. Hand-editing prompt text is prohibited because derived values (alignment lines, shot numbers, cut times, label ordinals) would fall out of sync. All mutations occur on the document AST via `applyPatch()` or direct editor actions.
 
-Specifics — storage keys, what `store: false` does and does not buy you, what the CSP covers — are in [Under the hood](#under-the-hood).
+---
 
-## Why it is shaped like a compiler
-
-Sora 2 and Veo 3.1 have no formal output contract, so tools for them are prompt mixers — free-form schema keys, several output formats, string concatenation. H3 is different. It has:
-
-- two output contracts (three fields for T2VA/I2VA/FL2VA/L2VA, six sections for Ref2VA)
-- three alignment lines that are exact strings with two substitutions
-- closed vocabularies for camera motion, retention markers, and task types
-- derived label ordinals, numbered independently per media kind by connection order
-- a speaker registry assigned by order of vocal events
-- arithmetic: `frames / 24`, two-decimal durations, `MM:SS.mmm` cut times
-
-Nearly all of that is machine-checkable, so it is checked in code rather than asked for in a prompt, and stated once in [a spec the tests enforce](#the-contract).
-
-```
-input -> normalize (TS) -> plan (one model call) -> validate (TS) -> [patch] -> serialize (TS) -> prompt
-```
-
-## The design decision that matters most
-
-**Beats carry prose; enums are validated annotations.**
-
-The planner writes the actual sentences. The serializer only assembles structure around them — labels, timestamps, tags, section headers, alignment lines, ordering. It never expands an enum into a sentence.
-
-H3 conditions on descriptive quality, and a canned camera clause bolted onto a sentence is exactly the "detached command stack" the official guide tells you to avoid.
-
-## Layout
+## Pipeline
 
 ```
-src/core/        pure TypeScript, no React, no DOM, no network (enforced by a test)
-  ir/            document types, zod schemas, path addressing, the closed vocabularies
-  normalize/     duration, label assignment, mode inference, budgets
-  validate/      29 rules emitting 36 error codes, each with a fixture that makes it go red
-  serialize/     source-mapped emitter, both output contracts
-  patch/         path-scoped patch application
-  creative/      style packs, anchors, strength scoring, glitch marks
-  wildcards/     {category} substitution on the idea, and the experiment matrix
-src/provider/    the client interface, a Gemini and a heylook client, and the planner/patch prompts
-src/debug/       the in-memory trace buffer, redaction, and the InferenceClient decorator
-src/crypto/      at-rest storage for the API key, three modes
-src/db/          IndexedDB, three stores, immutable version tree, erase-and-verify
-src/ui/          slot manager, document editor, prompt view, diagnostics, history, local data, debug console
-reference/h3/    the two official guides, and contract.json — the machine-readable spec
+CompileInput ──► normalize() ──► InferenceClient.call() ──► assemble() ──► validate() ──► serialize() ──► Prompt + SourceMap
+                       │                                                  ▲
+                       ▼                                                  │
+                NormalizedContext                                  [applyPatch()]
 ```
 
-`src/core` is runnable with no browser and no API key. That is what makes the grammar assertions cheap to run and lets the compiler move to a CLI or a ComfyUI-adjacent script later.
+---
 
-## The contract
+## Knowledge Base (LLM-Wiki)
 
-The two official MiniMax guides are tracked in [reference/h3/](./reference/h3/), because the central claim here is that every value in `src/core/ir/vocab.ts` traces to a line in one of them, and a claim that cannot be checked from a clean checkout is not a claim.
+The repository contains an exhaustive, 19-document knowledge base inside [`wiki/`](./wiki/index.md) (>300 KB total) verified by an automated test harness:
 
-Beside them, [contract.json](./reference/h3/contract.json) is the machine-readable statement of the format: per mode the alignment line, section order, layout, separators and where the style clause goes; the legal vocabulary with a guide citation per value; the ordered blocks of both system prompts and which are conditional; every diagnostic and why it is legitimate; and everything the compiler does that no guide asks for, so contract and house style are distinguishable at a glance.
-
-It is written independently of the code rather than generated from it — a spec derived from the implementation agrees with the implementation by construction, and would catch nothing. `test/contract.test.ts` binds it in both directions: code that drifts from the spec fails, and a spec that misdescribes the code fails. The guide files are hashed there too, so a revision to either becomes a visible event rather than a silent change underneath the fixtures.
-
-Adding a mode, a section, a vocabulary value, a prompt block or a diagnostic means putting it in the spec first, watching that test fail, then implementing it.
-
-## Creative modes
-
-A creative mode contributes exactly one thing to the pipeline: a selection of pack ids, which the planner prompt turns into a style direction block. Four families combine — visual medium, motion behavior, finish, audio treatment — plus a strength level that says how far the direction reaches, from setting the medium and finish alone up to governing every visual layer.
-
-The visual family covers 27 medium packs and 30 reference anchors in one id space. The anchors translate cultural and studio references into their observable traits, so what reaches the model is craft language rather than a name to imitate.
-
-Three ways in: off, directed (pick the packs), and wild (a random draw restricted to combinations with enough leverage to read as a style change rather than a filter). The leverage test is five axes — geometry, shape, palette, motion, texture — and a draw needs three of them with geometry or shape among them.
-
-Two properties hold this in place. The selection is the only thing stored or passed around; the directive text and the display label are derived wherever they are needed, so no copy of them can disagree with the selection. And the serializer never sees any of it — a document with a creative mode and one without serialize identically, because the style lives in the prose the planner wrote, not in a clause the code bolted on.
-
-The picker and an open document are deliberately allowed to differ. The picker is what the next generation will use; the document remembers what its own prose was written under, and an assisted edit preserves that rather than adopting whatever is currently selected. When the two diverge the badge says which one it is describing.
-
-### Glitch marks
-
-The second contribution a creative record can make, independent of the style. A glitch mark is one of a small set of ultra-rare tokenizer strings — the `SolidGoldMagikarp` family and its relatives — placed in the scene as visible text: carved into a wall, legible in a reflection, flickering on a screen inside the frame, stamped on a crate, etched at the scale of a serial number, or half-scratched away. The effect is a string that is legible and deliberate with no author and no explanation. Nobody in the scene reads one, points at one or reacts to one.
-
-Up to three per clip, each placed once, on a different kind of surface. Two of the ten tokens carry a documented pull of their own and are offered but never drawn at random. A register switch decides whether the marks are the only anomaly or whether the surrounding prose also reaches for the less expected material, light and pairing — and in either case every sentence still describes something a camera could record.
-
-A mark is on-screen text, so it goes through the contract's existing rule for that: quoted in the prose, listed in the beat's `visibleText`. Where a mark may go depends on the mode, and only the planner is told, because only it knows the mode: a supplied picture is an actual frame and does not contain a mark, so under I2VA, FL2VA and L2VA the marks live away from the frame the picture fixes. Under Ref2VA they stay on the environment and out of subject definitions, retention notes and the summary, since the references do not contain these strings and a note that mentions one is claiming they do.
-
-None of this is a validator rule. A mark placed badly is a prose preference, and preferences belong in the planner prompt.
-
-This is not the glitch-art aesthetic. VHS wobble and chroma bleed are finish packs and a different feature that happens to share the word.
-
-## Wildcards
-
-`{setting}` anywhere in the idea is a category name. Rolling draws a value for it, so one idea becomes many and the same idea rolled twice is two different clips. Twelve categories of content — subject, action, setting, time, weather, prop, complication, sound, material, creature, era, scale — 122 values in all, deliberately separate from the creative packs: those decide how a clip looks, these decide what is in it. `{prop:3random}` draws three distinct values; `{era:all}` takes the category in its own order.
-
-The idea box keeps the template. Rolling derives the idea rather than overwriting it, so a second roll is still possible and the seed has something to be a seed of. Expansion happens on the way into `CompileInput` and nowhere later — a document assembled from unexpanded text would render a literal `{setting}` into the H3 prompt, and the prompt is a pure function of the document, so there is no downstream place to fix it. The roll travels on the document as `{template, seed}`, both halves or neither, so checking out a version puts the idea box back in the state that produced it.
-
-A name no category matches stays in the text exactly as written, and is reported. The idea is your own sentence; deleting a word out of it because it looked like a category name is worse than leaving something you can see.
-
-Every value is a concrete, observable fragment, and a test checks the whole library against the abstractions the planner prompt rejects by name. A wildcard carrying "melancholy" would hand the planner a word it has been told not to write, arriving inside the idea where the style direction cannot override it.
-
-### The experiment matrix
-
-Every combination of the values nominated per axis, as ideas, capped at 64 with the cap reported. Rolling asks for something else; this holds everything fixed but one axis, which is the only way a comparison between two prompts means anything — and whether the planner's prose conditions H3 well is the open question here.
-
-A placeholder asking for several values at once is not an axis: it is a decision already made, so `{prop:3random}` is drawn once from the matrix seed and held identical across every cell. Without that the same sentence meant two different things depending on which button was pressed.
-
-It stops at the text. Compiling one is a model call, so that decision stays with the person pressing generate.
-
-## Recognisable people
-
-A widely recognised person, living, dead or fictional, reaches the prompt as the role they are known for, the era, the dress, and the traits that identify them on sight — never the proper name. Naming one pulls the frame toward a likeness and away from the scene that was asked for; describing one leaves you in charge of the shot. It applies even when the request names someone: the name is what you asked for, the description is how it gets made.
-
-Two things are exempt, because they are reproduced exactly as given either way: words inside a `dialogue` field, and on-screen text. If a character says a name, they say it.
-
-In both the planner and the patch prompts, so an edit cannot introduce a name the prose was written to avoid. Neither official guide mentions public figures, so this is house style rather than contract, and there is no validator rule for it — deciding whether a description names a real person is exactly the prose pattern-matching that got seventeen rules removed.
-
-## What the frame can show
-
-Four consequences of the guide's own rule that every detail correspond to something visible or audible, which the prompt previously left the model to work out for itself. Absence cannot be drawn, so a missing thing is written as the visible evidence that replaces it — "the empty sleeve hangs flat and collapsed", not "no arm". Count and position beat adjectives. Left and right are the camera's, fixed once and not swapped between shots. Every property has to be present in a single frame: if a still could not show it, neither can the video.
-
-Only the first of the four reaches the patch prompt, and the asymmetry is the point. An edit free to write "the poster is no longer there" reintroduces exactly what the planner was stopped from writing, while the rest is composition guidance a surgical edit has no use for.
-
-House style rather than contract, recorded in the spec's `notInTheGuides`. Two further rules of the same kind were dropped because the guides' own worked examples contradict them: a ban on relational placement, against "sitting beside <Subject 3> on the sofa", and a fixed position for the voice description, against "the middle-aged baker with a calm, slightly raspy voice (S1)". Whether the four that survived condition H3 any better is unmeasured, like everything else in the planner prompt.
-
-## The source map
-
-The serializer records a character range per document path. That buys three things:
-
-- click any span of the rendered prompt, select the node that produced it
-- diagnostics underline the exact offending characters
-- version diffs are per-node rather than per-line
-
-## Editing
-
-| Kind | Trigger | Model |
+| Subsystem | Scope & Highlights | Wiki Guide |
 |---|---|---|
-| Direct | typed field, enum dropdown | none |
-| Surgical | select a node, give an instruction | one call, patch scoped to that path |
-| Wide | select many nodes, one instruction | same shape, more paths |
+| **Master Index** | Master sitemap, subsystem architecture matrix, verification quickstart | [`wiki/index.md`](./wiki/index.md) |
+| **Architecture & Pipeline** | 6 pure compiler stages, timing models, 24 FPS frame math, data flow | [`wiki/architecture.md`](./wiki/architecture.md) |
+| **Core Invariants** | Foundational laws, strict purity boundaries (`test/purity.test.ts`) | [`wiki/invariants.md`](./wiki/invariants.md) |
+| **Intermediate Representation** | Canonical `H3Document`, Zod schemas, 19 `PATCHABLE_LEAVES`, `vocab.ts` | [`wiki/core_ir.md`](./wiki/core_ir.md) |
+| **Normalization** | 24 FPS $17k+5$ frame math, label counters, mode inference, duration budgets | [`wiki/core_normalize.md`](./wiki/core_normalize.md) |
+| **Validation Engine** | 29 rules, all 36 diagnostic error codes, red-proving fixtures | [`wiki/core_validate.md`](./wiki/core_validate.md) |
+| **Serialization** | Base modes vs Ref2VA, alignment lines, character-level source mapping | [`wiki/core_serialize.md`](./wiki/core_serialize.md) |
+| **Patch Subsystem** | 4-gate verification, dialogue protection, immutable structural sharing | [`wiki/core_patch.md`](./wiki/core_patch.md) |
+| **Creative Engine** | 4 pack families (53 packs), 30 anchors (`R01`–`R30`), 5 leverage axes | [`wiki/core_creative.md`](./wiki/core_creative.md) |
+| **Glitch Marks** | 10 tokenizer anomaly strings, 6 placement surfaces, mode restrictions | [`wiki/glitch_marks.md`](./wiki/glitch_marks.md) |
+| **Wildcards & Matrix** | 12 categories, 122 values, seeded `mulberry32` PRNG, experiment matrix | [`wiki/wildcards.md`](./wiki/wildcards.md) |
+| **Provider Layer** | `InferenceClient`, Gemini vs local heylook, trailers, defensive JSON parsing | [`wiki/provider.md`](./wiki/provider.md) |
+| **Crypto & Vault** | Client-side AES-GCM-256 / PBKDF2 (310k iterations), `H3KeyVault` | [`wiki/crypto.md`](./wiki/crypto.md) |
+| **Database Architecture** | IndexedDB 3 stores, versionless healing (`openHealed`), immutable version tree | [`wiki/db.md`](./wiki/db.md) |
+| **Telemetry & Debug** | Circular event bus (800 events / 4MB), automatic redaction, UI console | [`wiki/debug.md`](./wiki/debug.md) |
+| **UI Workbench** | React component hierarchy, `useEngine` single-state hook, serial edit queue | [`wiki/ui.md`](./wiki/ui.md) |
+| **Operational Policy** | 4-tier policy resolution cascade, concurrency limits, UI settings | [`wiki/policy.md`](./wiki/policy.md) |
+| **Discrepancy Audit** | 29 forensic entries comparing documentation claims to code ground truth | [`wiki/code_doc_discrepancies.md`](./wiki/code_doc_discrepancies.md) |
+| **Verification Harness** | 4-tier automated test suite specification, CLI flags, troubleshooting | [`wiki/verification_harness.md`](./wiki/verification_harness.md) |
+| **Lessons Learned** | Traps & failure modes synthesized from all 4 engineering postmortems | [`wiki/postmortems_lessons.md`](./wiki/postmortems_lessons.md) |
 
-All three go through the same gate. A patch names paths and values; it never returns a rewritten document. Three things are refused: paths outside the allowlist (derived values stay derived), paths that do not resolve (no auto-creation), and dialogue the user supplied (its whole value is coming through unchanged). Rejections are reported, never dropped.
+---
 
-Every applied edit creates an immutable version with a parent pointer and the operation list. Checking out an older version and editing branches rather than overwrites.
+## Quickstart
 
-## Provider notes
+### Commands
 
-Two backends, chosen in the header. They are not interchangeable and the code does not pretend they are: the seam between them is `InferenceClient` in `src/provider/types.ts`, which is one method taking one options bag, and every difference below is a difference the pipeline never sees.
-
-The one that shapes the design: **`schema` on that interface is a request for JSON, not a claim about how it is obtained.** Gemini honours it with constrained decoding. heylook has no equivalent on either wire, so it honours the same field by appending the serialized schema to the system prompt and parsing the reply defensively. `compile` and `edit` never branch on which backend they hold, and `PlannerOutputSchema.safeParse` stays the single trust boundary — on the local path it is doing the real work rather than offering a second opinion.
-
-### Gemini
-
-Verified against `@google/genai` types or probed live, not read from docs:
-
-- `temperature` is accepted and silently ignored. Never sent; there is no temperature control.
-- Thinking runs by default and bills at the output rate, so an unset `thinking_level` is the expensive path. Every call states one: `medium` to plan, `low` to patch.
-- **`minimal` is not a valid thinking level for gemini-3.7-flash** (400; allowed are `high`, `low`, `medium`). The SDK type lists it because that union spans every model. `low` is the floor here, and `ThinkingLevel` is narrowed so the rejected value is unrepresentable.
-- Browser-origin calls to the Interactions endpoint are **allowed by CORS** — probed from a page, which read a 400 body directly. No dev proxy, no production relay.
-- `system_instruction` and `generation_config` are interaction-scoped. Omitting them on a follow-up runs with neither, so both go on every call.
-- `status: "incomplete"` means truncated at `max_output_tokens`. Terminal, distinct from failure, and the likeliest failure mode for a JSON planner. It raises a typed error carrying the partial text.
-
-### heylook
-
-A local server on your own network — MLX and gguf models over an endpoint that conforms to Anthropic's Messages API. Read from the wire reference and the live server, not assumed from an Anthropic SDK habit:
-
-- **No constrained decoding, on either wire — and that suits this app.** There is no `responseSchema` equivalent; asking for one is not an error, it is simply absent. That is not a gap being tolerated: grammar-constrained generation buys shape conformance by distorting the token distribution as the model writes, and the whole premise here is that beats carry real prose because H3 conditions on descriptive quality. Leaving generation unconstrained is the trade this project wants. It does raise a question running the other way, currently unmeasured: whether the Gemini path's `response_format` schema is costing prose quality for the same reason. The schema is appended to the system prompt by the client and the reply is parsed defensively — fence stripping, then the candidate object carrying the most of the keys that were asked for, with length only as a tie-break. Resemblance rather than size, because the trailer hands the model the schema and a reply that echoes it back offers an object far longer than any document written against it; picking the biggest returns the schema, confidently.
-- **Model ids are install-local.** The registry is override-only, so the roster changes when a model is downloaded, with no config edit and no restart. There is nothing sensible to hard-code: the list comes from `/v1/models` at runtime and the picker shows what the server is actually serving.
-- **Capabilities are per-model, and `capabilities` is not `modalities`.** MLX strips audio towers at load, so a checkpoint can declare a modality it will never serve. Vision is gated on `capabilities` — and the refusal is still handled, because that field is read from the model directory's config while the refusal is decided from the model as loaded, so it can over-report.
-- **Non-streaming on purpose, and it has one real cost.** Once a stream's headers have flushed the status is already 200, so a late refusal arrives in-band as an `error` event and a naive reader renders a diagnostic as model output. Off the stream the same refusal is a plain 400. The cost, measured rather than assumed: a non-streaming request cannot be cancelled. Aborting the client leaves the server generating to the end, while aborting a stream stops it at once — see [Stopping a generation](#stopping-a-generation).
-- **503 is normal operation, and the retry budget is wall-clock rather than attempts.** Queueing behind a long request is expected. Probed live: it answers `Retry-After: 1` with "is generating -- wait for it to finish", which is how often to ask, not how long it will take. An attempt count read that as a completion estimate and gave up after four seconds against a two-minute generation; the budget is now five minutes of wall-clock with exponential backoff and the header as a floor. Verified by occupying the server with a long generation and calling a second model through the client: it queued for 107 seconds and then succeeded. That is one call queueing behind another, which is what the retry budget is calibrated to, and it is not a measurement of how the server schedules -- the two calls named different models, so per-model, per-provider and process-wide queueing are all consistent with it. The budget is written to be correct under any of them, which is why the distinction has never needed settling here. A negative or unreadable `Retry-After` falls back rather than waiting zero — `Date.parse("-1")` succeeds as a year, which turned a queue into a busy loop until a test caught it.
-- **`max_tokens` is optional here**, unlike Anthropic's required field. Absent means the server's sampler cascade decides, so a client-side default carried over from Anthropic code would silently override the model's configured floor on every request that had no opinion. Only the planner and patch ceilings are sent.
-- **A thinking model returns a `thinking` block beside `text`**, and the thinking block carries its content under *both* `thinking` and `text`. Only `text` blocks are joined; a reader that maps every block's `text` picks up the reasoning while looking like it filtered.
-- **Images are resized client-side.** `/v1/messages` has no resize parameter — Messages clients are expected to do it. Longest edge 2048, JPEG at 0.85, PNG kept as PNG, EXIF orientation honoured. Gemini downscales server-side, so an unresized image only costs anything on the local path, where it is paid for twice: in visual tokens and in prefill, on one machine with one GPU.
-- **`temperature` is not sent, for a different reason than on Gemini.** heylook honours it. It is absent because this app has no temperature control, and a value invented by the client would override the model's own configured default.
-- **CORS is not assumable, and a failure there is indistinguishable from three other things.** A CSP refusal, a CORS refusal and a server that is down all arrive as a bare `TypeError` from `fetch` with no status and no response body, so the error message names all three rather than guessing. `curl` cannot settle it — curl does not enforce CORS — which is why the live check is the browser, not the terminal. The client sends `Content-Type: application/json` and `X-Request-ID`, both of which make the request non-simple and trigger a preflight.
-- **No API key is sent.** heylook's key gate is opt-in, off by default, and exempt for loopback traffic. If you set `HEYLOOK_API_KEY` on the server and reach it from another machine, this build will get a 401 and say so; it has no second secret to send.
-
-## Debug console
-
-`debug` in the header opens a trace of what the app is doing, on four channels in one time-ordered list: `provider` (the call), `pipeline` (the compiler around it), `state` (the app decision that caused it) and `storage` (what was written). One list rather than a tab each, because the answer to "I pressed generate, what happened" crosses all four in order. Filter by channel, search the payloads, expand a row for the whole thing, copy the filtered set as JSON. It records whether or not the panel is open, so the usual order — do the thing, then wonder what it did — works.
-
-What is on it:
-
-- The request as the pipeline described it, and the request as it actually went on the wire — `store: false` and the thinking level on Gemini, the system prompt with its shape trailer on heylook, and every image reduced to its type and size.
-- The reply: status, usage, the text, and **which JSON-extraction branch ran** — decoding constrained by a schema, or a shape asked for in words and found (or not) in prose.
-- heylook's queue. A 503 is normal operation on a server that runs one generation at a time, and each wait is reported with its attempt number, the `Retry-After` it read and the budget left. A cancel is reported too, with how many runs the server said it stopped.
-- Every compiler stage: the normalized context the prompt is built from, whether the planner output matched the schema and with which issues if not, what the patch applied, rejected and declined, the diagnostics, and the rendered length.
-- What changed: the version committed and which paths it touched, the settings written, the document loaded and whether it still matches this build's schema.
-
-**Two halves, and they are not equally strong.** The neutral record — options in, result out, duration, usage, status — comes from a decorator over `InferenceClient`, so it holds for every backend by construction, including one added later that knows nothing about any of this. The wire body, the retry loop and the parse branch are emitted by each client itself, which is a maintained list: a new client that emits none of it shows the neutral record and no wire body, and nothing in the panel says so. Worth knowing before trusting a quiet `provider` channel.
-
-Correlation is by time order. That is sound because the app issues exactly one model call at a time — `generate` and `applyAssisted` both return early while a call is in flight, which is stricter than any policy value; see `describeConcurrency` in `src/provider/registry.ts`.
-
-The buffer lives in memory only and dies on reload. That is deliberate rather than unfinished: a persisted log would be a fourth thing the erase button has to survey, and would put prompts into storage. It is bounded at 800 events and 4 MB, evicting oldest-first, with any single payload capped so one enormous event cannot push the log out from under itself. Image data is elided to a size on the way IN, not at render time, and secret-shaped field names are blanked — the panel has a copy button, so anything reaching the buffer is something that can be pasted into a bug report. No API key travels in either request body — asserted for Gemini, whose key goes to the SDK constructor, and true of heylook by having no key to send — and the redaction runs anyway.
-
-`window.__h3debug` is the same log from the browser console: `.events()`, `.events('provider')`, `.last(20)`, `.clear()`, `.pause()`, `.mirror()`.
-
-## Commands
-
-```
+```bash
 bun install
-bun run dev         # http://localhost:5173
-bun run test        # 719 tests
-bun run typecheck
-bun run build
-bun run probe       # live API probes (reads GEMINI_API_KEY from .env)
+bun run dev         # Launch local workbench at http://localhost:5173
+bun run test        # Run Vitest test suite (921 tests across 28 test suites)
+bun run typecheck   # Static typecheck with tsc --noEmit
+bun run build       # Build production bundle with Vite
+bun run probe       # Live API probes (reads GEMINI_API_KEY from .env)
 ```
 
-`.env` is only for the probe script. The app never reads it — you paste your key into the UI.
+### Knowledge Base Verification
 
-## Verification
+The wiki test harness checks link integrity, heading anchor validity, and symbol correspondence against `src/`:
 
-- Five golden fixtures reproduce the worked examples from both official guides **byte for byte**, and all five validate with zero errors.
-- Those fixtures are checked against the guide files themselves rather than trusted. Two of the five were not the guides' text: `T2VA` and `Ref2VA` had been transcribed with typographic apostrophes where the official text has ASCII ones, so every byte-exact test passed against a copy that was already wrong. `test/guide-fidelity.test.ts` compares the golden text to the tracked guides, and separately checks the character set, which is the half that needs no guide on disk — the worked examples are pure ASCII apart from the em dash opening the FL2VA and L2VA alignment lines.
-- `test/contract.test.ts` binds [contract.json](./reference/h3/contract.json) to the implementation in both directions — 80 assertions covering the guide hashes, every alignment template, section order and layout read off rendered output, every vocabulary list, both prompts' ordered blocks, and the diagnostic catalogue against the codes the rules actually emit. Twelve deliberate breakages, six in the code and four in the spec, confirmed each fires.
-- Every one of the 36 diagnostic codes has a control fixture that makes it fire, plus the standing evidence that the unbroken examples produce none of them.
-- A meta-test scans the rule sources and fails if any emitted code has no control, so a new rule cannot ship without one. That meta-test has itself been shown to go red.
-- A purity test fails if `src/core` imports React, the SDK, the DB layer, the DOM, or `fetch`.
-- The Gemini request properties described in [Under the hood](#under-the-hood) — `store: false`, no `temperature`, an explicit `thinking_level` — are asserted in `test/provider.test.ts`. None of them travel to the other provider, and the test says so: heylook honours `temperature`, has no `store` concept, and has no interaction to chain from.
-- The heylook wire properties are asserted in `test/heylook.test.ts`, against `buildRequest`, which is pure — no server, no network. Among them the ones that would otherwise be comments: the system prompt is top-level rather than a message, the image block uses the nested `source` spelling, `max_tokens` is omitted rather than defaulted, and a `thinking` block's text never reaches the JSON parser.
-- **The shape trailer is the one string sent to a model that no prompt builder wrote**, and `test/contract.test.ts` cannot see it — that test indexes into `buildPlannerSystemPrompt`'s output, while the trailer is appended after it by the client. Deleting the trailer was run as a deliberate breakage: two assertions in `test/heylook.test.ts` went red and all 88 in `test/contract.test.ts` stayed green, which is what says the edge is real and which check is watching it. It is recorded in `contract.json` under `notInTheGuides`.
-- `test/pipeline-provider.test.ts` drives `compile` and `edit` against a recording client, which closes a standing gap: everything past the model call was unreachable, and the only tests that drove `compile` were the wildcard refusals, which assert the client is *never* called. It watches that the task and the schema chosen in the pipeline are the ones that arrive — a `task` that failed to arrive would leave Gemini sending no `thinking_level`, which is the expensive path, silently.
-- The creative modes are checked at both ends: the derivations in `test/creative.test.ts`, and the wiring in `test/creative-integration.test.ts` — that both the planner and the patch prompt derive the same directive from the same record, that a creative mode survives a patch, that it changes nothing in the serialized prompt, and that a selection round-trips through the stored-document schema to the same prompt text. Ten deliberate breakages were used to confirm those go red for the right reason.
-- The glitch marks add eighteen more, among them the one an object schema makes invisible: dropping the `glitch` key strips it on load with no issue raised anywhere, and only the storage round trip notices. The wildcards add ten, including a placeholder being deleted rather than left in place, a seed that never reaches the draw, and a mood word entering the library.
-- The stored-document schema is checked on load and reports rather than gates. It is exercised against all five golden fixtures, so a drift between the schema and the type shows up as a failing test rather than as a document that will not open.
-- The storage claims are tested against `fake-indexeddb` rather than a mock, so rows are really written and databases really deleted. `test/wipe.test.ts` pairs every "it is gone" with a case where it is not, and `test/secureStore.test.ts` checks that the wrapping key refuses to export and that destroying it leaves the ciphertext in place but unreadable.
-- The unexportable-key behaviour was then checked in Chrome directly: a `CryptoKey` generated with `extractable: false`, put through IndexedDB and read back, is a genuine structured clone rather than the same object, keeps `extractable: false`, still decrypts, and rejects `exportKey('raw')`, `exportKey('jwk')` and `wrapKey` with `InvalidAccessError`. **One browser, one machine.** Firefox and Safari are unverified.
-- The creative picker was checked in Chrome against seeded documents. The four dropdowns come back carrying the stored selection, and changing one preserves the other three. A reference anchor resolves through the same path as a medium pack. A selection naming a pack this build no longer has comes back with that one field cleared and the rest intact. A document written by the previous build, carrying a reference anchor in the numeric form that build used, opens with no schema complaint and its anchor intact. A hand-damaged document opens with its defect named rather than being refused. Switching the picker away from the style an open document was written under shows the caveat saying so, and clears it on switching back. **One browser, one machine.**
-- The schema repair was checked in Chrome against a hand-wedged database: version 1, `settings` store absent, both indexes absent, one document and three versions present. Loading the app bumped it to version 2, created the missing store and indexes, and left every row intact including the embedded reference image, with both index queries working afterwards. The key vault's repair was verified the same way, on a vault genuinely broken by a stray `indexedDB.open` during testing.
+```bash
+bun run wiki/verify.ts
+```
 
-Three bugs so far passed the whole unit suite and broke the running app anyway — a caller still requesting the retired key mode, a key vault wedged at version 1 with no object store, and a creative picker that showed a restored style in its badge but not in its controls, then destroyed it on the first change. All three were found by opening the app and clicking the thing. Treat the tests as necessary and not sufficient.
+---
 
-A fourth escaped even that. Tightening the stored `visual` field to a string broke only documents written by the *previous* build, and every check — the suite, the controls, the browser pass — ran against documents written by the current one, so nothing exercised it. An independent review of the diff caught it, along with the fact that it violated a rule written in the same diff. The lesson kept in [CLAUDE.md](./CLAUDE.md) is that reviewing your own change is the one gap none of the other checks close, and that the cheap standing test is to seed a document in the shape the last build wrote.
+## Security & Privacy
 
-A fifth was in the tests themselves. The golden fixtures were described as byte-exact reproductions of the guides, and two of them were not — the byte-exactness was a claim nothing checked, so the suite compared the serializer to a transcription that had already drifted. Every check in this repo that says "verified" now has to name the thing it read.
+Everything runs client-side in your browser. There is no account, no backend, and no telemetry server owned by this project.
 
-**Errors only — there is no warning severity.** A diagnostic means the document is provably malformed: a cut outside the video, an undeclared speaker, a retention marker from the wrong vocabulary. Checks that pattern-matched prose for a preference — sentence counts, word targets, whether a camera annotation was echoed in the wording — were removed, because they fired on legitimate output. A check that cries wolf trains you to ignore the ones that matter. That guidance lives in the planner prompt instead, where being wrong costs nothing.
+- **API Keys**: Stored in `localStorage` encrypted via AES-GCM-256 (`origin` mode, key non-extractable in IndexedDB) or PBKDF2 (`passphrase` mode, 310,000 iterations). See [`wiki/crypto.md`](./wiki/crypto.md).
+- **Documents & History**: Stored unencrypted in IndexedDB (`H3TransformationEngine`), scoped to your browser profile origin. See [`wiki/db.md`](./wiki/db.md).
+- **Inference Routing**: Prompts go directly to your chosen provider: Google Gemini (`generativelanguage.googleapis.com` with `store: false`) or a local **heylook** server on your private network. No automatic fallback. See [`wiki/provider.md`](./wiki/provider.md).
+- **Data Erasure**: The `local data` button re-reads storage after deletion to verify clean removal. See [`wiki/db.md`](./wiki/db.md).
 
-### More than one machine
+---
 
-`VITE_HEYLOOK_INSTANCES` takes a comma-separated list of `name=origin`. Every listed host goes into `connect-src` and a picker appears in the header; switching re-runs discovery, because a different machine serves a different roster. A single `VITE_HEYLOOK_ORIGIN` still works and is treated as one unnamed instance.
+## Verification Discipline
 
-Origins are build-time and the behaviour attached to them is not, which is a security split rather than a taste one: **which hosts may be contacted** is what the CSP decides, so it has to be fixed when the policy is generated; **how to treat a machine** — how long to queue for it, how slow it is — is a runtime setting where a wrong value costs a slow call.
-
-Both halves come from one parse. They did not at first: `connect-src` was generated from the instance list while the client still read `VITE_HEYLOOK_ORIGIN` directly, so pointing the list at another host produced a policy naming one machine and a client fetching another — refused by the browser with no status and no body, which looks exactly like the server being down. The list is now resolved once in `vite.config.ts` and injected into the bundle, because the config and the browser read environment variables through *different* mechanisms and a variable given on the command line reached one and not the other. `test/registry.test.ts` asserts every origin a client can be built with is one the policy names.
-
-### Enforcing the schema, or not
-
-A checkbox beside the provider picker. On, the reply is produced under constrained decoding, so the planner's nested document parses by construction. Off — now the default — the shape is asked for in the system prompt and the reply is parsed defensively, which is what the local provider does at all times because neither of its wires can constrain decoding.
-
-It was on for a long time, because that is what shipped on Gemini. It is off now on the owner's judgement that enforcement costs prompt quality, formed from reading real output. That is a judgement and not a finding: the A/B described below has still not been run, and `ENFORCE_SCHEMA_DEFAULT` in `src/provider/shape.ts` says so at the point of decision. Turning it back on for one generation is a click.
-
-It is a toggle rather than a constant because the trade runs both ways and the interesting direction is unmeasured. Constrained decoding buys shape conformance by distorting the token distribution *while the model is writing*, and the prose is the product here — so it is possible the hosted path has been paying for parseability in exactly the currency this project cares about. Nobody has measured it. The toggle is the instrument.
-
-The setting is provider-agnostic on purpose: it describes how you want the document produced, not who produces it. A backend that cannot enforce shows the control disabled and marked `n/a` rather than hiding it, so its absence is never mistaken for a Gemini-only feature — and it is the same flag if a local server ever gains a grammar. `enforceSchema` is the name at every layer; only `src/provider/gemini.ts` knows it is called `response_format` on the wire.
-
-### Stopping a generation
-
-The generate button turns into a running indicator with a stop beside it. Stopping aborts the request and returns the UI to you. A stopped call saves nothing — there is no partial document to keep.
-
-**On heylook it also stops the generation, as of server 1.79.44** — but by asking, not by hanging up. This paragraph has been wrong in both directions and the history is the useful part.
-
-It first claimed the abort released the server's queue. That was inferred and false: measured with a 73-second generation, aborting the client at 5 seconds left the next call waiting 57.9 — the remainder. Nothing is written to a non-streaming connection until the run finishes, so the server never learns the client has gone. (Aborting a *stream* did free it in 0.1 seconds, which is why streaming looked like the only route.)
-
-heylook then added `DELETE /v1/requests/{id}`, keyed on the `X-Request-ID` this client already sent. The stop button now calls it. Re-measured through the client: a 9.0-second generation stopped at 3.2 seconds, and the next call returned in **0.4 seconds** against a 5.9-second remainder. On a machine that runs one generation at a time, that is the difference between freeing the GPU and merely freeing yourself.
-
-Against an older server the DELETE fails harmlessly and you get the original behaviour — your wait ends, the generation does not. Gemini has no equivalent, so there the button ends the wait and the interaction is billed regardless.
-
-One wire detail worth knowing if you read the traffic: a cancelled run reports `stop_reason: max_tokens`, because Anthropic's vocabulary has no cancellation value. That is indistinguishable from a genuine truncation, so the client tracks its own cancel flag rather than believing the wire — otherwise pressing stop would tell you to raise your token ceiling.
-
-## Not built yet
-
-- Video and audio reference analysis. Those need a Files API upload, PROCESSING polling and 48h handle expiry, and only the `uri` path is verified working. Those slots take a written description for now.
-- Planner prompt tuning against real H3 generations. Everything verified so far is grammar; whether the prose conditions H3 well is unmeasured. The experiment matrix is the instrument for asking — it holds every variable but one fixed — but nothing has been run through it yet.
-- Compiling a matrix in one go. It produces ideas; each still has to be generated by hand, because each is a model call.
-- Visual design.
-
-## Under the hood
-
-What the code does:
-
-- **Key at rest** — AES-GCM-256 in `localStorage` under `h3-secure:gemini-api-key`. Three modes, in `src/crypto/secureStore.ts`:
-  - `origin`, the default. A random AES-GCM-256 key generated with `extractable: false`, kept as a `CryptoKey` in IndexedDB `H3KeyVault`. `exportKey` on it rejects, so its bytes never exist in JavaScript and the ciphertext can only be opened from this origin in this browser profile. The key is generated on your machine at first use; no key material is in this repo.
-  - `passphrase`, PBKDF2-HMAC-SHA256 at 310,000 iterations over what you type. The only mode that does not depend on the machine.
-  - `device`, legacy and decrypt-only. Derived from `navigator.userAgent + navigator.language`, which is not a secret; it was the old default. Existing values still open so nobody loses a stored key, writing it now throws, and the next save upgrades to `origin`.
-- **Key in transit** — the Gemini key is sent as an `x-goog-api-key` header, not in a URL. On that provider `generativelanguage.googleapis.com` is the only host contacted; on heylook it is the configured origin and nothing else. No key is sent to heylook at all.
-- **Erasing local data** — `local data` in the header. `src/db/wipe.ts` closes the cached connection, deletes the databases, clears every `localStorage` key under the `h3-secure:` prefix, then re-opens storage and counts what is left. The panel shows those before-and-after counts and turns red if anything remains, including when another open tab blocks the delete.
-- **No stored interactions** — `store: false` on every request, no setting to change it, enforced by `test/provider.test.ts`. Chosen because `interactions.delete` returns 501, so a stored interaction could not be removed later.
-- **CSP** — `connect-src 'self' https://generativelanguage.googleapis.com <the heylook origin>`, `script-src 'self'`. The heylook entry is a literal host, never a scheme-wide source, and it is **generated at build time from `VITE_HEYLOOK_ORIGIN`** by a plugin in `vite.config.ts` that reads the same `normalizeOrigin` the app does. There is one origin value, so the policy and the base URL cannot drift apart — which matters because a base URL the policy does not name is refused by the browser with no status and no response, and would look exactly like the server being down. The build fails outright if the placeholder is missing from `index.html`. Bare `ws:`/`wss:` remain deliberately absent: they match any host, which would hand a compromised dependency a socket to anywhere. `frame-ancestors` is absent because it is ignored in a `<meta>` tag — set it as a response header if you deploy this.
-- **Mixed content is a separate limit no policy lifts.** A plain `http://` heylook origin that is not `localhost` is blocked by the browser when this page is served over https, whatever `connect-src` says. Over the http dev server both work.
-- **No logging of its own that leaves the machine** — no analytics, no telemetry, no error reporting, and nothing written to disk. The debug console (below) keeps a bounded trace in memory for the life of the page; the only `console.*` calls in `src/` are its optional mirror, off unless you switch it on. This bullet used to say "zero `console.*` in `src/`", which the debug console made false.
-
-What that does not cover:
-
-- **The local provider moves the trust boundary, it does not remove it.** On heylook the prompt reaches a server you run, so none of the Gemini retention paragraph below applies to it. What replaces it is whatever that server does — its own logs, its conversation store, and anyone else who can reach the port. `HEYLOOK_API_KEY` is off by default and loopback-exempt, so on a home network the port is open to the network.
-- **`store: false` is not a retention guarantee.** It opts out of Interactions conversation-state storage. Google still logs prompts and responses for a period to enforce the Prohibited Use Policy, and free-tier terms permit using prompts and responses to improve its products. Zero data retention is a paid, approved-project posture. ([abuse monitoring](https://ai.google.dev/gemini-api/docs/usage-policies), [terms](https://ai.google.dev/gemini-api/terms), [ZDR](https://ai.google.dev/gemini-api/docs/zdr)) Which tier issued your key matters more here than anything in this repo.
-- **Nothing stops script running on this origin.** This is the ceiling, and no storage scheme moves it. Script on this origin can call `getSecret` exactly as the app does, or read the key out of memory once it is unlocked. `origin` mode makes a stolen `localStorage` dump useless on another machine; it does nothing about an attacker already executing here.
-- **Documents are not encrypted.** IndexedDB `H3TransformationEngine`, stores `documents`, `versions`, `settings`, all in the clear. Anything with access to the browser profile can read them.
-- **Give it its own origin if you host it.** Browser storage is partitioned by origin, not by path, so a deploy that shares a hostname with other pages shares this app's storage with them.
-- **Erasing is local only.** It clears what this app wrote. Browser history, the disk cache, OS-level backups, and anything already sent to Google are all outside it.
-- **Dependencies are trusted, not audited.** Five packages reach the bundle: `react`, `react-dom`, `zod`, `idb`, `@google/genai`. The heylook client adds none — it is `fetch` against a documented wire. Nothing in the build points at a third-party host, but that describes the versions pinned in `bun.lock`, not a property anyone enforces.
-
-**Test it yourself.** The above was checked by hand, in one browser, on one machine, by one person — a small sample, not a security audit. The CSP claims in particular take a few minutes to reproduce: serve a page carrying the same policy, listen for `securitypolicyviolation`, and try a `fetch` and a `WebSocket` at some host that is not on the list. Both should be refused, and the fetch case is what tells you the probe can go red at all. For the storage claims, open devtools, watch `localStorage` and both IndexedDB databases, and press the erase button.
-
-## License
-
-MIT. See [LICENSE](./LICENSE).
+- **Byte-Exact Vendor Fidelity**: Golden fixtures reproduce official MiniMax worked examples byte-for-byte with ASCII apostrophe validation ([`test/guide-fidelity.test.ts`](./test/guide-fidelity.test.ts)).
+- **Computational Purity**: `src/core/` is verified pure TypeScript—zero React, DOM, network, or DB imports ([`test/purity.test.ts`](./test/purity.test.ts)).
+- **Control Coverage**: Every one of the 36 diagnostic error codes has an active test fixture that forces it red ([`test/validate.test.ts`](./test/validate.test.ts)).
+- **Zero Warnings**: The validator emits errors only for provably malformed documents; subjective stylistic checks live exclusively in planner prompts.
