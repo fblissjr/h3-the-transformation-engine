@@ -10,7 +10,7 @@
  * the prompt cite a label the workflow will not supply.
  */
 
-import { useCallback } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import type { ReferenceSlot } from '../../core/ir/types';
 import {
   AUDIO_ROLES,
@@ -39,11 +39,57 @@ function kindOf(file: File): MediaKind | null {
 interface Props {
   slots: ReferenceSlot[];
   onChange: (slots: ReferenceSlot[]) => void;
+  canAnalyzeVideo?: boolean;
+  onAnalyzeVideo?: (
+    file: File,
+    onProgress?: (msg: string) => void,
+  ) => Promise<{ description: string; uri: string }>;
 }
 
-export function SlotManager({ slots, onChange }: Props) {
+export function SlotManager({ slots, onChange, canAnalyzeVideo, onAnalyzeVideo }: Props) {
   const labels = assignLabels(slots);
   const counts = countByKind(slots);
+  const fileMapRef = useRef<Map<string, File>>(new Map());
+  const [analyzingStatus, setAnalyzingStatus] = useState<Record<string, string>>({});
+  const [analyzeError, setAnalyzeError] = useState<Record<string, string>>({});
+  const filePickerRef = useRef<HTMLInputElement>(null);
+  const pendingSlotIdRef = useRef<string | null>(null);
+
+  const update = useCallback(
+    (id: string, patch: Partial<ReferenceSlot>) => {
+      onChange(slots.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+    },
+    [slots, onChange],
+  );
+
+  const runAnalysis = useCallback(
+    async (slotId: string, file: File) => {
+      if (!onAnalyzeVideo) return;
+      setAnalyzeError((prev: Record<string, string>) => {
+        const next = { ...prev };
+        delete next[slotId];
+        return next;
+      });
+      try {
+        const res = await onAnalyzeVideo(file, (msg) => {
+          setAnalyzingStatus((prev: Record<string, string>) => ({ ...prev, [slotId]: msg }));
+        });
+        update(slotId, { description: res.description });
+      } catch (err) {
+        setAnalyzeError((prev: Record<string, string>) => ({
+          ...prev,
+          [slotId]: err instanceof Error ? err.message : String(err),
+        }));
+      } finally {
+        setAnalyzingStatus((prev: Record<string, string>) => {
+          const next = { ...prev };
+          delete next[slotId];
+          return next;
+        });
+      }
+    },
+    [onAnalyzeVideo, update],
+  );
 
   const add = useCallback(
     async (files: FileList) => {
@@ -52,10 +98,9 @@ export function SlotManager({ slots, onChange }: Props) {
         const kind = kindOf(file);
         if (!kind) continue;
 
-        // Images are read inline as base64 so the planner can see them. Video and
-        // audio would need a Files API upload with 48h handles and PROCESSING
-        // polling, which is out of scope for v1 -- those slots carry a written
-        // description instead.
+        const slotId = `slot-${Date.now()}-${next.length}`;
+        fileMapRef.current.set(slotId, file);
+
         const dataUrl =
           kind === 'image'
             ? await new Promise<string>((resolve) => {
@@ -66,7 +111,7 @@ export function SlotManager({ slots, onChange }: Props) {
             : undefined;
 
         next.push({
-          id: `slot-${Date.now()}-${next.length}`,
+          id: slotId,
           order: next.length,
           kind,
           roles: [],
@@ -81,15 +126,9 @@ export function SlotManager({ slots, onChange }: Props) {
     [slots, onChange],
   );
 
-  const update = useCallback(
-    (id: string, patch: Partial<ReferenceSlot>) => {
-      onChange(slots.map((s) => (s.id === id ? { ...s, ...patch } : s)));
-    },
-    [slots, onChange],
-  );
-
   const remove = useCallback(
     (id: string) => {
+      fileMapRef.current.delete(id);
       // Reindex so connection order stays contiguous; ordinals are positional.
       onChange(slots.filter((s) => s.id !== id).map((s, i) => ({ ...s, order: i })));
     },
@@ -214,15 +253,79 @@ export function SlotManager({ slots, onChange }: Props) {
                 placeholder={
                   slot.kind === 'image'
                     ? 'What this contributes. Optional -- the planner can see the image.'
-                    : 'Describe this clip. Required: video and audio are not sent for analysis in v1.'
+                    : 'Describe this clip, or click Analyze with Gemini (agentic) below.'
                 }
                 rows={2}
                 className="mt-2 w-full resize-y rounded border border-[var(--color-edge)] bg-black/30 p-1.5 text-xs"
               />
+
+              {slot.kind === 'video' && canAnalyzeVideo && (
+                <div className="mt-2 flex flex-col gap-1 border-t border-[var(--color-edge)]/40 pt-1.5 text-[10px]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[var(--color-muted)]">Gemini Agentic Video:</span>
+                    {analyzingStatus[slot.id] ? (
+                      <span className="animate-pulse font-medium text-[var(--color-accent)]">
+                        {analyzingStatus[slot.id]}
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const file = fileMapRef.current.get(slot.id);
+                          if (file) {
+                            void runAnalysis(slot.id, file);
+                          } else {
+                            pendingSlotIdRef.current = slot.id;
+                            filePickerRef.current?.click();
+                          }
+                        }}
+                        className="rounded border border-[var(--color-edge)] bg-[var(--color-edge)]/20 px-2 py-0.5 text-[var(--color-accent)] hover:border-[var(--color-accent)] hover:bg-[var(--color-accent)]/10"
+                        title="Uploads clip to Files API and runs dynamic agentic video understanding"
+                      >
+                        Analyze with Gemini (agentic)
+                      </button>
+                    )}
+                  </div>
+                  {analyzeError[slot.id] && (
+                    <div className="flex items-center justify-between text-[9px] text-[var(--color-danger)]">
+                      <span>{analyzeError[slot.id]}</span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setAnalyzeError((prev: Record<string, string>) => {
+                            const next = { ...prev };
+                            delete next[slot.id];
+                            return next;
+                          })
+                        }
+                        className="ml-1 underline"
+                      >
+                        dismiss
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </li>
           );
         })}
       </ul>
+
+      {/* Hidden input to pick video file if needed for re-analysis */}
+      <input
+        ref={filePickerRef}
+        type="file"
+        accept="video/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file && pendingSlotIdRef.current) {
+            fileMapRef.current.set(pendingSlotIdRef.current, file);
+            void runAnalysis(pendingSlotIdRef.current, file);
+          }
+          if (e.target) e.target.value = '';
+        }}
+      />
     </div>
   );
 }

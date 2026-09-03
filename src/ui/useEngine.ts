@@ -20,6 +20,8 @@ import { contextFor, framesToSeconds } from '../core/normalize';
 import { inferMode } from '../core/normalize/mode';
 import { compile, edit, editDirect, inspect } from '../pipeline';
 import { buildClient } from '../provider/build';
+import type { GeminiConfig } from '../provider/gemini';
+import { analyzeVideoWithGemini } from '../provider/geminiVideo';
 import { ENFORCE_SCHEMA_DEFAULT } from '../provider/shape';
 import { createSerialQueue } from './queue';
 import type { InferenceClient, ProviderId } from '../provider/types';
@@ -88,6 +90,8 @@ const HEYLOOK_MODEL_SETTING = 'heylook-model';
 const ENFORCE_SCHEMA_SETTING = 'enforce-schema';
 /** Which configured machine to talk to. Origins are build-time; the choice is not. */
 const HEYLOOK_INSTANCE_SETTING = 'heylook-instance';
+/** Configured parameters for Gemini (model, thinking levels, video processing, etc.) */
+const GEMINI_CONFIG_SETTING = 'gemini-config';
 
 export interface EngineState {
   apiKey: string | null;
@@ -221,6 +225,7 @@ export function useEngine() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [geminiConfig, setGeminiConfigState] = useState<GeminiConfig>({});
 
   /**
    * Set the bar at the top of the window, and record that it happened.
@@ -297,6 +302,10 @@ export function useEngine() {
       const storedProvider = await getSetting<ProviderId>(PROVIDER_SETTING, 'gemini');
       if (storedProvider === 'heylook' || storedProvider === 'gemini') {
         setProviderState(storedProvider);
+      }
+      const storedGeminiConfig = await getSetting<GeminiConfig>(GEMINI_CONFIG_SETTING, {});
+      if (storedGeminiConfig && typeof storedGeminiConfig === 'object') {
+        setGeminiConfigState(storedGeminiConfig);
       }
       const storedModel = await getSetting<string | null>(HEYLOOK_MODEL_SETTING, null);
       heylookModelIdRef.current = storedModel;
@@ -442,6 +451,8 @@ export function useEngine() {
     setRoster((state) => reduceRoster(state, { type: 'reset' }));
     heylookModelIdRef.current = null;
     setHeylookModelId(null);
+    setGeminiConfigState({});
+    void setSetting(GEMINI_CONFIG_SETTING, {});
     if (scope === 'everything') {
       setApiKey(null);
       setStoredKeyMode(null);
@@ -675,6 +686,18 @@ export function useEngine() {
     void setSetting(ENFORCE_SCHEMA_SETTING, next);
   }, []);
 
+  const setGeminiConfig = useCallback((patch: Partial<GeminiConfig>) => {
+    setGeminiConfigState((current) => {
+      const next: GeminiConfig = { ...current, ...patch };
+      for (const key of Object.keys(next) as (keyof GeminiConfig)[]) {
+        if (next[key] === undefined) delete next[key];
+      }
+      void setSetting(GEMINI_CONFIG_SETTING, next);
+      trace('state', 'state.gemini_config', 'Updated Gemini config', { config: next });
+      return next;
+    });
+  }, []);
+
   const setHeylookModel = useCallback(
     (id: string) => {
       trace('state', 'state.model', `heylook model is now ${id}`, { model: id });
@@ -818,13 +841,27 @@ export function useEngine() {
       buildClient({
         provider,
         apiKey,
+        geminiConfig,
         origin: instance.origin,
         model: heylookModel,
         // Mapped by a pure function in the registry rather than inline, so the
         // join between policy and client is reachable by a test.
         ...heylookPolicyConfig(policy),
       }),
-    [provider, apiKey, heylookModel, policy, instance],
+    [provider, apiKey, geminiConfig, heylookModel, policy, instance],
+  );
+
+  const analyzeVideo = useCallback(
+    async (file: File, onProgress?: (msg: string) => void) => {
+      if (!apiKey) throw new Error('Add a Gemini API key first to analyze video.');
+      return analyzeVideoWithGemini({
+        apiKey,
+        file,
+        config: geminiConfig,
+        onProgress,
+      });
+    },
+    [apiKey, geminiConfig],
   );
 
   /** Why the generate button cannot fire, in this provider's terms. */
@@ -1198,6 +1235,9 @@ export function useEngine() {
     notice,
     setNotice,
     generate,
+    geminiConfig,
+    setGeminiConfig,
+    analyzeVideo,
     applyDirect,
     applyAssisted,
     checkout,

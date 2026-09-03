@@ -32,6 +32,14 @@ export interface ImageAttachment {
   mimeType: string;
 }
 
+/** Videos are referenced by URI (e.g. from Files API) and can specify agentic or static processing. */
+export interface VideoAttachment {
+  uri: string;
+  mimeType: string;
+  processing?: 'agentic' | 'static';
+  resolution?: 'low' | 'medium' | 'high' | 'ultra_high';
+}
+
 /**
  * What the call is for, not how hard to think about it.
  *
@@ -73,6 +81,7 @@ export interface CallOptions {
   /** Makes a rerun that differs a real difference rather than sampling noise. */
   seed?: number;
   images?: ImageAttachment[];
+  videos?: VideoAttachment[];
   model?: string;
   signal?: AbortSignal;
 }

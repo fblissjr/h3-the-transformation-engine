@@ -44,6 +44,8 @@ export function App() {
         <div className="flex-1" />
         <ProviderPanel
           provider={e.provider}
+          geminiConfig={e.geminiConfig}
+          onGeminiConfigChange={e.setGeminiConfig}
           onProviderChange={e.setProvider}
           origin={e.heylookOrigin}
           models={e.heylookModels}
@@ -187,7 +189,12 @@ export function App() {
             </p>
           </div>
 
-          <SlotManager slots={e.slots} onChange={e.setSlots} />
+          <SlotManager
+            slots={e.slots}
+            onChange={e.setSlots}
+            canAnalyzeVideo={Boolean(e.apiKey && e.provider === 'gemini')}
+            onAnalyzeVideo={e.analyzeVideo}
+          />
 
           <CreativePanel
             value={e.creative}

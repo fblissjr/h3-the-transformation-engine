@@ -13,9 +13,9 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { buildRequest, DEFAULT_MODEL, THINKING } from '../src/provider/gemini';
-import type { CallOptions } from '../src/provider/types';
+import { buildRequest, DEFAULT_MODEL, THINKING, type GeminiConfig } from '../src/provider/gemini';
 import { ENFORCE_SCHEMA_DEFAULT } from '../src/provider/shape';
+import type { CallOptions } from '../src/provider/types';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -166,5 +166,110 @@ describe('schema enforcement starts off', () => {
     expect(src, 're-hardcoding the literal puts the default back out of reach').not.toMatch(
       /const \[enforceSchema, setEnforceSchemaState\] = useState\((true|false)\)/,
     );
+  });
+});
+
+describe('gemini configuration and overrides', () => {
+  it('uses default model gemini-3.8-flash when unconfigured', () => {
+    expect(build().model).toBe(DEFAULT_MODEL);
+    expect(DEFAULT_MODEL).toBe('models/gemini-3.8-flash');
+  });
+
+  it('allows model override via GeminiConfig', () => {
+    const req = buildRequest(base, DEFAULT_MODEL, { model: 'models/gemini-3.7-flash' });
+    expect(req.model).toBe('models/gemini-3.7-flash');
+  });
+
+  it('allows call options to override both default and config model', () => {
+    const req = buildRequest({ ...base, model: 'custom-model' }, DEFAULT_MODEL, {
+      model: 'models/gemini-3.7-flash',
+    });
+    expect(req.model).toBe('custom-model');
+  });
+
+  it('allows configuring planner and patch thinking levels', () => {
+    const plannerReq = buildRequest({ ...base, task: 'planner' }, DEFAULT_MODEL, {
+      plannerThinkingLevel: 'high',
+    });
+    const patchReq = buildRequest({ ...base, task: 'patch' }, DEFAULT_MODEL, {
+      patchThinkingLevel: 'medium',
+    });
+
+    const plannerGen = plannerReq.generation_config as Record<string, unknown>;
+    const patchGen = patchReq.generation_config as Record<string, unknown>;
+
+    expect(plannerGen.thinking_level).toBe('high');
+    expect(patchGen.thinking_level).toBe('medium');
+  });
+
+  it('serializes video attachments with agentic video processing by default', () => {
+    const req = buildRequest(
+      {
+        ...base,
+        videos: [{ uri: 'https://generativelanguage.googleapis.com/v1beta/files/123', mimeType: 'video/mp4' }],
+      },
+      DEFAULT_MODEL,
+    );
+    const input = req.input as Record<string, unknown>[];
+    expect(input[0]).toMatchObject({
+      type: 'video',
+      uri: 'https://generativelanguage.googleapis.com/v1beta/files/123',
+      mime_type: 'video/mp4',
+      processing: 'agentic',
+    });
+  });
+
+  it('honors videoProcessing and videoResolution from config', () => {
+    const req = buildRequest(
+      {
+        ...base,
+        videos: [{ uri: 'https://generativelanguage.googleapis.com/v1beta/files/456', mimeType: 'video/mp4' }],
+      },
+      DEFAULT_MODEL,
+      { videoProcessing: 'static', videoResolution: 'ultra_high' },
+    );
+    const input = req.input as Record<string, unknown>[];
+    expect(input[0]).toMatchObject({
+      type: 'video',
+      uri: 'https://generativelanguage.googleapis.com/v1beta/files/456',
+      mime_type: 'video/mp4',
+      processing: 'static',
+      resolution: 'ultra_high',
+    });
+  });
+
+  it('forwards thinking summaries, token limits, and stop sequences', () => {
+    const req = buildRequest(base, DEFAULT_MODEL, {
+      thinkingSummaries: 'auto',
+      maxOutputTokens: 4096,
+      stopSequences: ['```'],
+    });
+    const gen = req.generation_config as Record<string, unknown>;
+    expect(gen.thinking_summaries).toBe('auto');
+    expect(gen.max_output_tokens).toBe(4096);
+    expect(gen.stop_sequences).toEqual(['```']);
+  });
+
+  it('gates thinking_level to model families that support it', () => {
+    const flash38 = buildRequest(base, 'models/gemini-3.8-flash');
+    expect((flash38.generation_config as Record<string, unknown>).thinking_level).toBe('medium');
+
+    const flash20 = buildRequest(base, 'models/gemini-2.0-flash');
+    expect(flash20.generation_config as Record<string, unknown>).not.toHaveProperty('thinking_level');
+  });
+
+  it('strictly preserves store: false and omits temperature under all configurations', () => {
+    const fullConfig: GeminiConfig = {
+      model: 'models/gemini-3.8-flash',
+      plannerThinkingLevel: 'high',
+      patchThinkingLevel: 'medium',
+      thinkingSummaries: 'auto',
+      maxOutputTokens: 8192,
+      videoProcessing: 'agentic',
+      videoResolution: 'high',
+    };
+    const req = buildRequest(base, DEFAULT_MODEL, fullConfig);
+    expect(req.store).toBe(false);
+    expect(req.generation_config as Record<string, unknown>).not.toHaveProperty('temperature');
   });
 });

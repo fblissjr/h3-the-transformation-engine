@@ -13,7 +13,7 @@
  * its own reason. The reason itself belongs to the UI, which words it.
  */
 
-import { GeminiClient } from './gemini';
+import { GeminiClient, type GeminiConfig } from './gemini';
 import { HeylookClient } from './heylook';
 import type { HeylookModel } from './heylook';
 import { instrument } from '../debug';
@@ -23,6 +23,8 @@ export interface ClientParams {
   provider: ProviderId;
   /** Gemini: present once a stored key has been unlocked. */
   apiKey?: string | null;
+  /** Gemini: optional configuration for model, thinking levels, video processing, etc. */
+  geminiConfig?: GeminiConfig;
   /** heylook: the origin from `instanceFor`, which is the only legal source. */
   origin?: string;
   /** heylook: the capability row, carried whole so vision gating reads it. */
@@ -53,5 +55,7 @@ export function buildClient(params: ClientParams): InferenceClient | null {
       }),
     );
   }
-  return params.apiKey ? instrument(new GeminiClient({ apiKey: params.apiKey })) : null;
+  return params.apiKey
+    ? instrument(new GeminiClient({ apiKey: params.apiKey, config: params.geminiConfig }))
+    : null;
 }

@@ -14,12 +14,22 @@
  * the first Tuesday somebody tried something new.
  */
 
+import {
+  DEFAULT_MODEL,
+  GEMINI_PRESET_MODELS,
+  type GeminiConfig,
+  type ThinkingLevel,
+  type VideoProcessingMode,
+  type VideoResolution,
+} from '../provider/gemini';
 import type { HeylookModel } from '../provider/heylook';
 import type { Instance } from '../provider/registry';
 import type { ProviderId } from '../provider/types';
 
 interface Props {
   provider: ProviderId;
+  geminiConfig?: GeminiConfig;
+  onGeminiConfigChange?: (patch: Partial<GeminiConfig>) => void;
   enforceSchema: boolean;
   onEnforceSchemaChange: (next: boolean) => void;
   /** False when the active backend has no way to constrain decoding. */
@@ -47,6 +57,8 @@ const PROVIDER_LABEL: Record<ProviderId, string> = {
 
 export function ProviderPanel({
   provider,
+  geminiConfig,
+  onGeminiConfigChange,
   enforceSchema,
   onEnforceSchemaChange,
   canEnforceSchema,
@@ -145,6 +157,183 @@ export function ProviderPanel({
           <button type="button" onClick={onRefresh} className="underline" disabled={discovering}>
             refresh
           </button>
+        </>
+      )}
+
+      {provider === 'gemini' && (
+        <>
+          <select
+            value={
+              GEMINI_PRESET_MODELS.includes((geminiConfig?.model ?? DEFAULT_MODEL) as never)
+                ? (geminiConfig?.model ?? DEFAULT_MODEL)
+                : 'custom'
+            }
+            onChange={(event) => {
+              if (event.target.value !== 'custom') {
+                onGeminiConfigChange?.({ model: event.target.value });
+              } else {
+                onGeminiConfigChange?.({ model: '' });
+              }
+            }}
+            className="rounded border border-[var(--color-edge)] bg-transparent px-1 py-0.5"
+            title="Which Gemini model to use."
+          >
+            {GEMINI_PRESET_MODELS.map((m) => (
+              <option key={m} value={m}>
+                {m.replace('models/', '')}
+                {m === DEFAULT_MODEL ? ' (default)' : ''}
+              </option>
+            ))}
+            <option value="custom">custom…</option>
+          </select>
+
+          {(!GEMINI_PRESET_MODELS.includes((geminiConfig?.model ?? DEFAULT_MODEL) as never) ||
+            geminiConfig?.model === '') && (
+            <input
+              type="text"
+              placeholder="model id"
+              value={geminiConfig?.model ?? ''}
+              onChange={(event) => onGeminiConfigChange?.({ model: event.target.value })}
+              className="w-[140px] rounded border border-[var(--color-edge)] bg-transparent px-1 py-0.5"
+              title="Enter custom Gemini model identifier"
+            />
+          )}
+
+          <details className="relative">
+            <summary className="cursor-pointer select-none underline">gemini parameters</summary>
+            <div className="absolute right-0 z-20 mt-1 flex w-[380px] flex-col gap-2 rounded border border-[var(--color-edge)] bg-[var(--color-panel)] p-3 shadow-xl">
+              <div className="text-xs font-semibold text-[var(--color-fg)]">
+                Gemini Interactions API Configuration
+              </div>
+
+              {/* Planner Thinking Level */}
+              <div className="flex items-center justify-between">
+                <span>Planner thinking:</span>
+                <select
+                  value={geminiConfig?.plannerThinkingLevel ?? 'medium'}
+                  onChange={(e) =>
+                    onGeminiConfigChange?.({ plannerThinkingLevel: e.target.value as ThinkingLevel })
+                  }
+                  className="rounded border border-[var(--color-edge)] bg-transparent px-1.5 py-0.5"
+                >
+                  <option value="low">low</option>
+                  <option value="medium">medium (default)</option>
+                  <option value="high">high</option>
+                </select>
+              </div>
+
+              {/* Patch Thinking Level */}
+              <div className="flex items-center justify-between">
+                <span>Patch thinking:</span>
+                <select
+                  value={geminiConfig?.patchThinkingLevel ?? 'low'}
+                  onChange={(e) =>
+                    onGeminiConfigChange?.({ patchThinkingLevel: e.target.value as ThinkingLevel })
+                  }
+                  className="rounded border border-[var(--color-edge)] bg-transparent px-1.5 py-0.5"
+                >
+                  <option value="low">low (default)</option>
+                  <option value="medium">medium</option>
+                  <option value="high">high</option>
+                </select>
+              </div>
+
+              {/* Video Processing Mode (Agentic Video Understanding) */}
+              <div className="flex items-center justify-between">
+                <span title="Agentic mode dynamically navigates video timeline, loading only needed segments (up to 88% fewer tokens).">
+                  Video processing:
+                </span>
+                <select
+                  value={geminiConfig?.videoProcessing ?? 'agentic'}
+                  onChange={(e) =>
+                    onGeminiConfigChange?.({ videoProcessing: e.target.value as VideoProcessingMode })
+                  }
+                  className="rounded border border-[var(--color-edge)] bg-transparent px-1.5 py-0.5"
+                >
+                  <option value="agentic">agentic (dynamic timeline, recommended)</option>
+                  <option value="static">static (fixed 1 FPS)</option>
+                </select>
+              </div>
+
+              {/* Video Resolution */}
+              <div className="flex items-center justify-between">
+                <span>Video resolution:</span>
+                <select
+                  value={geminiConfig?.videoResolution ?? ''}
+                  onChange={(e) =>
+                    onGeminiConfigChange?.({
+                      videoResolution: (e.target.value || undefined) as VideoResolution | undefined,
+                    })
+                  }
+                  className="rounded border border-[var(--color-edge)] bg-transparent px-1.5 py-0.5"
+                >
+                  <option value="">default</option>
+                  <option value="low">low</option>
+                  <option value="medium">medium</option>
+                  <option value="high">high</option>
+                  <option value="ultra_high">ultra high</option>
+                </select>
+              </div>
+
+              {/* Thinking Summaries */}
+              <div className="flex items-center justify-between">
+                <span>Thinking summaries:</span>
+                <select
+                  value={geminiConfig?.thinkingSummaries ?? ''}
+                  onChange={(e) =>
+                    onGeminiConfigChange?.({
+                      thinkingSummaries: (e.target.value || undefined) as 'auto' | 'none' | undefined,
+                    })
+                  }
+                  className="rounded border border-[var(--color-edge)] bg-transparent px-1.5 py-0.5"
+                >
+                  <option value="">default (none)</option>
+                  <option value="auto">auto</option>
+                  <option value="none">none</option>
+                </select>
+              </div>
+
+              {/* Max Output Tokens */}
+              <div className="flex items-center justify-between">
+                <span>Max output tokens:</span>
+                <input
+                  type="number"
+                  min={256}
+                  max={65536}
+                  placeholder="default"
+                  value={geminiConfig?.maxOutputTokens ?? ''}
+                  onChange={(e) =>
+                    onGeminiConfigChange?.({
+                      maxOutputTokens: e.target.value ? Number(e.target.value) : undefined,
+                    })
+                  }
+                  className="w-[90px] rounded border border-[var(--color-edge)] bg-transparent px-1.5 py-0.5 text-right"
+                />
+              </div>
+
+              <div className="mt-1 flex items-center justify-between border-t border-[var(--color-edge)] pt-2 text-[9px] text-[var(--color-muted)]">
+                <span>store: false (hardcoded privacy)</span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    onGeminiConfigChange?.({
+                      model: undefined,
+                      plannerThinkingLevel: undefined,
+                      patchThinkingLevel: undefined,
+                      videoProcessing: undefined,
+                      videoResolution: undefined,
+                      thinkingSummaries: undefined,
+                      maxOutputTokens: undefined,
+                      stopSequences: undefined,
+                    })
+                  }
+                  className="underline hover:text-[var(--color-fg)]"
+                >
+                  reset defaults
+                </button>
+              </div>
+            </div>
+          </details>
         </>
       )}
 

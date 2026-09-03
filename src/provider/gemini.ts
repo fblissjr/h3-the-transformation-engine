@@ -40,7 +40,7 @@ import {
   type Task,
 } from './types';
 
-export type { ImageAttachment } from './types';
+export type { ImageAttachment, VideoAttachment } from './types';
 export { dataUrlToAttachment } from './types';
 
 import { extractJsonObject, requiredKeys, withShapeTrailer } from './shape';
@@ -50,44 +50,49 @@ import { trace } from '../debug';
 export const GEMINI_ORIGIN = 'https://generativelanguage.googleapis.com';
 
 /**
- * Thinking levels this model accepts.
+ * Thinking levels accepted across Gemini reasoning models.
  *
- * The SDK type is `minimal | low | medium | high` -- that is the union across
- * ALL models, not a per-model list. Probed live against gemini-3.7-flash:
- *
- *   minimal -> 400 "'minimal' is not a supported thinking level for this model.
- *                   Allowed values are: high, low, medium."
- *   low, medium, high -> accepted
- *
- * So `low` is the floor here, not `minimal`, and the type is narrowed to make
- * the rejected value unrepresentable. Widen it only alongside a model that
- * accepts it -- gemini-bridge defaults to `minimal`, but that was calibrated
- * against 3.6-flash.
+ * For Gemini 3.8 Flash and 3.7 Flash, allowed values are low, medium, and high.
+ * minimal is rejected with a 400 on these models.
  */
 export type ThinkingLevel = 'low' | 'medium' | 'high';
 
-/** Both `models/gemini-3.7-flash` and the bare id work; probed. */
-export const DEFAULT_MODEL = 'models/gemini-3.7-flash';
+/** Common preset models available in Gemini. */
+export const GEMINI_PRESET_MODELS = [
+  'models/gemini-3.8-flash',
+  'models/gemini-3.7-flash',
+  'models/gemini-2.5-pro',
+  'models/gemini-2.5-flash',
+  'models/gemini-2.0-flash',
+] as const;
+
+/** Flagship default model: Gemini 3.8 Flash. */
+export const DEFAULT_MODEL = 'models/gemini-3.8-flash';
 
 /**
  * Per-task thinking levels.
  *
  * Planning is the only stage that genuinely benefits from deliberation. Patches
  * are narrow rewrites of a named field, so they sit at the floor.
- *
- * Thinking is not free even at the floor: probed at 48 thought tokens for
- * "17 * 23" at `low` versus 153 at `high`, billed at the output rate and
- * reported under `usage.total_thought_tokens`.
- *
- * This lives inside the Gemini client now rather than on the shared options,
- * because the mapping from a task to a depth is a per-backend decision and the
- * spellings do not line up: heylook takes a boolean plus a per-model
- * `reasoning_effort` vocabulary.
  */
 export const THINKING: Record<Task, ThinkingLevel> = {
   planner: 'medium',
   patch: 'low',
 };
+
+export type VideoProcessingMode = 'agentic' | 'static';
+export type VideoResolution = 'low' | 'medium' | 'high' | 'ultra_high';
+
+export interface GeminiConfig {
+  model?: string;
+  plannerThinkingLevel?: ThinkingLevel;
+  patchThinkingLevel?: ThinkingLevel;
+  thinkingSummaries?: 'auto' | 'none';
+  maxOutputTokens?: number;
+  stopSequences?: string[];
+  videoProcessing?: VideoProcessingMode;
+  videoResolution?: VideoResolution;
+}
 
 const TERMINAL_OK = 'completed';
 const TERMINAL_TRUNCATED = 'incomplete';
@@ -96,6 +101,17 @@ const TERMINAL_FAILED = new Set(['failed', 'cancelled', 'budget_exceeded']);
 export interface GeminiClientConfig {
   apiKey: string;
   model?: string;
+  config?: GeminiConfig;
+}
+
+/**
+ * Whether a model family accepts categorical thinking levels ('low' | 'medium' | 'high').
+ *
+ * Gemini 3.x models (3.7 Flash, 3.8 Flash) require and support this string enum.
+ * Older models (like 2.0 Flash) reject thinking_level with a 400.
+ */
+export function supportsThinkingLevel(model: string): boolean {
+  return model.includes('gemini-3.7') || model.includes('gemini-3.8');
 }
 
 /**
@@ -108,17 +124,53 @@ export interface GeminiClientConfig {
  * option to change it, and test/provider.test.ts fails the build if it is ever
  * anything but false.
  */
-export function buildRequest(options: CallOptions, defaultModel: string): Record<string, unknown> {
+export function buildRequest(
+  options: CallOptions,
+  defaultModel: string,
+  config?: GeminiConfig,
+): Record<string, unknown> {
   // Media first, then the question: the prompt then reads as instructions
   // about material already presented.
   const input: Record<string, unknown>[] = [];
   for (const image of options.images ?? []) {
     input.push({ type: 'image', data: image.base64, mime_type: image.mimeType });
   }
+  for (const video of options.videos ?? []) {
+    input.push({
+      type: 'video',
+      uri: video.uri,
+      mime_type: video.mimeType,
+      processing: video.processing ?? config?.videoProcessing ?? 'agentic',
+      ...(video.resolution || config?.videoResolution
+        ? { resolution: video.resolution ?? config?.videoResolution }
+        : {}),
+    });
+  }
   input.push({ type: 'text', text: options.prompt });
 
+  const effectiveThinking =
+    options.task === 'planner'
+      ? (config?.plannerThinkingLevel ?? THINKING.planner)
+      : (config?.patchThinkingLevel ?? THINKING.patch);
+
+  const targetModel = options.model ?? config?.model ?? defaultModel;
+
+  const generationConfig: Record<string, unknown> = {
+    // Only send thinking_level for model families that support categorical thinking.
+    ...(supportsThinkingLevel(targetModel) ? { thinking_level: effectiveThinking } : {}),
+    ...(options.maxOutputTokens != null || config?.maxOutputTokens != null
+      ? { max_output_tokens: options.maxOutputTokens ?? config?.maxOutputTokens }
+      : {}),
+    ...(options.seed != null ? { seed: options.seed } : {}),
+    ...(config?.thinkingSummaries ? { thinking_summaries: config.thinkingSummaries } : {}),
+    ...(config?.stopSequences && config.stopSequences.length > 0
+      ? { stop_sequences: config.stopSequences }
+      : {}),
+    // temperature is deliberately absent -- accepted and silently ignored.
+  };
+
   const request: Record<string, unknown> = {
-    model: options.model ?? defaultModel,
+    model: targetModel,
     input,
     // Not configurable. See above.
     store: false,
@@ -128,13 +180,7 @@ export function buildRequest(options: CallOptions, defaultModel: string): Record
     system_instruction: enforcing(options)
       ? options.systemInstruction
       : withShapeTrailer(options.systemInstruction, options.schema),
-    generation_config: {
-      // Always stated. Unset bills thinking at the output rate.
-      thinking_level: THINKING[options.task],
-      ...(options.maxOutputTokens != null ? { max_output_tokens: options.maxOutputTokens } : {}),
-      ...(options.seed != null ? { seed: options.seed } : {}),
-      // temperature is deliberately absent -- accepted and silently ignored.
-    },
+    generation_config: generationConfig,
   };
 
   if (enforcing(options)) {
@@ -165,26 +211,33 @@ export class GeminiClient implements InferenceClient {
   readonly canEnforceSchema = true;
   private readonly ai: GoogleGenAI;
   private readonly defaultModel: string;
+  private readonly config?: GeminiConfig;
 
   constructor(config: GeminiClientConfig) {
     if (!config.apiKey) throw new Error('GeminiClient requires an API key.');
     this.ai = new GoogleGenAI({ apiKey: config.apiKey });
-    this.defaultModel = config.model ?? DEFAULT_MODEL;
+    this.defaultModel = config.model ?? config.config?.model ?? DEFAULT_MODEL;
+    this.config = config.config;
+  }
+
+  getAiClient(): GoogleGenAI {
+    return this.ai;
   }
 
   async call<T = unknown>(options: CallOptions): Promise<CallResult<T>> {
     const started = Date.now();
-    const request = buildRequest(options, this.defaultModel);
+    const request = buildRequest(options, this.defaultModel, this.config);
 
     // The body itself, not a re-derivation of it. The decorator in
     // `src/debug/instrument.ts` records what the pipeline asked for; this is
     // what actually goes on the wire, which is where `store: false`, the
     // thinking level and the presence or absence of `response_format` become
     // visible. The API key is not in here -- it went to the SDK constructor.
+    const activeThinking = (request.generation_config as Record<string, unknown>)?.thinking_level;
     trace(
       'provider',
       'provider.wire.request',
-      `gemini POST interactions.create -- ${String(request.model)}, thinking ${THINKING[options.task]}` +
+      `gemini POST interactions.create -- ${String(request.model)}, thinking ${activeThinking}` +
         `, ${request.response_format ? 'schema enforced' : 'shape asked for in the prompt'}`,
       { origin: GEMINI_ORIGIN, body: request },
     );
