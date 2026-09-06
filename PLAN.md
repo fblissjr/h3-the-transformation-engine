@@ -335,8 +335,46 @@ real hardware. They are listed rather than dropped so their blocked state is
 visible instead of read as neglect.
 
 1. **Which artifact the compiler targets: the guide text or the release
-   tokenizer.** *Blocked on a render.* Decides the marker set. Do not move until one split line and one
-   truncated line are rendered both ways.
+   tokenizer.** Decides the marker set. **Half of this is now answered, and it
+   was never blocked on a render** — it was a lookup against an artifact already
+   on disk, which is the failure the held-evidence rule names, committed into
+   the file that states it.
+
+   **The glitch marks are not anomalous under H3's own tokenizer.** Its text
+   encoder is `Qwen2Tokenizer`, vocab 151643; the marks are GPT-2 vocabulary
+   anomalies. Different vocabulary, different corpus. All ten decompose into
+   ordinary subword tokens — `SolidGoldMagikarp` is `Solid` `Gold` `Mag` `ik`
+   `arp`, `petertodd` is `pet` `ert` `odd` — and none is a single token in any
+   of the nine tokenizer files. Verified twice, independently, with positive
+   controls (`Ġbakery`, `Ġthe`, `hello` all resolve, so the lookup was reading
+   the vocab). Found by `mrpink`; write-up at
+   `internal/glitch-tokenizer-finding_2026-09-06.md`.
+
+   **This refutes the mechanism and says nothing about the feature.** A string
+   with no embedding of its own cannot sit at an odd edge of the space, so the
+   stated reason cannot operate — `petertodd` being fenced off from random draws
+   for a documented negative-valence skew is a property of one GPT-2 token id
+   and there is no such id here. But the marks are still unusual strings
+   rendered as on-screen text, and whether *that* does anything visible is
+   untouched and still a render question. Read as "the marks do nothing" this
+   entry is being misread.
+
+   **`src/core/creative/glitch.ts:4` should be corrected whatever is decided
+   about the feature**, and it is checkable in one line by anyone: it says "an
+   ultra-rare string from the tokenizer corpus" with the tokenizer unqualified,
+   so it parses as a claim about H3. A fact recorded without the scope it was
+   true of, which is the guide-number rule one level out.
+
+   Two limits carried with it. `coderef/` is gitignored, so a clean checkout
+   cannot re-derive this and the finding has to carry its own evidence. And it
+   can only refute: deriving a genuine under-trained marker set needs embedding
+   weights rather than a tokenizer, so this artifact cannot say what a real one
+   would be.
+
+   Still open and still needing a render: the marker *spelling* — `<cutoff>`
+   and `<scenetrans>` against `<|cutoff|>` — which is a different question from
+   the palette and is unaffected by any of the above.
+
 2. **Target local model class.** *Blocked on a measurement this repo cannot take alone.* The prompt-length trade runs opposite ways for
    a small-active MoE and a large dense model. Also settle whether heylook
    reuses the KV prefix across calls.
