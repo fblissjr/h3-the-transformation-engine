@@ -6,9 +6,13 @@
 
 ## 1. Overview & Theoretical Foundation
 
-The Glitch Marks subsystem (`src/core/creative/glitch.ts`) implements the **Glitch Token Infusion** technique. A glitch token is an ultra-rare string from the underlying language model tokenizer's training corpus—a string that appeared so infrequently, and in such narrow syntactic contexts (e.g., bulk-scraped web page furniture, telemetry logging IDs, bot handles), that its vector embedding occupies abnormal, unoptimized perimeter edges of latent space.
+The Glitch Marks subsystem (`src/core/creative/glitch.ts`) places odd-looking strings into a scene as visible on-screen text.
 
-When one of these strings is deliberately injected into a video generation scene as a physical on-screen mark, it behaves as an unauthored, unexplained anomaly:
+**The strings are real GPT-2-era tokenizer glitches, and in this app they are a joke wildcard.** Both halves matter. The history is genuine: these appeared so seldom in GPT-2's training corpus, and in such narrow contexts (bulk-scraped page furniture, telemetry logging ids, bot handles), that their embeddings sat at odd edges of that model's latent space, and several are well documented in the literature. That is a fact about GPT-2's vocabulary.
+
+**It is not a fact about H3.** H3's text encoder is a Qwen2 tokenizer with a 151643 vocabulary, and every mark here decomposes into ordinary subword tokens under it: "SolidGoldMagikarp" becomes Solid + Gold + Mag + ik + arp, and "petertodd" becomes pet + ert + odd. None is a single token in any of the nine tokenizer files H3 ships. So no embedding of this palette's own exists to sit anywhere odd, and nothing here should be read as claiming a mechanism inside H3. See `internal/glitch-tokenizer-finding_2026-09-06.md`.
+
+The feature does not depend on that story and never did. A strange, legible string on a wall reads as a deliberate anomaly whatever the tokenizer thinks of it, which is a thing you can check by looking:
 - Legible and crisp.
 - Not attributable to any character or author in the scene.
 - Unnoticed and unremarked upon by subjects in the scene.
@@ -41,7 +45,7 @@ export interface GlitchTokenDef {
 
 The 8 tokens without latent skews form `DRAWABLE_TOKENS` (`GLITCH_TOKENS.filter((t) => !('skew' in t))`). These are safe for randomized selection in `randomGlitch`:
 
-1. `"SolidGoldMagikarp"`: The canonical tokenizer anomaly. A Reddit username scraped in bulk that was never used in natural prose.
+1. `"SolidGoldMagikarp"`: The canonical GPT-2 anomaly. A Reddit username scraped in bulk that was never used in natural prose.
 2. `"GoldMagikarp"`: The truncated sibling variant of `"SolidGoldMagikarp"`. Offered as an independent stylistic variant, not derived by string manipulation.
 3. `"embedreportprint"`: A concatenated web interface button fragment with zero natural grammatical context.
 4. `"rawdownload"`: A markup and URL fragment extracted from bulk-scraped web furniture.
@@ -52,10 +56,10 @@ The 8 tokens without latent skews form `DRAWABLE_TOKENS` (`GLITCH_TOKENS.filter(
 
 ### 2.2 Skewed & Fenced Tokens (2 Tokens)
 
-Two tokens possess documented semantic attractors strong enough to warp the thematic direction of the entire scene. They are deliberately fenced off: offered only for explicit manual selection, and strictly excluded from random draws (`randomGlitch`):
+Two carry documented semantic attractors **in GPT-2** strong enough to warp a scene there. Whether that survives into H3 is unestablished and, on the tokenizer evidence above, has no mechanism to survive by; they stay fenced because the house preference is to choose them deliberately rather than draw them. They are deliberately fenced off: offered only for explicit manual selection, and strictly excluded from random draws (`randomGlitch`):
 
 1. `"petertodd"`:
-   - *Note:* The most widely documented anomalous string in tokenizer literature.
+   - *Note:* The most widely documented string in the GPT-2 glitch-token literature.
    - *Skew:* Pulls hard negative valence and adversarial context into the generated scene.
 2. `"Leilan"`:
    - *Note:* The counter-balancing anomalous string.

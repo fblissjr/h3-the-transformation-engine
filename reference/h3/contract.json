@@ -1025,7 +1025,7 @@
         "paths": [
           "src/core/creative/glitch.ts"
         ],
-        "why": "Odd-looking strings placed as visible on-screen text, for the way they read in frame. Uses the guide's on-screen text rule rather than a new one. Not a claim about H3's tokenizer: the name is a joke, and every mark decomposes into ordinary subword tokens under the Qwen2 vocabulary H3 actually uses."
+        "why": "Odd-looking strings placed as visible on-screen text, for the way they read in frame. Uses the guide's on-screen text rule rather than a new one. The strings are real GPT-2-era tokenizer glitches and are used here as a joke wildcard; that history is about GPT-2 and not about H3, whose Qwen2 vocabulary decomposes every one of them into ordinary subword tokens."
       },
       {
         "id": "frame-legibility",

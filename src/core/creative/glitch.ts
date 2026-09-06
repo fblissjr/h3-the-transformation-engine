@@ -6,14 +6,16 @@
  * attributable to anything in the frame. That effect is the whole of the
  * feature and it needs no theory behind it.
  *
- * "Glitch token" is a joke, not a claim. An earlier version of this comment
- * described these as ultra-rare strings from the tokenizer corpus whose
- * embeddings sit at an odd edge of the space, with the tokenizer unqualified,
- * so it parsed as a statement about H3. It is not one: H3's text encoder is
- * Qwen2 with a 151643 vocab, and every mark here decomposes into ordinary
- * subword tokens under it. The provenance is removed rather than corrected
- * because there was never a mechanism to state -- the strings were picked for
- * looking wrong on screen, which is a thing a reader can check by looking.
+ * The strings are real GPT-2-era tokenizer glitches, and here they are a joke
+ * wildcard. The history is genuine -- they were rare enough in that corpus, and
+ * narrow enough in context, that their embeddings sat at odd edges of GPT-2's
+ * space, and several are well documented. That is a fact about GPT-2.
+ *
+ * It is not a fact about H3, and an earlier version of this comment said
+ * "the tokenizer corpus" unqualified, which read as though it were. H3's text
+ * encoder is Qwen2 with a 151643 vocab and every mark here decomposes into
+ * ordinary subword tokens under it, so no embedding of this palette's own
+ * exists to sit anywhere odd. Nothing in the feature depended on that story.
  *
  * This is not the "glitch art" aesthetic. Nothing here corrupts the image; the
  * VHS and chroma-bleed treatments are finish packs, a different feature that
