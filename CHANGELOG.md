@@ -4,6 +4,32 @@ All notable changes to this project are documented here. Semantic versioning.
 
 ## [Unreleased]
 
+### Added
+
+- **A prompt inventory.** `src/provider/prompts/inventory.ts` decomposes a
+  rendered prompt against the blocks a spec declares for it;
+  `scripts/prompt-inventory.ts` is a thin CLI that renders all six prompts this
+  app sends and reports what claims each part of them. Auditing prompt strings
+  by reading the builders does not work -- the source holds
+  `${SOUNDSCAPE_SENTENCE_RANGE[0]}-...` and the digits only exist after
+  interpolation -- so this reports on the rendered artifact and says which one.
+
+  It marks the character span each declared block claims and reports the
+  leftover, rather than diffing heading sets. That is what makes it catch text
+  sitting before the first declared heading: `test/contract.test.ts` slices each
+  block from `text.indexOf(heading)` forward, so a preamble is unreachable by it
+  by construction. Both system prompts have one.
+
+  The decomposition half is pure -- no fs, no network, no `contract.json` -- so
+  it is reusable outside a CLI. It is not in `src/core/` because it is not part
+  of the compiler. Blocks are keyed by heading rather than array position,
+  because a position is not a name.
+
+  Deliberately not wired into `bun run test`: it currently reports twelve
+  findings, all of them open questions for the owner rather than regressions,
+  and a check that goes red on a known open question is a check people learn to
+  ignore. Findings are written up in the working notes.
+
 ### Removed
 
 - **The `# Recognisable people` block.** Owner's ruling: it added no value beyond
