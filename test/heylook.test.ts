@@ -479,6 +479,75 @@ describe('the retry loop itself, not just the header arithmetic', () => {
     expect((body as unknown as Record<string, unknown>).reasoning_effort).toBe('medium');
   });
 
+  it('sends a bearer token on both the call and the cancel, or on neither', async () => {
+    // Two requests carry the credential and they are written in different
+    // places, so this asserts the CANCEL as well as the call. That is the one
+    // that would drift unnoticed: cancel is best-effort by design, so an
+    // unauthorised DELETE returns 0 and says nothing, and the symptom would be
+    // generations that keep running after the stop button with the inference
+    // path looking perfectly healthy.
+    const seen: Record<string, Headers> = {};
+    let sawCancel: () => void = () => {};
+    const cancelled = new Promise<void>((res) => (sawCancel = res));
+    const impl = (async (_url: string, init?: RequestInit) => {
+      const headers = new Headers(init?.headers);
+      if (init?.method === 'DELETE') {
+        seen.cancel = headers;
+        sawCancel();
+        return new Response(JSON.stringify({ cancelled: 1 }), { status: 200 });
+      }
+      seen.call = headers;
+      // Never settles on its own: the abort below is what ends this call, which
+      // is the only way to reach the cancel path.
+      return await new Promise<Response>(() => {});
+    }) as unknown as typeof fetch;
+
+    const controller = new AbortController();
+    const client = new HeylookClient({
+      origin: 'http://x',
+      model: TEXT_MODEL,
+      fetchImpl: impl,
+      apiKey: 'sekrit',
+    });
+    // Deliberately not awaited: the POST stub never settles, so the only thing
+    // that finishes here is the cancel. Awaiting the call would hang the test
+    // rather than assert anything -- which it did, the first time.
+    void client.call({ ...base, maxOutputTokens: 8, signal: controller.signal }).catch(() => {});
+    // Give the POST a turn to be issued before aborting it.
+    await new Promise((r) => setTimeout(r, 10));
+    controller.abort();
+    await cancelled;
+
+    expect(seen.call?.get('Authorization')).toBe('Bearer sekrit');
+    expect(seen.cancel?.get('Authorization')).toBe('Bearer sekrit');
+  });
+
+  it('sends no Authorization header at all when there is no key', async () => {
+    // Absent, not empty. `Authorization: Bearer ` with nothing after it is a 401
+    // that reads like a wrong key rather than a missing one, and a whitespace
+    // key is the same mistake typed by hand -- so both resolve to no header.
+    const capture: Headers[] = [];
+    const impl = (async (_url: string, init?: RequestInit) => {
+      capture.push(new Headers(init?.headers));
+      return new Response(
+        JSON.stringify({ id: 'msg_1', content: [{ type: 'text', text: 'ok' }], stop_reason: 'end_turn' }),
+        { status: 200 },
+      );
+    }) as unknown as typeof fetch;
+
+    for (const apiKey of [undefined, '', '   ']) {
+      const client = new HeylookClient({
+        origin: 'http://x',
+        model: TEXT_MODEL,
+        fetchImpl: impl,
+        ...(apiKey === undefined ? {} : { apiKey }),
+      });
+      await client.call({ ...base, maxOutputTokens: 8 });
+    }
+    expect(capture).toHaveLength(3);
+    for (const headers of capture) expect(headers.has('Authorization')).toBe(false);
+  });
+
   it('refuses a per-call model switch rather than silently ignoring it', async () => {
     // Gemini resolves CallOptions.model; this client is bound to a capability
     // row at construction, so honouring a bare id would gate vision against the

@@ -62,6 +62,14 @@ All notable changes to this project are documented here. Semantic versioning.
 
 ### Changed
 
+- **The heylook client can present a bearer token.** `HeylookClientConfig.apiKey` is optional and per-instance, because that is what it is a fact about: heylook's own `HEYLOOK_API_KEY` is loopback-exempt by default, so a server on this machine needs nothing and the same build reached over a LAN or a Tailscale name needs a token. One field covers both with no mode to choose. Nothing wires it yet -- the engine still constructs clients without one -- so this is the client half only, and it changes no request that is made today.
+
+  Both requests that should carry it do: the `/v1/messages` call and the `DELETE /v1/requests/{id}` cancel, through one `authHeaders()` rather than two spellings. The cancel is the half worth asserting, and the test says why: cancel is best-effort by design, so an unauthorised DELETE returns 0 and reports nothing, and the symptom would be generations that keep running after the stop button while the inference path looks perfectly healthy.
+
+  Discovery is deliberately excluded. `/v1/models` and `/v1/capabilities` are open on heylook even when the key is set, so sending a credential there would imply a coupling that does not exist. The case that would change it -- a reverse proxy gating every route -- is a fact about different software and should arrive with its own reason rather than by widening this one. Written into the field's comment, since an absence next to two present uses reads as an oversight.
+
+  An empty or whitespace-only key resolves to no header at all, not to `Authorization: Bearer ` with nothing after it, which is a 401 that reads like a wrong key rather than a missing one. Asserted over undefined, empty and whitespace together.
+
 - **Guide-coverage ledger: the ref guide dispositioned, and `coveredBy` takes a
   list.** 69 of 183 sentences now claim coverage against a resolving path, 4 are
   declined with reasons, 110 remain unverified -- 28 of those normative-looking,

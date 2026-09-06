@@ -170,6 +170,28 @@ export interface HeylookClientConfig {
    */
   origin?: string;
   /**
+   * A bearer token for this instance, when the server asks for one.
+   *
+   * Per-instance rather than per-client-type, because it is a fact about a
+   * machine: heylook's `HEYLOOK_API_KEY` is loopback-exempt by default, so a
+   * server on this box needs nothing and the same build reached across a LAN or
+   * a Tailscale name needs a token. One optional field covers both without a
+   * mode to choose, and absent means send no header at all rather than send an
+   * empty one.
+   *
+   * Deliberately NOT sent by discovery. `/v1/models` and `/v1/capabilities` are
+   * open on heylook even when the key is set, so `listModels` needs no
+   * credential and sending one would imply a coupling that does not exist. The
+   * case that would change it is a reverse proxy gating every route, where a
+   * 401 from discovery points at the proxy rather than at heylook -- and that
+   * is a different fact about a different piece of software, so it should
+   * arrive with its own reason rather than by widening this one.
+   *
+   * Never traced: the wire trace emits the request body, and headers are not
+   * part of it.
+   */
+  apiKey?: string;
+  /**
    * The transport, injectable so the retry loop can be driven without a server.
    *
    * It had no test at all: `post` is private, nothing constructed a client, and
@@ -273,6 +295,7 @@ export class HeylookClient implements InferenceClient {
   private readonly fetchImpl: typeof fetch;
   private readonly backpressureBudgetMs: number;
   private readonly thinking: ThinkingPreference;
+  private readonly apiKey: string | null;
 
   constructor(config: HeylookClientConfig = {}) {
     this.thinking = config.thinking ?? THINKING_DEFAULT;
@@ -280,6 +303,22 @@ export class HeylookClient implements InferenceClient {
     this.model = config.model ?? null;
     this.fetchImpl = config.fetchImpl ?? ((...args) => fetch(...args));
     this.backpressureBudgetMs = config.backpressureBudgetMs ?? BACKPRESSURE_BUDGET_MS;
+    // Trimmed, and an empty string is the same as absent: `Authorization:
+    // Bearer ` with nothing after it is a 401 that reads like a wrong key
+    // rather than like a missing one.
+    this.apiKey = config.apiKey?.trim() ? config.apiKey.trim() : null;
+  }
+
+  /**
+   * The credential header, or nothing.
+   *
+   * One renderer, used by both requests that carry it, because two spellings of
+   * one header is the shape that drifts silently -- the inference call would
+   * keep working while the cancel quietly stopped being authorised, and a
+   * cancel that fails is already best-effort and says nothing.
+   */
+  private authHeaders(): Record<string, string> {
+    return this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {};
   }
 
   async call<T = unknown>(options: CallOptions): Promise<CallResult<T>> {
@@ -495,6 +534,7 @@ export class HeylookClient implements InferenceClient {
     try {
       const response = await this.fetchImpl(`${this.origin}/v1/requests/${requestId}`, {
         method: 'DELETE',
+        headers: this.authHeaders(),
       });
       if (!response.ok) {
         trace(
@@ -606,6 +646,7 @@ export class HeylookClient implements InferenceClient {
           'Content-Type': 'application/json',
           // Echoed back, and how a request is correlated with the server's logs.
           'X-Request-ID': requestId,
+          ...this.authHeaders(),
         },
         body: JSON.stringify(request),
         ...(signal ? { signal } : {}),
