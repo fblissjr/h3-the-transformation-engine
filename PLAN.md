@@ -185,10 +185,21 @@ Open:
 - [ ] **F9: ref 5.4's off-screen marking for a defined subject.** A stated guide
       rule present in neither the spec nor the prompts. Spec-first if it is
       wanted, and an owner ruling either way.
-- [ ] **F1: whether the planner preamble gets a spec shape.** Now measured rather
-      than argued — deleting the statement of invariant 1 leaves the suite green,
-      with a control that went red. So the question is live: the preamble is
-      unprotected, and whether that matters is the decision.
+- [ ] **F1: whether the planner preamble gets a spec shape.** Measured rather
+      than argued. Two deletion arms — the invariant-1 paragraph alone, and the
+      whole preamble — each left the suite at 943/943 green, against a positive
+      control that went red on exactly one assertion. The control is what makes
+      those greens mean anything: nothing-noticed is a fact about coverage, not
+      about the harness. So the preamble is genuinely unprotected, and whether
+      that matters is the decision.
+
+      A structural consequence to settle with it, not after: `contract.json`
+      declares blocks by heading and `test/contract.test.ts` locates each one
+      with `text.indexOf(heading)`. A preamble has no heading, so speccing it
+      means giving it one, changing how blocks are located, or declaring it as
+      something other than a block. The third looks right — the preamble is what
+      precedes the block list rather than a member of it — but it is part of what
+      F1 decides.
 - [ ] **The residual placement instruction in the glitch block.** "Give each mark
       a different kind of surface" is still placement guidance in a preservation
       context. Milder than the two already fixed, and removing it means first
