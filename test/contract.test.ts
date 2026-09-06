@@ -1217,9 +1217,9 @@ describe('the spec points at things that exist', () => {
    * Every item names the files it lives in, and every one of them is checked.
    *
    * This used to read a single prose `where` and skip anything that did not begin
-   * `src/` -- so `recognisable-people` ("planner and patch prompts") and, when it was
-   * added, `music-default` were checked by nothing, while looking exactly like the
-   * nine entries that were. A list of paths has no prose form to fall through.
+   * `src/` -- so an entry phrased as "planner and patch prompts", and `music-default`
+   * when it was added, were checked by nothing while looking exactly like the
+   * entries that were. A list of paths has no prose form to fall through.
    */
   it('names source paths that exist for everything outside the guides', () => {
     let checked = 0;

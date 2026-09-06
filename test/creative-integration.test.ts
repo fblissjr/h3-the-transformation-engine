@@ -498,63 +498,6 @@ describe('a mark and the on-screen text rule', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Recognisable people
-// ---------------------------------------------------------------------------
-
-/**
- * A house rule rather than a contract item: neither official guide mentions
- * public figures. It came from the Sora prompt architecture and the original
- * engine's own fragment, and it lives in the two prompts because deciding
- * whether a description names a real person is not something a validator can
- * do -- pattern-matching prose for it is the class of rule this repo removed
- * seventeen of.
- *
- * The carve-out is the part worth guarding. Dialogue and on-screen text are
- * reproduced exactly as given, and a rule that told the planner to rewrite a
- * name would contradict the one that says never to touch a user's words.
- */
-describe('recognisable people', () => {
-  const ctx = normalize(input);
-
-  it('is in the planner prompt, in every mode', () => {
-    for (const mode of ['T2VA', 'I2VA', 'FL2VA', 'L2VA', 'Ref2VA'] as H3Mode[]) {
-      const modeInput: CompileInput = { ...input, mode };
-      const prompt = buildPlannerSystemPrompt(normalize(modeInput), modeInput);
-      expect(prompt, mode).toContain('# Recognisable people');
-      expect(prompt, mode).toContain('Do not write the proper name of a widely recognised person');
-    }
-  });
-
-  /** Wording proxy: an example phrase and a clause, neither structural. */
-  it('teaches the substitution rather than only forbidding the name', () => {
-    const prompt = buildPlannerSystemPrompt(ctx, input);
-    expect(prompt).toContain('the role they are known for');
-    expect(prompt).toContain('bicorne hat');
-  });
-
-  /**
-   * Without this the rule collides with "Dialogue text is preserved exactly as
-   * given. Never translate, paraphrase or tidy user-supplied lines" -- two
-   * instructions in one prompt telling the model opposite things about the same
-   * words.
-   *
-   * Wording proxy: the exemption has no field name or tag of its own to anchor on.
-   */
-  it('exempts the two fields that are reproduced verbatim', () => {
-    const prompt = buildPlannerSystemPrompt(ctx, input);
-    expect(prompt).toContain('It does not apply to two things that are reproduced exactly as given');
-    expect(prompt).toContain('If a character says a name, they say it.');
-  });
-
-  /** Wording proxy: the patch prompt states the rule in prose with no anchor. */
-  it('is in the patch prompt, so an edit cannot introduce one', () => {
-    const prompt = buildPatchSystemPrompt();
-    expect(prompt).toContain('A recognisable person is described, never named');
-    expect(prompt).toContain('are the exception');
-  });
-});
-
-// ---------------------------------------------------------------------------
 // The roll on the document
 // ---------------------------------------------------------------------------
 

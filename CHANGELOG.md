@@ -4,6 +4,30 @@ All notable changes to this project are documented here. Semantic versioning.
 
 ## [Unreleased]
 
+### Removed
+
+- **The `# Recognisable people` block.** Owner's ruling: it added no value beyond
+  giving the model a conflicting directive. It was a house rule rather than a
+  contract item -- neither guide mentions public figures -- and it carried a
+  carve-out exempting dialogue and on-screen text precisely because, without one,
+  it contradicted the rule that user-supplied words are never rewritten. A block
+  that needs an exemption to stop it fighting a neighbouring block is a block
+  arguing with the prompt around it.
+
+  It was also never implemented. `reference/h3/contract.json` declared it in
+  `prompts.planner.blocks` and in `notInTheGuides.items`, and both test files
+  asserted it, but no prompt builder in `src/` ever emitted it -- so `main` was
+  red with six failures, all one cause, and had been through several commits.
+  That is the spec-first workflow caught between step two and step three:
+  spec written, tests written and failing, implementation not done. Removing the
+  spec entry is the other way to close it.
+
+  Three of the four removed assertions were self-labelled wording proxies, which
+  is its own signal: the block had no field, tag or rendered shape to anchor on,
+  and its `noAnchor` note said so. The count moves 931 -> 926 rather than 927,
+  because the block also generated one case through the per-block "says why it
+  carries no anchor" loop in `test/contract.test.ts`.
+
 ### Added
 
 - **A conformance harness for local models.** `scripts/conformance-heylook.mjs` runs the real pipeline -- the same client, `compile`, schema parse, assembly and validation the app uses -- over a fixed idea set, one served model at a time, and classifies every call by the stage it reached: provider failure, no JSON, truncated, schema refusal, assembly refusal, validator diagnostics, clean. The stages are columns and never a sum, because a model that reaches `diagnostics` has held the shape and one that stops at `schema` has not, and the CLAUDE.md caveat about scoring assembly failures apart from prose is why `assemble` stands alone. Each row carries the rendered prompt, so the output is also what an outside grader would read. Nothing in it judges prose; that needs a render. It answers the question CLAUDE.md has carried for this provider since it was added: which local models can hold the planner's document at all.

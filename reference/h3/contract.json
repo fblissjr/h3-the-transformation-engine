@@ -724,15 +724,6 @@
           "noAnchor": "Same shape as # How to write: four consequences of base 4.1 stated as prose. The negation half also reaches the patch prompt, where it is likewise unanchorable."
         },
         {
-          "heading": "# Recognisable people",
-          "source": "core",
-          "conditional": false,
-          "note": "Not in either guide. From the Sora prompt architecture and the original engine's own fragment. Carve-out: dialogue text and on-screen text are reproduced verbatim regardless. Neither guide mentions public figures. From the Sora prompt architecture and the original engine's fragment. Carve-out: dialogue text and on-screen text are reproduced verbatim regardless.",
-          "house": true,
-          "asserts": [],
-          "noAnchor": "A prohibition stated in prose. Its only field-shaped token, `dialogue`, is shared with # Speech and so does not tell the two blocks apart -- an anchor that matches a neighbouring block would pass while pointing at the wrong text."
-        },
-        {
           "heading": "# Camera",
           "source": "core",
           "conditional": false,
@@ -986,14 +977,6 @@
   "notInTheGuides": {
     "note": "Everything the compiler does that no guide asks for. An audit should be able to tell contract from house style at a glance.",
     "items": [
-      {
-        "id": "recognisable-people",
-        "paths": [
-          "src/provider/prompts/planner.ts",
-          "src/provider/prompts/patch.ts"
-        ],
-        "why": "Naming a public figure pulls the frame toward a likeness. From the Sora prompt architecture."
-      },
       {
         "id": "creative-packs",
         "paths": [
