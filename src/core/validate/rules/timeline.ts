@@ -207,13 +207,31 @@ export const shotHeaderInProse: Rule = (doc) => {
   const out: Diagnostic[] = [];
   doc.shots.forEach((shot, i) => {
     shot.beats.forEach((beat, j) => {
-      const headers = beat.prose.match(/\[Shot\s*\d+\]/g) ?? [];
+      const headers = [...beat.prose.matchAll(/\[Shot\s*\d+\]/g)];
       if (headers.length === 0) return;
-      // Only an entry the beat actually declares AND quotes is excluded, which
-      // is the same pair `visibleTextQuoted` checks. An undeclared header in
-      // quotes is still a fault -- it would render doubled just the same.
-      const quoted = (beat.visibleText ?? []).filter((entry) => beat.prose.includes(`"${entry}"`));
-      const offending = headers.filter((header) => !quoted.includes(header));
+      // POSITIONS, not strings, and the first version of this got it wrong in
+      // both directions. Comparing the matched text against the declared
+      // entries fails a slate reading `TAKE 3 [Shot 2]`, because the extracted
+      // header is not the whole entry -- and worse, it let ONE quoted slate
+      // excuse every identical bare header elsewhere in the same beat, since
+      // two occurrences produce the same string. That second one is a bypass
+      // rather than a miss: a beat that legitimately shows a header could then
+      // carry unlimited bare ones for free.
+      //
+      // So a match is excluded only when it falls INSIDE the span of a quoted
+      // `visibleText` occurrence. Declared AND quoted is the same pair
+      // `visibleTextQuoted` checks; a header declared without quotes is still a
+      // fault, and is already a VISIBLE_TEXT_NOT_QUOTED one.
+      const spans: [number, number][] = [];
+      for (const entry of beat.visibleText ?? []) {
+        const needle = `"${entry}"`;
+        for (let at = beat.prose.indexOf(needle); at !== -1; at = beat.prose.indexOf(needle, at + 1)) {
+          spans.push([at, at + needle.length]);
+        }
+      }
+      const offending = headers
+        .filter((m) => !spans.some(([from, to]) => m.index >= from && m.index + m[0].length <= to))
+        .map((m) => m[0]);
       if (offending.length === 0) return;
       out.push(
         error(

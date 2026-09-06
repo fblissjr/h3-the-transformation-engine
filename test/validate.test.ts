@@ -512,6 +512,33 @@ describe('a shot header the beat legitimately shows on screen', () => {
     expect(codes(bare)).toContain('SHOT_HEADER_IN_PROSE');
   });
 
+  it('tolerates a slate that says more than the header', () => {
+    // The first version compared the matched text against the declared entries,
+    // so it only tolerated a slate whose ENTIRE content was the header. A
+    // clapperboard reads a take number too, which is the ordinary case rather
+    // than the contrived one. On-screen text is arbitrary; the exclusion has to
+    // be about position, not equality.
+    const doc = structuredClone(crossCutBaker);
+    const beat = doc.shots[1].beats[0];
+    beat.prose = `${beat.prose} A board reads "TAKE 3 [Shot 2]" before the slate snaps.`;
+    beat.visibleText = [...(beat.visibleText ?? []), 'TAKE 3 [Shot 2]'];
+    expect(codes(doc)).not.toContain('SHOT_HEADER_IN_PROSE');
+  });
+
+  it('still fires when one beat carries both a quoted slate and a bare header', () => {
+    // The case the two-beat discriminator above could not see, and the reason
+    // it matters is that it is a BYPASS rather than a miss: comparing strings
+    // meant one quoted occurrence excused every identical bare one in the same
+    // beat, so a beat that legitimately shows a header could then carry
+    // unlimited free ones. The shape is the point -- the legitimate and the
+    // illegitimate have to share a beat, not sit in separate fixtures.
+    const doc = structuredClone(crossCutBaker);
+    const beat = doc.shots[1].beats[0];
+    beat.prose = `[Shot 2] ${beat.prose} A board reads "[Shot 2]" as the slate snaps shut.`;
+    beat.visibleText = [...(beat.visibleText ?? []), '[Shot 2]'];
+    expect(codes(doc)).toContain('SHOT_HEADER_IN_PROSE');
+  });
+
   it('is still reported when the beat declares it but does not quote it', () => {
     // The exclusion keys on the DECLARED-AND-QUOTED pair, which is what
     // `visibleTextQuoted` itself checks. Declaring a header without quoting it

@@ -12,6 +12,10 @@ All notable changes to this project are documented here. Semantic versioning.
 
   This couples the rule to `visibleTextQuoted` invisibly from both files: keying on `"${entry}"` is sound only while that rule guarantees the quoting. Said in the rule, because relaxing the other one turns this into a hole rather than a failure, and that direction does not announce itself.
 
+  **The exclusion compares positions, not strings, and the first version did not — two gaps, one in each direction, both found by another session running the rule rather than the pattern.** A slate reading `TAKE 3 [Shot 2]` is one declared, correctly quoted entry, and the extracted header is not equal to it, so the rule fired on legitimate output. Worse, two occurrences of one header produce two identical strings, so a single quoted slate excused every bare header elsewhere in the same beat — a bypass rather than a miss, since a beat that legitimately shows a header could then carry unlimited free ones. Both dissolve when a match is excluded by its index falling inside a quoted occurrence's span.
+
+  The discriminator that was already there could not see the second: it checked that an undeclared header still fires, in a *different* beat. Two beats each behaving correctly, and the failure existing only where one beat carries both. The coverage was right and the shape was wrong, so the added case puts the legitimate and the illegitimate in one beat.
+
   The control carries the negative case, and nothing required it to. `test/validate.test.ts` proves every code can fire; no check anywhere proves a code does not fire on legitimate output, so omitting the clapperboard beat leaves the suite green with the rule wrong. Breakage run: dropping the exclusion turns exactly that assertion red.
 
   `invariants[0].enforcedBy` said "two surfaces, and neither is a test", which this makes false. It now names three and says which of the four structural things the preamble lists this actually covers — shot numbers, and not cut timestamps, section headers or the alignment line.
