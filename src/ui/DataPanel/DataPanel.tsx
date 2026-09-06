@@ -119,9 +119,22 @@ export function DataPanel({ onErased }: Props) {
           </button>
         </div>
 
+        {/*
+          This paragraph is a claim to the user about where their data is, so it
+          has to track where the data actually is. It said "in this browser ...
+          no server ... not reachable over the network" and every clause of that
+          went false when the document store moved to SQLite behind a local
+          server. Nothing caught it: no test asserts prose, and it survived the
+          whole storage arc green. It was found by opening the panel.
+
+          So: say which half is where, and do not promise unreachability, which
+          is a property of how the server was started rather than of the app.
+        */}
         <p className="mb-3 text-[10px] leading-relaxed text-[var(--color-muted)]">
-          All of it is in this browser, on this machine. There is no account and no server, so
-          nothing here is reachable over the network and nothing but you removes it.
+          Documents, versions and settings are in a SQLite file on this machine, held by the local
+          server this page is served from. Your API key is not: it stays in this browser, encrypted.
+          There is no account and nothing is sent anywhere, but the server listens on a port — if
+          you started it so other machines can reach it, they can reach this too.
         </p>
 
         {failure && (
