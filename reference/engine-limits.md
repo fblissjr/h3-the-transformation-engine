@@ -93,11 +93,15 @@ its first entry is 5 frames — 0.208 seconds. The picker currently offers 21
 durations beginning at 0.208s, 0.917s, 1.625s. The documented floor is 5.0
 seconds, which is 120 frames; the lowest on-grid count at or above it is 124.
 
+Counted rather than estimated: the picker offers 21 durations, of which **7 fall
+below the floor** — 5, 22, 39, 56, 73, 90 and 107 frames, or 0.208s through
+4.458s. Fourteen are legal.
+
 This is the same shape as the ceiling gap and was found while writing this file:
 a bound that exists in the facts and nowhere in the code, with no test that would
 notice. It is a stronger candidate for fixing than the ceiling, because the
-ceiling merely withholds one legal option while the floor offers twenty-odd
-durations the model was never trained to produce. Note the one caveat before
-acting: a single frame is a real H3 mode (image editing) and is the documented
-exception to the grid, so a floor applied carelessly would forbid something
-legitimate — though this repo generates no video and does not expose that mode.
+ceiling withholds one legal option while the floor offers seven illegal ones — a
+third of the menu. Note the one caveat before acting: a single frame is a real H3
+mode (image editing) and is the documented exception to the grid, so a floor
+applied carelessly would forbid something legitimate — though this repo generates
+no video and does not expose that mode.
