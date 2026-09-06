@@ -214,13 +214,38 @@ Open:
       about the harness. So the preamble is genuinely unprotected, and whether
       that matters is the decision.
 
+      **A per-prompt ruling is a legitimate outcome and the entry must be able
+      to express it.** The two preambles are not the same kind of text. The patch
+      preamble's allowlist paragraph is backed by code whatever the model is told
+      — `PATCHABLE_LEAVES` in `src/core/ir/paths.ts:115`, enforced by
+      `isPatchable`. The planner's may have nothing behind it: the prose rules in
+      `src/core/validate/` check cited `<Subject N>` tags and that an attributed
+      speaker id appears in the prose, and nothing there greps a beat for
+      `[Shot 1]` or a timestamp. If that holds through `assemble` and the
+      serializer too, it is the sentence the case turns on; if something does
+      reject it, the gap is cosmetic and "no" is a real answer for the planner as
+      well.
+
+      **The strongest argument for "no" comes from inside the contract.** The
+      adjacent `# How to write` block carries `asserts: []` with a `noAnchor`
+      saying an anchor there would make the spec a change detector for wording.
+      The preamble is prose of the same kind, directly above it. The case has to
+      beat that, and the way it does is that a *presence* assertion is not a
+      wording assertion: red on deletion, green on a rewrite. That is a two-arm
+      control nobody has run, because until now there was no candidate assertion
+      to run it against.
+
       A structural consequence to settle with it, not after: `contract.json`
       declares blocks by heading and `test/contract.test.ts` locates each one
       with `text.indexOf(heading)`. A preamble has no heading, so speccing it
       means giving it one, changing how blocks are located, or declaring it as
       something other than a block. The third looks right — the preamble is what
       precedes the block list rather than a member of it — but it is part of what
-      F1 decides.
+      F1 decides. And whichever mechanism wins, the key must be **bound by an
+      assertion**: `test/contract.test.ts` records that `source` was once "read
+      by nothing", a spec field that could have claimed anything with the suite
+      green. An unread `prompts.planner.preamble` key is that defect in a new
+      place, and bookkeeping rather than protection.
 - [ ] **The residual placement instruction in the glitch block.** "Give each mark
       a different kind of surface" is still placement guidance in a preservation
       context. Milder than the two already fixed, and removing it means first
