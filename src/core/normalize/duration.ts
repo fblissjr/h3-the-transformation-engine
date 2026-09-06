@@ -78,13 +78,27 @@ export function nearestGridFrames(frames: number): number {
   return k * FRAME_BLOCK + FRAME_OFFSET;
 }
 
-/** Every legal frame count up to a ceiling. Used by the duration picker. */
-export function gridFramesUpTo(maxFrames: number): number[] {
+/**
+ * Every legal frame count within a range. Used by the duration picker.
+ *
+ * This took a floor because it did not have one and needed one. The previous
+ * version counted from `k = 0`, whose first value is 5 frames -- on-grid,
+ * arithmetically fine, and 0.208 seconds long. Against the engine's documented
+ * 5.0-second floor that put seven of the picker's twenty-one options below the
+ * shortest duration the model was trained on, with nothing to notice: the grid
+ * functions had no tests at all, and a duration off the floor produces a
+ * perfectly valid prompt, so no diagnostic fires either.
+ *
+ * The floor is an engine fact, recorded with its provenance in
+ * `reference/engine-limits.md`. The caller supplies both bounds rather than
+ * this reaching for them, so the range stays a decision made at the call site.
+ */
+export function gridFramesBetween(minFrames: number, maxFrames: number): number[] {
   const out: number[] = [];
   for (let k = 0; ; k += 1) {
     const frames = k * FRAME_BLOCK + FRAME_OFFSET;
     if (frames > maxFrames) break;
-    out.push(frames);
+    if (frames >= minFrames) out.push(frames);
   }
   return out;
 }

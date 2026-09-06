@@ -330,6 +330,26 @@ export const FPS = 24;
 export const FRAME_BLOCK = 17;
 export const FRAME_OFFSET = 5;
 
+/**
+ * Duration floor, in seconds.
+ *
+ * An engine fact rather than a guide fact -- neither guide states a duration
+ * range at all. Provenance and evidentiary standing are in
+ * `reference/engine-limits.md`, vendored so this can be traced from a clean
+ * checkout.
+ *
+ * It is here because the grid alone does not imply it. `k = 0` is 5 frames,
+ * which is a fifth of a second and perfectly on-grid, so a picker built from
+ * the grid and a ceiling offers durations far below anything the model was
+ * trained on. That is exactly what happened.
+ *
+ * The ceiling is deliberately NOT here. The recorded value is 362 frames and
+ * the picker stops a grid step short at 345; that gap is a decision rather than
+ * an oversight and is written up in the same file. Adding a constant for it
+ * would quietly imply the decision was made.
+ */
+export const MIN_DURATION_SECONDS = 5;
+
 /** overall_soundscape: 1-4 sentences. Guide section 4.6. */
 export const SOUNDSCAPE_SENTENCE_RANGE = [1, 4] as const;
 

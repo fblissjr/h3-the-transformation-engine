@@ -640,6 +640,7 @@ describe('the spec covers every vocabulary the code exports', () => {
     FPS: 'a workflow constant, not part of the output format',
     FRAME_BLOCK: 'the frame grid, in notInTheGuides',
     FRAME_OFFSET: 'the frame grid, in notInTheGuides',
+    MIN_DURATION_SECONDS: 'an engine limit, in reference/engine-limits.md',
   };
 
   /**

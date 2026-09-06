@@ -4,6 +4,29 @@ All notable changes to this project are documented here. Semantic versioning.
 
 ## [Unreleased]
 
+### Fixed
+
+- **The duration picker offered seven durations below the engine's floor.** It
+  was built as `gridFramesUpTo(24 * 15)`, and that function counted from
+  `k = 0` -- whose first value is 5 frames, on-grid and 0.208 seconds long.
+  Against the documented 5.0-second floor, seven of its twenty-one options were
+  illegal: 5, 22, 39, 56, 73, 90 and 107 frames, or 0.208s through 4.458s.
+
+  `gridFramesBetween` replaces it and takes both bounds from the caller.
+  `MIN_DURATION_SECONDS` is named in `vocab.ts` with its provenance in
+  `reference/engine-limits.md`, because the grid alone does not imply a floor
+  and leaving it unnamed is what produced the bug.
+
+  Nothing could have caught this. The grid functions had no tests at all, and a
+  short duration produces a perfectly valid prompt, so no diagnostic fires
+  either. `test/duration.test.ts` now covers the grid and pins the boundary --
+  107 frames excluded, 124 included -- rather than asserting the filter against
+  its own argument, which would only restate the implementation.
+
+  The ceiling is deliberately untouched. The largest option is still 345 frames
+  against a recorded ceiling of 362; that gap is a decision on thin evidence,
+  written up rather than quietly closed.
+
 ### Added
 
 - **Ref 6's placement rule for a reference audio's relationship.** The guide

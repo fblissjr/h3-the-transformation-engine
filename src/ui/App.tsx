@@ -21,11 +21,24 @@ import { VersionTree } from './VersionTree/VersionTree';
 import { CreativePanel } from './CreativePanel/CreativePanel';
 import { WildcardPanel } from './WildcardPanel/WildcardPanel';
 import { DebugConsole } from './DebugConsole/DebugConsole';
-import { MODES } from '../core/ir/vocab';
-import { gridFramesUpTo } from '../core/normalize/duration';
+import { FPS, MIN_DURATION_SECONDS, MODES } from '../core/ir/vocab';
+import { gridFramesBetween, secondsToFrames } from '../core/normalize/duration';
 import { modeRequirements } from '../core/normalize/mode';
 
-const FRAME_CHOICES = gridFramesUpTo(24 * 15);
+/**
+ * The durations the picker offers.
+ *
+ * Both bounds are engine facts rather than guide facts; see
+ * `reference/engine-limits.md`. The floor is named because leaving it out is
+ * what put seven sub-second-to-4.5s options in this list.
+ *
+ * The ceiling is still written as fifteen seconds rather than as the recorded
+ * 362-frame ceiling, which lands the largest option on 345. That is a known gap
+ * and a decision nobody has made -- 345 is, by coincidence rather than
+ * citation, the number the engine-limits note records as withdrawn. Left alone
+ * deliberately; changing it is a judgement about thin evidence, not a fix.
+ */
+const FRAME_CHOICES = gridFramesBetween(secondsToFrames(MIN_DURATION_SECONDS), FPS * 15);
 
 export function App() {
   const e = useEngine();
