@@ -18,6 +18,8 @@ import {
   dataUrlToAttachment,
   type ImageAttachment,
   type InferenceClient,
+  type ProviderId,
+  type Task,
 } from './provider/types';
 import {
   buildPlannerSystemPrompt,
@@ -99,15 +101,76 @@ function refuseUnexpanded(input: CompileInput): void {
   );
 }
 
+/**
+ * What the pipeline knows about a call, for the measurement table.
+ *
+ * Half a run record. The pipeline knows the stage it reached, how long it took
+ * and what came back; it does not know the model, the document id or which
+ * experiment arm this belongs to, and threading those through would make every
+ * call site carry storage concerns to satisfy one of them. So this is handed
+ * out and the caller completes it.
+ *
+ * The stage vocabulary is the conformance harness's, not a new one, and the
+ * stages are columns rather than a sum: a call that reached `diagnostics` held
+ * the shape and one that stopped at `schema` did not.
+ */
+export interface RunObservation {
+  role: Task;
+  provider: ProviderId;
+  stage: RunStage;
+  /** The specific field or rule, where there is one. Free text by design. */
+  failureCause?: string;
+  durationMs: number;
+  /** The reply before parsing. Not reconstructable afterwards. */
+  rawOutput: string;
+  usage: Record<string, unknown>;
+  enforceSchema?: boolean;
+  seed?: number;
+}
+
+export type RunStage =
+  | 'provider'
+  | 'no_json'
+  | 'truncated'
+  | 'schema'
+  | 'assembly'
+  | 'diagnostics'
+  | 'clean';
+
 export async function compile(
   client: InferenceClient,
   input: CompileInput,
-  options: { id: string; seed?: number; signal?: AbortSignal; enforceSchema?: boolean } = {
-    id: 'doc-1',
-  },
+  options: {
+    id: string;
+    seed?: number;
+    signal?: AbortSignal;
+    enforceSchema?: boolean;
+    /**
+     * Called exactly once per call, on every path including the failing ones.
+     *
+     * A table that only recorded successes would answer none of the questions
+     * it exists for -- "did thinking-on improve conformance" is a comparison of
+     * failure rates, so a provider error or a schema refusal is the data, not
+     * an absence of it.
+     */
+    onRun?: (observation: RunObservation) => void;
+  } = { id: 'doc-1' },
 ): Promise<CompileResult> {
   refuseUnexpanded(input);
   const started = Date.now();
+  let raw = '';
+  const record = (stage: RunStage, failureCause?: string) =>
+    options.onRun?.({
+      role: 'planner',
+      provider: client.providerId,
+      stage,
+      ...(failureCause ? { failureCause } : {}),
+      durationMs: Date.now() - started,
+      rawOutput: raw,
+      usage: {},
+      ...(options.enforceSchema != null ? { enforceSchema: options.enforceSchema } : {}),
+      ...(options.seed != null ? { seed: options.seed } : {}),
+    });
   trace('pipeline', 'pipeline.compile.start', `compile: ${input.idea.length} char idea`, {
     id: options.id,
     idea: input.idea,
@@ -132,7 +195,9 @@ export async function compile(
     ctx,
   );
 
-  const result = await client.call({
+  let result;
+  try {
+    result = await client.call({
     systemInstruction: buildPlannerSystemPrompt(ctx, input),
     prompt: buildPlannerUserPrompt(input),
     task: 'planner',
@@ -145,7 +210,16 @@ export async function compile(
     images: imagesFor(input),
     ...(options.seed != null ? { seed: options.seed } : {}),
     ...(options.signal ? { signal: options.signal } : {}),
-  });
+    });
+  } catch (error) {
+    record('provider', error instanceof Error ? error.message : String(error));
+    throw error;
+  }
+  raw = result.text;
+  if (result.parsed == null) {
+    record('no_json');
+    throw new PlanError('Planner returned no JSON.');
+  }
 
   // Whether the schema was enforced by the backend or merely asked for in the
   // prompt, zod is what the rest of the code trusts. Parsing again here means a
@@ -169,10 +243,17 @@ export async function compile(
     { level: parsed.success ? 'info' : 'error' },
   );
   if (!parsed.success) {
+    record('schema', parsed.error.issues[0]?.path.join('.') || 'schema');
     throw new PlanError(`Planner output did not match the schema: ${parsed.error.message}`);
   }
 
-  const doc = assemble(parsed.data, input, ctx, { id: options.id, modeLocked: input.mode != null });
+  let doc;
+  try {
+    doc = assemble(parsed.data, input, ctx, { id: options.id, modeLocked: input.mode != null });
+  } catch (error) {
+    record('assembly', error instanceof Error ? error.message : String(error));
+    throw error;
+  }
   trace('pipeline', 'pipeline.assemble', `assembled ${doc.mode} document`, describeDoc(doc));
 
   const validation = validate(doc, ctx);
@@ -192,6 +273,11 @@ export async function compile(
     spans: rendered.map.length,
     text: rendered.text,
   });
+
+  record(
+    validation.diagnostics.length === 0 ? 'clean' : 'diagnostics',
+    validation.diagnostics[0]?.code,
+  );
 
   trace('pipeline', 'pipeline.compile.done', `compile finished`, { id: options.id }, {
     durationMs: Date.now() - started,

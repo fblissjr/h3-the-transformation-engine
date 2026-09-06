@@ -31,6 +31,7 @@ import {
   archive,
   exportTables,
   SCHEMA_VERSION,
+  RETAIN_RAW_OUTPUT_SETTING,
   mustWrite,
 } from '../server/store';
 import { t2vaBaker } from './fixtures/guide-examples';
@@ -483,5 +484,54 @@ describe('the idea that produced a document', () => {
     const { idea: _dropped, ...without } = record('d1');
     saveDocument(db, without as never);
     expect(loadDocument(db, 'd1')!.record.idea).toBe('');
+  });
+});
+
+/**
+ * Prompt retention is a standing preference, not a cleanup job.
+ *
+ * `raw_output` is prompt text and it is the largest thing in the table. Someone
+ * who does not want prompts on disk should be able to say so once rather than
+ * remember to erase, so the setting is read at WRITE time -- and enforced here
+ * rather than at the caller, so it holds for every caller including one that
+ * forgets. A client cannot opt itself back in.
+ */
+describe('raw output retention', () => {
+  const run = (id: string) => ({
+    id,
+    createdAt: 1,
+    role: 'planner' as const,
+    provider: 'heylook',
+    model: 'm',
+    stage: 'clean' as const,
+    rawOutput: 'the model reply, which is prompt-shaped text',
+  });
+
+  it('keeps the reply by default, since the table exists to be read', () => {
+    const db = mustWrite(open(':memory:'));
+    recordRun(db, run('r1'));
+    expect(
+      (db.prepare('SELECT raw_output FROM runs WHERE id = ?').get('r1') as { raw_output: string })
+        .raw_output,
+    ).toMatch(/prompt-shaped/);
+  });
+
+  it('drops it entirely when retention is off, rather than truncating', () => {
+    const db = mustWrite(open(':memory:'));
+    setSetting(db, RETAIN_RAW_OUTPUT_SETTING, false);
+    recordRun(db, run('r1'));
+    // Null, not a prefix: a partial prompt is not evidence of anything and
+    // would still be prompt text on disk.
+    expect(
+      (db.prepare('SELECT raw_output FROM runs WHERE id = ?').get('r1') as { raw_output: null })
+        .raw_output,
+    ).toBeNull();
+  });
+
+  it('still records the run itself, so the measurement survives the preference', () => {
+    const db = mustWrite(open(':memory:'));
+    setSetting(db, RETAIN_RAW_OUTPUT_SETTING, false);
+    recordRun(db, run('r1'));
+    expect(db.prepare('SELECT stage FROM runs WHERE id = ?').get('r1')).toEqual({ stage: 'clean' });
   });
 });

@@ -482,7 +482,21 @@ export function listVersions(db: Db, documentId: string): StoredVersion[] {
 // Measurement
 // ---------------------------------------------------------------------------
 
+/**
+ * Whether prompts are kept. Default on; the setting is how you say otherwise.
+ *
+ * Read at WRITE time rather than swept up later, because retention is a
+ * standing preference and erasing is an action: someone who does not want
+ * prompts on disk should not have to remember to act. A cleanup job would also
+ * be a second place the policy lives, and the two would drift.
+ *
+ * Enforced here rather than at the caller so it holds for every caller,
+ * including one that forgets. A client cannot opt itself back in.
+ */
+export const RETAIN_RAW_OUTPUT_SETTING = 'retainRawOutput';
+
 export function recordRun(db: WritableDb, run: RunRecord): void {
+  const retain = getSetting(db, RETAIN_RAW_OUTPUT_SETTING, true);
   db.prepare(
     `INSERT INTO runs (
        id, created_at, document_id, version_id, arm_id, role, provider, model,
@@ -515,7 +529,9 @@ export function recordRun(db: WritableDb, run: RunRecord): void {
     promptTokens: run.promptTokens ?? null,
     outputTokens: run.outputTokens ?? null,
     promptSha256: run.promptSha256 ?? null,
-    rawOutput: run.rawOutput ?? null,
+    // Dropped rather than truncated: a partial prompt is not evidence of
+    // anything and would still be prompt text on disk.
+    rawOutput: retain ? (run.rawOutput ?? null) : null,
     appVersion: run.appVersion ?? null,
     contractJsonSha: run.contractJsonSha ?? null,
   });

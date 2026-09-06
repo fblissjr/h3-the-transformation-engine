@@ -20,6 +20,7 @@ import { contextFor, framesToSeconds } from '../core/normalize';
 import { inferMode } from '../core/normalize/mode';
 import { compile, edit, editDirect, inspect } from '../pipeline';
 import { buildClient } from '../provider/build';
+import { recordRun } from '../db/db';
 import type { GeminiConfig } from '../provider/gemini';
 import { analyzeVideoWithGemini } from '../provider/geminiVideo';
 import { ENFORCE_SCHEMA_DEFAULT } from '../provider/shape';
@@ -996,6 +997,23 @@ export function useEngine() {
         id: DOC_ID,
         signal: controller.signal,
         enforceSchema,
+        // The pipeline knows the stage, the timing and the reply; this side
+        // knows the model and the document. Fired on failing paths too --
+        // "did thinking-on improve conformance" is a comparison of failure
+        // rates, so a schema refusal is the data rather than its absence.
+        onRun: (observation) => {
+          void recordRun({
+            ...observation,
+            id: `${DOC_ID}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            createdAt: Date.now(),
+            documentId: DOC_ID,
+            // Only what this side can actually source. `thinking` reaches the
+            // client through `heylookPolicyConfig` and is not held here, so it
+            // is left null rather than guessed -- a wrong value in a
+            // measurement table is worse than a missing one.
+            model: (provider === 'heylook' ? heylookModel : geminiConfig.model) ?? 'unknown',
+          });
+        },
       });
       const style = describeRecord(creative);
       // The seed goes in the label because it is the only record of which roll

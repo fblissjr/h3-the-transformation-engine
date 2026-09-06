@@ -162,6 +162,32 @@ export async function deleteDocument(id: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Measurement
+// ---------------------------------------------------------------------------
+
+/**
+ * Record one call.
+ *
+ * Fire-and-forget on purpose: a measurement that could fail a generation would
+ * be a trace that breaks the thing it traces, which is the rule `src/debug/`
+ * already holds. A lost row is a gap in the data; a thrown one is a lost
+ * document.
+ */
+export async function recordRun(run: Record<string, unknown>): Promise<void> {
+  try {
+    await call('/runs', { method: 'POST', body: JSON.stringify(run) });
+  } catch (error) {
+    trace(
+      'storage',
+      'storage.recordRun',
+      `run not recorded: ${error instanceof Error ? error.message : String(error)}`,
+      { id: run.id ?? null },
+      { level: 'warn' },
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Erasing
 // ---------------------------------------------------------------------------
 

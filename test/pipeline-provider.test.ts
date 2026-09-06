@@ -266,3 +266,82 @@ describe('a patch value crosses the seam as text', () => {
     expect(result.doc.shots[1].cutAtMs).toBe(5000);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Measurement
+// ---------------------------------------------------------------------------
+
+/**
+ * A run is observed on every path, including the failing ones.
+ *
+ * This is the property the measurement table exists for. A table that recorded
+ * only successes would answer none of the questions it was built for: "did
+ * thinking-on improve conformance" is a comparison of FAILURE rates, so a
+ * provider error or a schema refusal is the data rather than an absence of it.
+ *
+ * The stage vocabulary is the conformance harness's, and the stages are columns
+ * rather than a sum -- a call that reached `diagnostics` held the shape and one
+ * that stopped at `schema` did not.
+ */
+describe('every call is observed, not only the ones that work', () => {
+  const observe = () => {
+    const seen: { stage: string; failureCause?: string; rawOutput: string }[] = [];
+    return { seen, onRun: (o: (typeof seen)[number]) => seen.push(o) };
+  };
+
+  it('records the clean path', async () => {
+    const { seen, onRun } = observe();
+    await compile(new RecordingClient(plan), input, { id: 'd1', onRun });
+    expect(seen).toHaveLength(1);
+    expect(['clean', 'diagnostics']).toContain(seen[0].stage);
+  });
+
+  it('records a provider failure, and does not swallow it', async () => {
+    const { seen, onRun } = observe();
+    class Failing implements InferenceClient {
+      readonly providerId = 'heylook' as const;
+      readonly canEnforceSchema = false;
+      async call<T>(): Promise<CallResult<T>> {
+        throw new Error('connection refused');
+      }
+    }
+    await expect(compile(new Failing(), input, { id: 'd1', onRun })).rejects.toThrow(
+      /connection refused/,
+    );
+    expect(seen).toHaveLength(1);
+    expect(seen[0].stage).toBe('provider');
+    expect(seen[0].failureCause).toMatch(/connection refused/);
+  });
+
+  it('records a schema refusal against the field that refused', async () => {
+    const { seen, onRun } = observe();
+    const client = new RecordingClient({ ...plan, shots: 'not an array' });
+    await expect(compile(client, input, { id: 'd1', onRun })).rejects.toThrow();
+    expect(seen).toHaveLength(1);
+    expect(seen[0].stage).toBe('schema');
+    expect(seen[0].failureCause).toMatch(/shots/);
+  });
+
+  it('records a reply with no JSON as its own stage, not as a schema failure', async () => {
+    const { seen, onRun } = observe();
+    class NoJson implements InferenceClient {
+      readonly providerId = 'heylook' as const;
+      readonly canEnforceSchema = false;
+      async call<T>(): Promise<CallResult<T>> {
+        return { text: 'I am afraid I cannot do that', parsed: null as T, status: 'completed', usage: {}, durationMs: 1 };
+      }
+    }
+    await expect(compile(new NoJson(), input, { id: 'd1', onRun })).rejects.toThrow();
+    expect(seen[0].stage).toBe('no_json');
+  });
+
+  it('carries the raw reply, which is not reconstructable afterwards', async () => {
+    const { seen, onRun } = observe();
+    await compile(new RecordingClient(plan), input, { id: 'd1', onRun });
+    expect(JSON.parse(seen[0].rawOutput)).toEqual(plan);
+  });
+
+  it('is optional, so nothing breaks for a caller that does not want it', async () => {
+    await expect(compile(new RecordingClient(plan), input, { id: 'd1' })).resolves.toBeDefined();
+  });
+});

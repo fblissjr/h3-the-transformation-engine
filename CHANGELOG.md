@@ -4,6 +4,52 @@ All notable changes to this project are documented here. Semantic versioning.
 
 ## [Unreleased]
 
+### Added
+
+- **Every planner call is recorded, including the ones that fail.** This is the
+  half the storage move was for: nothing recorded which prompt, model or
+  settings produced a document, so the question CLAUDE.md names as the main open
+  one was not answerable retroactively.
+
+  A table of successes would answer none of it. "Did thinking-on improve
+  conformance" is a comparison of **failure** rates, so a provider error or a
+  schema refusal is the data rather than an absence of it. `compile` fires its
+  observation on every path -- provider, no_json, schema, assembly, diagnostics,
+  clean -- using the conformance harness's vocabulary rather than a new one, and
+  the stages stay columns rather than a sum.
+
+  The split is deliberate: the pipeline knows the stage, the timing and the
+  reply; it does not know the model, the document id or which experiment arm a
+  call belongs to. Threading those through would make every call site carry
+  storage concerns to satisfy one of them, so `pipeline.ts` hands out half a
+  record and the caller completes it. That also keeps storage out of the
+  pipeline, which receives a client rather than building one.
+
+  Recording is fire-and-forget on the client. A measurement that could fail a
+  generation would be a trace that breaks the thing it traces -- the rule
+  `src/debug/` already holds. A lost row is a gap in the data; a thrown one is a
+  lost document.
+
+  `useEngine` records only what it can source. `thinking` reaches the client
+  through `heylookPolicyConfig` and is not held there, so it is left null rather
+  than guessed: a wrong value in a measurement table is worse than a missing one.
+
+- **Prompt retention is a setting read at write time.** `raw_output` is prompt
+  text and the largest thing in the table, so someone who does not want prompts
+  on disk should say so once rather than remember to erase. It defaults on,
+  since the table exists to be read.
+
+  Enforced in `recordRun` rather than at the caller, so it holds for every
+  caller including one that forgets -- a client cannot opt itself back in. A
+  cleanup job was the alternative and is worse: it would be a second place the
+  policy lives, and the two would drift. When retention is off the column is
+  null rather than truncated, because a partial prompt is not evidence of
+  anything and would still be prompt text on disk. The run itself is still
+  recorded, so the measurement survives the preference.
+
+  Control: removing the two failing-path `record` calls turns exactly the
+  provider and schema tests red, so those assertions reach the paths they name.
+
 ### Changed
 
 - **The document store moved from IndexedDB to SQLite over HTTP.** Every
