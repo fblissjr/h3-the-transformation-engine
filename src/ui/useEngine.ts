@@ -20,6 +20,7 @@ import { contextFor, framesToSeconds } from '../core/normalize';
 import { inferMode } from '../core/normalize/mode';
 import { compile, edit, editDirect, inspect } from '../pipeline';
 import { buildClient } from '../provider/build';
+import { THINKING_DEFAULT, type ThinkingPreference } from '../provider/heylook/client';
 import { recordRun } from '../db/db';
 import type { GeminiConfig } from '../provider/gemini';
 import { analyzeVideoWithGemini } from '../provider/geminiVideo';
@@ -93,6 +94,14 @@ const ENFORCE_SCHEMA_SETTING = 'enforce-schema';
 const HEYLOOK_INSTANCE_SETTING = 'heylook-instance';
 /** Configured parameters for Gemini (model, thinking levels, video processing, etc.) */
 const GEMINI_CONFIG_SETTING = 'gemini-config';
+/**
+ * heylook's thinking control, as a setting rather than a policy attribute.
+ *
+ * It is a preference about output, not a fact about the machine, which is what
+ * separates it from `retryTimeoutMs` next door: two people on one heylook box
+ * want the same backpressure budget and may want different thinking.
+ */
+const HEYLOOK_THINKING_SETTING = 'heylook-thinking';
 
 export interface EngineState {
   apiKey: string | null;
@@ -127,6 +136,7 @@ const EMPTY_RECORD = { mode: 'directed', selection: { strength: 'full' } } as co
 
 export function useEngine() {
   const [apiKey, setApiKey] = useState<string | null>(null);
+  const [heylookThinking, setHeylookThinkingState] = useState<ThinkingPreference>(THINKING_DEFAULT);
   /**
    * Which backend the next call goes to.
    *
@@ -312,6 +322,16 @@ export function useEngine() {
       heylookModelIdRef.current = storedModel;
       setHeylookModelId(storedModel);
       setEnforceSchemaState(await getSetting<boolean>(ENFORCE_SCHEMA_SETTING, true));
+      // Read defensively rather than trusted: this is a stored value that a
+      // previous build may have written as a boolean, and the mode union is
+      // three-valued now. An unreadable one falls back rather than throwing,
+      // the same posture `parseStoredPolicies` takes one file over.
+      const storedThinking = await getSetting<unknown>(HEYLOOK_THINKING_SETTING, null);
+      const thinkingMode = (storedThinking as ThinkingPreference | null)?.mode;
+      if (thinkingMode === 'auto' || thinkingMode === 'on' || thinkingMode === 'off') {
+        const effort = (storedThinking as ThinkingPreference).effort;
+        setHeylookThinkingState({ mode: thinkingMode, ...(effort ? { effort } : {}) });
+      }
       const storedInstance = await getSetting<string | null>(HEYLOOK_INSTANCE_SETTING, null);
       // Honoured only if this build still configures it: instance origins are
       // build-time, so a stored id can name a machine that is no longer in the
@@ -687,6 +707,12 @@ export function useEngine() {
     void setSetting(ENFORCE_SCHEMA_SETTING, next);
   }, []);
 
+  const setHeylookThinking = useCallback((next: ThinkingPreference) => {
+    trace('state', 'state.heylookThinking', `heylook thinking ${next.mode}`, next);
+    setHeylookThinkingState(next);
+    void setSetting(HEYLOOK_THINKING_SETTING, next);
+  }, []);
+
   const setGeminiConfig = useCallback((patch: Partial<GeminiConfig>) => {
     setGeminiConfigState((current) => {
       const next: GeminiConfig = { ...current, ...patch };
@@ -847,9 +873,10 @@ export function useEngine() {
         model: heylookModel,
         // Mapped by a pure function in the registry rather than inline, so the
         // join between policy and client is reachable by a test.
+        thinking: heylookThinking,
         ...heylookPolicyConfig(policy),
       }),
-    [provider, apiKey, geminiConfig, heylookModel, policy, instance],
+    [provider, apiKey, geminiConfig, heylookModel, policy, instance, heylookThinking],
   );
 
   const analyzeVideo = useCallback(
@@ -1202,6 +1229,8 @@ export function useEngine() {
   const ctx = useMemo(() => (doc ? contextFor(doc) : null), [doc]);
 
   return {
+    heylookThinking,
+    setHeylookThinking,
     apiKey,
     storedKeyMode,
     provider,

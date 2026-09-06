@@ -58,11 +58,11 @@
  *    template's `enable_thinking` switch, a different mechanism with the same
  *    name. It is sent only to models whose row advertises the capability, and
  *    its value is a per-client preference (`ThinkingPreference`) that defaults
- *    to off. Depth (`reasoning_effort`) is sent only with thinking on and only
- *    where the row advertises it. One earlier measurement across
- *    low/medium/high/xhigh on a 27B gguf found every level worse than omitting
- *    the field, which is why off is the default and not a verdict; the
- *    conformance harness is where the comparison is re-run.
+ *    to `auto`, which sends no field and lets the server's own cascade decide.
+ *    Depth (`reasoning_effort`) is sent only with thinking on and only where the
+ *    row advertises it. One earlier measurement across low/medium/high/xhigh on
+ *    a 27B gguf found every level worse than omitting the field, and `auto` is
+ *    how the app now omits it deliberately rather than by sending false.
  *  - **A thinking model returns a `thinking` block beside `text`.** Only `text`
  *    blocks are joined; joining everything puts the model's reasoning into the
  *    planner's JSON and nothing parses.
@@ -132,13 +132,13 @@ const MIN_RETRY_MS = 1000;
  * this repo keeps finding: a value invented by the client where absence was
  * the server's way of saying "you have no opinion".
  *
- * `off` remains distinct and is still the shipped default, because turning
- * thinking on across the board is a change to generation cost and output that
- * belongs to the owner rather than to a refactor. The reasoning arrives as a
- * separate block the client discards and it spends the output ceiling the
- * document needs; but that was one measurement on one 27B gguf, and the
- * owner's view is that thinking may account for a good part of the prose
- * quality. The conformance harness runs the comparison.
+ * `auto` is the default, by the owner's ruling of 2026-09-06. `off` was what
+ * shipped and was never a verdict: it rested on one measurement on one 27B
+ * gguf, and it was an override rather than a default, since the client sent an
+ * explicit `false` to every model whose row advertises the switch. Defaulting
+ * to `auto` hands that decision back to the model's own configuration, which is
+ * where heylook puts it. `off` remains available and distinct for a caller that
+ * has a reason to state one.
  *
  * `effort` is heylook's `reasoning_effort`, whose vocabulary is per model. It
  * is sent only with `on` and only where the model's row advertises the
@@ -154,7 +154,7 @@ export interface ThinkingPreference {
   effort?: string;
 }
 
-export const THINKING_DEFAULT: ThinkingPreference = { mode: 'off' };
+export const THINKING_DEFAULT: ThinkingPreference = { mode: 'auto' };
 
 export interface HeylookClientConfig {
   /** See `ThinkingPreference`. Absent means off. */

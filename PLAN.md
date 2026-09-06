@@ -250,29 +250,14 @@ Open:
       a different kind of surface" is still placement guidance in a preservation
       context. Milder than the two already fixed, and removing it means first
       deciding whether an assisted edit should see the surface vocabulary at all.
-- [ ] **Decide the thinking default, now that the control is `auto | on | off`
-      rather than a boolean.** `auto` sends no switch and lets the server's own
-      cascade decide, which is a third option the original measurement never
-      covered: off and medium were measured against each other, and neither is
-      `auto`. So this is not "pick the winner of the two measured arms" — it is
-      first deciding whether the app should have an opinion at all, and only then
-      which. Measuring `auto` against the two is the missing arm. The app still
-      sends `off`, which was never a verdict.
-
-## Track C: provider, roles and presets
-
-Landed:
-
-- [x] **Thinking is `auto | on | off`.** `auto` sends no switch, so the server's
-      cascade decides. Previously the client sent an explicit `false` to every
-      capable model, which was an override rather than a default.
-- [x] **`runs.role` typed to the seam's own `Task` union**, so the binding key
-      and the recorded role cannot drift into two vocabularies.
-- [x] **An optional per-instance bearer token on the heylook client**, sent on
-      both the call and the cancel through one renderer. Nothing wires it yet.
-
-Open, in order:
-
+- [x] **The thinking default is `auto`**, by the owner's ruling of 2026-09-06.
+      `auto` sends no switch and lets heylook's own cascade decide, which since
+      1.79.62 resolves to the model's `models.toml` flag and then to whether it
+      can think at all. `off` was what shipped and was never a verdict: it rested
+      on one measurement on one 27B gguf, and it was an *override* rather than a
+      default, since the client sent an explicit `false` to every model whose row
+      advertises the switch. Measuring `auto` against off and medium is still the
+      missing arm, and is now a comparison the app can actually participate in.
 - [ ] **Wire the bearer token and the thinking preference together**, through
       `ClientParams`, `buildClient` and the engine. Unblocked as of `a9320fb`.
 
@@ -326,13 +311,20 @@ Open, in order:
 
 ## Decisions pending (owner)
 
+**Three of the five below cannot be settled here and are blocked on a render
+this repo cannot perform: 1, 2 and 3.** That is a property of the questions, not
+a backlog — nothing has been rendered through H3 from a prompt this repo's
+planner wrote, so each needs the sister project's render path or a session on
+real hardware. They are listed rather than dropped so their blocked state is
+visible instead of read as neglect.
+
 1. **Which artifact the compiler targets: the guide text or the release
-   tokenizer.** Decides the marker set. Do not move until one split line and one
+   tokenizer.** *Blocked on a render.* Decides the marker set. Do not move until one split line and one
    truncated line are rendered both ways.
-2. **Target local model class.** The prompt-length trade runs opposite ways for
+2. **Target local model class.** *Blocked on a measurement this repo cannot take alone.* The prompt-length trade runs opposite ways for
    a small-active MoE and a large dense model. Also settle whether heylook
    reuses the KV prefix across calls.
-3. **Whether the schema trailer becomes a plan instance.** A prompt-quality bet
+3. **Whether the schema trailer becomes a plan instance.** *Blocked on a render.* A prompt-quality bet
    with no measurement behind it; same standing as the example block.
 4. **Whether the two projects' rule sets stay deliberately separate.**
    Recommended: yes, each traced to the guides and tokenizer independently, and

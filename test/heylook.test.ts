@@ -176,13 +176,21 @@ describe('the Messages wire', () => {
     expect(build()).not.toHaveProperty('temperature');
   });
 
-  it('asks for thinking off only where the model has the switch', () => {
-    // reasoning_effort and thinking are per-model. Sending a field to a model
-    // that has no such template variable is how a wrong value reaches a chat
-    // template and returns a 500.
-    expect(build({}, TEXT_MODEL).thinking).toBe(false);
+  it('sends no thinking field by default, on any model', () => {
+    // The default is `auto` as of the owner's 2026-09-06 ruling, and `auto`
+    // omits the field so the server's cascade decides. Before that the client
+    // sent an explicit `false` to every capable model, which was an override
+    // rather than a default.
+    //
+    // Asserted across all three rows because the capability gate and the mode
+    // gate both suppress the field, and only the first row distinguishes them:
+    // TEXT_MODEL HAS the switch, so its omission is the mode's doing.
+    expect(build({}, TEXT_MODEL)).not.toHaveProperty('thinking');
     expect(build({}, VISION_MODEL)).not.toHaveProperty('thinking');
     expect(build({}, null)).not.toHaveProperty('thinking');
+    // And the gate still works when a mode does state an opinion.
+    expect(buildRequest(base, [], TEXT_MODEL, { mode: 'off' }).thinking).toBe(false);
+    expect(buildRequest(base, [], VISION_MODEL, { mode: 'off' })).not.toHaveProperty('thinking');
   });
 
   it('sends the thinking preference, and depth only where the row advertises it', () => {
@@ -617,9 +625,10 @@ describe('the retry loop itself, not just the header arithmetic', () => {
     await client!.call({ ...base, maxOutputTokens: 8 });
 
     expect((seen as unknown as Headers)?.has('Authorization')).toBe(false);
-    // TEXT_MODEL advertises the thinking switch, so an absent preference falling
-    // back to the default is visible here as `false` rather than as omission.
-    expect((body as unknown as Record<string, unknown>).thinking).toBe(false);
+    // TEXT_MODEL advertises the thinking switch, so this omission is the
+    // default `auto` doing its job rather than the capability gate: a model
+    // without the switch would omit it whatever the mode said.
+    expect(body as unknown as Record<string, unknown>).not.toHaveProperty('thinking');
   });
 
   it('refuses a per-call model switch rather than silently ignoring it', async () => {

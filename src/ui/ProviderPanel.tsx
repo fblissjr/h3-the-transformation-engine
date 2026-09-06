@@ -23,6 +23,7 @@ import {
   type VideoResolution,
 } from '../provider/gemini';
 import type { HeylookModel } from '../provider/heylook';
+import type { ThinkingPreference } from '../provider/heylook/client';
 import type { Instance } from '../provider/registry';
 import type { ProviderId } from '../provider/types';
 
@@ -31,6 +32,8 @@ interface Props {
   geminiConfig?: GeminiConfig;
   onGeminiConfigChange?: (patch: Partial<GeminiConfig>) => void;
   enforceSchema: boolean;
+  thinking: ThinkingPreference;
+  onThinkingChange: (next: ThinkingPreference) => void;
   onEnforceSchemaChange: (next: boolean) => void;
   /** False when the active backend has no way to constrain decoding. */
   canEnforceSchema: boolean;
@@ -60,6 +63,8 @@ export function ProviderPanel({
   geminiConfig,
   onGeminiConfigChange,
   enforceSchema,
+  thinking,
+  onThinkingChange,
   onEnforceSchemaChange,
   canEnforceSchema,
   instances,
@@ -116,6 +121,26 @@ export function ProviderPanel({
               ))}
             </select>
           )}
+
+          {/*
+            Three states, not a checkbox, because `auto` is not a synonym for
+            off: it omits the field so heylook's own cascade decides, which
+            since 1.79.62 resolves to the model's config and then to whether it
+            can think at all. Sending `false` overrides that from here, which is
+            what the app did to every capable model before this control existed.
+          */}
+          <select
+            value={thinking.mode}
+            onChange={(event) =>
+              onThinkingChange({ mode: event.target.value as ThinkingPreference['mode'] })
+            }
+            className="rounded border border-[var(--color-edge)] bg-transparent px-1 py-0.5"
+            title="Thinking: auto sends no switch and lets the server decide; on and off state an opinion. Only reaches a model whose row advertises the capability."
+          >
+            <option value="off">thinking: off</option>
+            <option value="auto">thinking: auto</option>
+            <option value="on">thinking: on</option>
+          </select>
 
           {discovering && <span>asking {origin}…</span>}
 
