@@ -258,19 +258,28 @@ Open:
       default, since the client sent an explicit `false` to every model whose row
       advertises the switch. Measuring `auto` against off and medium is still the
       missing arm, and is now a comparison the app can actually participate in.
-- [ ] **Wire the bearer token and the thinking preference together**, through
-      `ClientParams`, `buildClient` and the engine. Unblocked as of `a9320fb`.
+- [x] **The thinking preference is wired**, `806cf81`. `ClientParams.thinking`,
+      passed by `buildClient`, sourced in `useEngine` as a stored setting read
+      defensively, with a three-state control in the heylook panel. Default is
+      `auto`.
+- [ ] **Wire the bearer token's engine half.** The seam is done — `7b70dce` put
+      `heylookApiKey` on `ClientParams` and `buildClient` passes it, asserted
+      through to the wire on both the call and the cancel. **What remains is a
+      source.** Concretely, for whoever picks this up:
 
-      They ride together because they are one shape: both add a field to
-      `ClientParams`, both are passed by `buildClient`, both need a source in
-      `useEngine`. And thinking is a larger gap than it was reported as —
-      `heylookPolicyConfig` returns `{ backpressureBudgetMs }` only, `ClientParams`
-      has no `thinking` field, and `buildClient` passes none, so `HeylookClient`
-      always receives `THINKING_DEFAULT`. **The app cannot currently express any
-      thinking value but off.** So `runs.thinking` is correctly NULL — there is
-      no value to source rather than a value in an awkward place — and the
-      pending decision on the thinking default is unimplementable either way
-      until this lands.
+      1. A vault secret beside the Gemini key. `getSecret`/`setSecret` in
+         `src/crypto/secureStore.ts` are name-keyed, so this is a second name and
+         needs no vault change. `API_KEY_NAME` in `src/ui/useEngine.ts` is the
+         pattern to copy, including the passphrase-mode handling around it.
+      2. State and a load in `useEngine`, then `heylookApiKey` into the
+         `buildClient` call at the `useMemo` around line 870.
+      3. A field in the heylook branch of `src/ui/ProviderPanel.tsx`, beside the
+         thinking control that just landed.
+
+      It blocks nothing today: heylook's key is loopback-exempt, so a server on
+      this machine needs no token. It becomes required the first time heylook is
+      started with a non-loopback `--host`, which is the same day cross-machine
+      access starts working.
 - [ ] **Video analysis behind `InferenceClient`**, with a `contract.json` entry
       for its prompt. It is the only model call outside the seam and the only
       prompt with no contract entry. First analysis role.
@@ -359,6 +368,27 @@ visible instead of read as neglect.
 - Per-provider `enforceSchema`. Reopens only if a third backend can enforce.
 - Treating a local writer model as a shared concern. It is this repo's alone.
 - Roles as user-definable data. A role is a call site and a call site is code.
+
+## The suite runs from this repo alone
+
+Checked 2026-09-06 rather than assumed: no test reads anything outside the
+checkout, none reaches the network, and the only mention of the sister project
+anywhere in `test/` is one comment in `test/purity.test.ts`. `contract.test.ts`
+reads the guides from `reference/h3/`, which are tracked here and pinned by
+sha256. `bun run test` on a clean clone is the whole story.
+
+**Keep it that way, and the two open track B items are where it could go
+wrong.** The grader bridge and the paired idea set both involve the sister
+project's files, and neither may become something `bun run test` needs. They are
+instruments, run by hand, like `scripts/conformance-heylook.mjs` — which already
+sets the precedent: nothing in the suite talks to heylook, and that is stated
+rather than incidental.
+
+The reason is not tidiness. A suite that needs a second repo cannot be run by
+anyone who has only this one, cannot be trusted to mean the same thing on two
+machines, and turns another project's commit into this project's red. The two
+repos help each other; that is a convenience, and a convenience must not end up
+underneath the checks.
 
 ## Working rules for a shared tree
 
