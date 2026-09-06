@@ -98,9 +98,20 @@ function videoPromptFromSource(): string {
   if (start < 0) throw new Error('geminiVideo.ts: the prompt literal is not where this expects it');
   const end = src.indexOf(';', src.indexOf('scene prompt conditioning', start));
   if (end < 0) throw new Error('geminiVideo.ts: could not find the end of the prompt literal');
-  return [...src.slice(start, end).matchAll(/'((?:[^'\\]|\\.)*)'/g)]
+  const text = [...src.slice(start, end).matchAll(/'((?:[^'\\]|\\.)*)'/g)]
     .map((m) => m[1].replace(/\\n/g, '\n').replace(/\\'/g, "'"))
     .join('');
+  // The two indexOf guards above catch a literal that moved or was renamed. They
+  // do not catch one that was re-quoted: switched to a template string, the
+  // single-quote matcher finds nothing and this silently joins to empty, which
+  // would present as a 0-char prompt rather than as a broken extractor.
+  if (text.length < 100) {
+    throw new Error(
+      `geminiVideo.ts: extracted ${text.length} chars, which is too short to be the prompt. ` +
+        'The literal was probably re-quoted; this extractor only reads single-quoted concatenation.',
+    );
+  }
+  return text;
 }
 
 function renderings(): Rendering[] {
@@ -179,6 +190,24 @@ function specBlocks(spec: string | null): DeclaredBlock[] {
   return spec.split('.').reduce<any>((node, key) => node?.[key], contract) ?? [];
 }
 
+/**
+ * How many findings one prompt contributes.
+ *
+ * One function because the text path and the `--json` path both need it and had
+ * drifted apart while they each counted inline: the text path was scoring the
+ * out-of-order case and the no-blocks case that `--json` was not, so the two
+ * could exit with different codes over the same tree. That is the
+ * one-renderer-per-output-string rule applied to a number.
+ */
+function countFindings(d: ReturnType<typeof decompose>, declared: number): number {
+  // A prompt the spec does not describe at all is ONE finding, not one per
+  // heading it happens to carry. Its undeclared headings and its unclaimed span
+  // are consequences of that single fact, and counting them separately would
+  // score the trailer's schema dump above a real drift in the planner.
+  if (declared === 0) return 1;
+  return d.missing.length + d.undeclared.length + d.unclaimed.length + (d.inDeclaredOrder ? 0 : 1);
+}
+
 function main(): number {
   const argv = process.argv.slice(2);
   const wantJson = argv.includes('--json');
@@ -230,8 +259,9 @@ function main(): number {
         missing: d.missing,
         undeclared: d.undeclared,
         unclaimed: d.unclaimed,
+        findings: countFindings(d, blocks.length),
       });
-      findings += d.missing.length + d.undeclared.length + d.unclaimed.length + (blocks.length ? 0 : 1);
+      findings += countFindings(d, blocks.length);
       continue;
     }
 
@@ -251,7 +281,7 @@ function main(): number {
       } else {
         console.log('  no headings; the whole string is one undeclared block.');
       }
-      findings += 1;
+      findings += countFindings(d, blocks.length);
       console.log();
       continue;
     }
@@ -274,7 +304,6 @@ function main(): number {
     if (!d.inDeclaredOrder) {
       console.log();
       console.log('  OUT OF ORDER: the prompt renders these blocks in a different order than declared.');
-      findings += 1;
     }
     if (d.unanchored.length) {
       console.log();
@@ -286,13 +315,11 @@ function main(): number {
       console.log();
       console.log('  DECLARED BUT ABSENT (the spec claims a block the prompt does not have):');
       for (const h of d.missing) console.log(`    ${h}`);
-      findings += d.missing.length;
     }
     if (d.undeclared.length) {
       console.log();
       console.log('  PRESENT BUT UNDECLARED (a heading in the prompt that no spec entry claims):');
       for (const h of d.undeclared) console.log(`    ${h}`);
-      findings += d.undeclared.length;
     }
     if (d.unclaimed.length) {
       console.log();
@@ -301,8 +328,8 @@ function main(): number {
         console.log(`    chars ${u.start}-${u.end}, ${u.text.length} chars:`);
         for (const line of u.text.split('\n')) console.log(`      | ${line}`);
       }
-      findings += d.unclaimed.length;
     }
+    findings += countFindings(d, blocks.length);
     console.log();
   }
 

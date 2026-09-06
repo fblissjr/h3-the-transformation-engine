@@ -25,6 +25,12 @@ All notable changes to this project are documented here. Semantic versioning.
   of the compiler. Blocks are keyed by heading rather than array position,
   because a position is not a name.
 
+  `test/prompt-inventory.test.ts` covers the decomposition against constructed
+  strings rather than against the real prompts, which would make it a change
+  detector on prompt wording. It reaches two branches the CLI never does against
+  the current tree: a block that moved rather than vanished, and lookup by
+  heading.
+
   Deliberately not wired into `bun run test`: it currently reports twelve
   findings, all of them open questions for the owner rather than regressions,
   and a check that goes red on a known open question is a check people learn to
