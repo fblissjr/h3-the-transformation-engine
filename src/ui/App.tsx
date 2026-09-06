@@ -68,6 +68,8 @@ export function App() {
           loadingModel={e.loadingModel}
           error={e.heylookError}
           onRefresh={() => void e.refreshHeylookModels()}
+          heylookToken={e.heylookToken}
+          onHeylookTokenChange={(v) => void e.setHeylookToken(v)}
           thinking={e.heylookThinking}
           onThinkingChange={e.setHeylookThinking}
           enforceSchema={e.enforceSchema}

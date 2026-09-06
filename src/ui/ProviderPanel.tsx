@@ -22,6 +22,7 @@ import {
   type VideoProcessingMode,
   type VideoResolution,
 } from '../provider/gemini';
+import { useState } from 'react';
 import type { HeylookModel } from '../provider/heylook';
 import type { ThinkingPreference } from '../provider/heylook/client';
 import type { Instance } from '../provider/registry';
@@ -34,6 +35,8 @@ interface Props {
   enforceSchema: boolean;
   thinking: ThinkingPreference;
   onThinkingChange: (next: ThinkingPreference) => void;
+  heylookToken: string | null;
+  onHeylookTokenChange: (next: string) => void;
   onEnforceSchemaChange: (next: boolean) => void;
   /** False when the active backend has no way to constrain decoding. */
   canEnforceSchema: boolean;
@@ -65,6 +68,8 @@ export function ProviderPanel({
   enforceSchema,
   thinking,
   onThinkingChange,
+  heylookToken,
+  onHeylookTokenChange,
   onEnforceSchemaChange,
   canEnforceSchema,
   instances,
@@ -80,6 +85,9 @@ export function ProviderPanel({
   error,
   onRefresh,
 }: Props) {
+  // See the token input below. The field is a draft only; it never renders
+  // the stored secret.
+  const [tokenDraft, setTokenDraft] = useState('');
   return (
     <div className="flex items-center gap-2 text-[10px] text-[var(--color-muted)]">
       <select
@@ -141,6 +149,56 @@ export function ProviderPanel({
             <option value="auto">thinking: auto</option>
             <option value="on">thinking: on</option>
           </select>
+
+          {/*
+            A DRAFT plus an explicit Save, and it took two attempts to get
+            here. The first version wrote to the vault on every keystroke: the
+            input was controlled by state that only updated after an await, so
+            each keystroke fought its own re-render and every one of them
+            started another `setSecret`. Typing `lan-token-xyz` and reloading
+            gave back the single character `z`.
+
+            The second version kept a draft and persisted on blur. Also wrong,
+            and wrong in a way worth recording rather than quietly replacing:
+            blur is a timing dependency, and a field that saves on an event you
+            cannot see is one whose failure you also cannot see.
+
+            The Gemini key next door has a Save button, and it has one for
+            exactly this reason. Matching it is not chrome, it is the version
+            with no invisible moment in it. The field never shows the stored
+            secret -- the placeholder says whether one exists, which is all a
+            reader needs and all this can honestly offer for a value it holds
+            encrypted.
+
+            Blank is the normal state, because heylook's key is loopback-exempt:
+            a server on this machine needs nothing. It becomes required the day
+            one is started with a non-loopback host, which is the same day
+            cross-machine access starts working -- so the field is always shown
+            rather than hidden behind a toggle nobody would find at that moment.
+
+            No passphrase option, unlike the Gemini key, and the reason is in
+            `HEYLOOK_TOKEN_NAME`: this gates a local server rather than a
+            metered API.
+          */}
+          <input
+            type="password"
+            value={tokenDraft}
+            onChange={(event) => setTokenDraft(event.target.value)}
+            placeholder={heylookToken ? 'token saved' : 'token (only if the server asks)'}
+            className="w-[150px] rounded border border-[var(--color-edge)] bg-transparent px-1.5 py-0.5"
+            title="Sent as a bearer token on generation and cancel. Type it and press Save. heylook exempts loopback by default, so leave this empty for a server on this machine."
+          />
+          <button
+            type="button"
+            onClick={() => {
+              onHeylookTokenChange(tokenDraft);
+              setTokenDraft('');
+            }}
+            className="rounded border border-[var(--color-edge)] px-1.5 py-0.5"
+            title={heylookToken ? 'Replace the saved token, or save an empty field to clear it' : 'Save this token'}
+          >
+            {heylookToken && !tokenDraft ? 'Clear' : 'Save'}
+          </button>
 
           {discovering && <span>asking {origin}…</span>}
 

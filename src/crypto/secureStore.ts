@@ -340,3 +340,19 @@ export function removeAllSecrets(): string[] {
 }
 
 export const API_KEY_NAME = 'gemini-api-key';
+
+/**
+ * The heylook bearer token, when a server asks for one.
+ *
+ * A second name in the same vault rather than a second store: `setSecret` and
+ * `getSecret` are name-keyed, so this needs nothing new.
+ *
+ * Deliberately NOT given a passphrase flow, where the Gemini key has one. The
+ * two credentials are worth different things: a metered API key with billing
+ * behind it, against a token gating a local inference server on a network you
+ * own. A second unlock path would double the key UI for a secret whose loss
+ * costs access to your own machine, and an unlock prompt people meet twice is
+ * one they learn to click through. Stated here because an absent option next to
+ * a present one reads as an oversight otherwise.
+ */
+export const HEYLOOK_TOKEN_NAME = 'heylook-token';

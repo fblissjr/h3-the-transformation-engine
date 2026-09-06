@@ -52,6 +52,7 @@ import type { Policy } from '../core/policy';
 import { loadInstancePolicies, setInstanceAttribute } from '../db/policy';
 import {
   API_KEY_NAME,
+  HEYLOOK_TOKEN_NAME,
   DEFAULT_KEY_MODE,
   getSecret,
   removeSecret,
@@ -137,6 +138,7 @@ const EMPTY_RECORD = { mode: 'directed', selection: { strength: 'full' } } as co
 export function useEngine() {
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [heylookThinking, setHeylookThinkingState] = useState<ThinkingPreference>(THINKING_DEFAULT);
+  const [heylookToken, setHeylookTokenState] = useState<string | null>(null);
   /**
    * Which backend the next call goes to.
    *
@@ -326,6 +328,11 @@ export function useEngine() {
       // previous build may have written as a boolean, and the mode union is
       // three-valued now. An unreadable one falls back rather than throwing,
       // the same posture `parseStoredPolicies` takes one file over.
+      // Origin mode only, so it reads without an unlock. A passphrase-mode
+      // envelope would come back null here and the field would look empty --
+      // which is why `setSecret` is called without a mode below rather than
+      // inheriting whatever the Gemini key is using.
+      setHeylookTokenState(await getSecret(HEYLOOK_TOKEN_NAME));
       const storedThinking = await getSetting<unknown>(HEYLOOK_THINKING_SETTING, null);
       const thinkingMode = (storedThinking as ThinkingPreference | null)?.mode;
       if (thinkingMode === 'auto' || thinkingMode === 'on' || thinkingMode === 'off') {
@@ -707,6 +714,18 @@ export function useEngine() {
     void setSetting(ENFORCE_SCHEMA_SETTING, next);
   }, []);
 
+  const setHeylookToken = useCallback(async (next: string) => {
+    const trimmed = next.trim();
+    trace('state', 'state.heylookToken', trimmed ? 'heylook token set' : 'heylook token cleared', {
+      // The value never goes in the trace. Length is enough to tell "saved
+      // something" from "saved nothing" when reading a log.
+      length: trimmed.length,
+    });
+    if (trimmed) await setSecret(HEYLOOK_TOKEN_NAME, trimmed);
+    else removeSecret(HEYLOOK_TOKEN_NAME);
+    setHeylookTokenState(trimmed || null);
+  }, []);
+
   const setHeylookThinking = useCallback((next: ThinkingPreference) => {
     trace('state', 'state.heylookThinking', `heylook thinking ${next.mode}`, next);
     setHeylookThinkingState(next);
@@ -874,9 +893,10 @@ export function useEngine() {
         // Mapped by a pure function in the registry rather than inline, so the
         // join between policy and client is reachable by a test.
         thinking: heylookThinking,
+        heylookApiKey: heylookToken,
         ...heylookPolicyConfig(policy),
       }),
-    [provider, apiKey, geminiConfig, heylookModel, policy, instance, heylookThinking],
+    [provider, apiKey, geminiConfig, heylookModel, policy, instance, heylookThinking, heylookToken],
   );
 
   const analyzeVideo = useCallback(
@@ -1231,6 +1251,8 @@ export function useEngine() {
   return {
     heylookThinking,
     setHeylookThinking,
+    heylookToken,
+    setHeylookToken,
     apiKey,
     storedKeyMode,
     provider,
