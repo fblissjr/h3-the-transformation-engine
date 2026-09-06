@@ -150,7 +150,12 @@ describe('buildPatchSystemPrompt', () => {
     // the patch prompt preserves one -- so the parity is over the resolved pack
     // text beneath it, which is the actual derivation. Dropping the first line
     // drops the preamble; everything after it must be identical on both sides.
-    const packText = (styleDirective(CLAY.selection) as string).split('\n').slice(1).join('\n');
+    const lines = (styleDirective(CLAY.selection) as string).split('\n');
+    // Slicing one line off assumes the preamble IS one line. Assert that rather
+    // than assume it: a two-line preamble would silently drop real pack text
+    // from the comparison below and still pass, covering less than it claims.
+    expect(lines[1]).toBe('');
+    const packText = lines.slice(1).join('\n');
     expect(packText.trim().length).toBeGreaterThan(0);
     expect(buildPatchSystemPrompt(CLAY)).toContain(packText);
     expect(buildPlannerSystemPrompt(normalize(input), { ...input, creativeMode: CLAY })).toContain(
@@ -403,8 +408,14 @@ describe('glitch marks in the patch prompt', () => {
     // As with the style: the placement lead differs by caller, everything below
     // it is the derivation and must match character for character on both sides.
     const full = glitchDirective(MARKED.glitch) as string;
-    const rules = full.slice(full.indexOf('  "SolidGoldMagikarp"'));
-    expect(rules.trim().length).toBeGreaterThan(0);
+    // Guard the index before slicing. A missed indexOf returns -1, and
+    // `slice(-1)` is the LAST CHARACTER rather than nothing -- so renaming the
+    // fixture token would quietly reduce this to asserting both prompts contain
+    // one letter, which they do. Verified: that degraded form passes.
+    const at = full.indexOf('  "SolidGoldMagikarp"');
+    expect(at).toBeGreaterThan(0);
+    const rules = full.slice(at);
+    expect(rules.split('\n').length).toBeGreaterThan(5);
     expect(buildPatchSystemPrompt(MARKED)).toContain(rules);
     expect(
       buildPlannerSystemPrompt(normalize(input), { ...input, creativeMode: MARKED }),
