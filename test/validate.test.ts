@@ -239,6 +239,16 @@ const CONTROLS: Control[] = [
     inspects: has.taskTypes,
   },
   {
+    // The fixture is a reference-generation job whose summary opens with prose.
+    // Declaring it a video edit is what makes ref 3's mandated opener apply, so
+    // the mutation adds the task type rather than editing the sentence -- the
+    // rule has to fire on the combination, not on the summary alone.
+    code: 'REF_SUMMARY_MISSING_EDIT_OPENER',
+    base: ref2vaCoffeeShop,
+    mutate: (d) => void (d.taskTypes = [...(d.taskTypes ?? []), 'video editing']),
+    inspects: has.summary,
+  },
+  {
     code: 'REF_SUMMARY_NEW_LABEL',
     base: ref2vaCoffeeShop,
     mutate: (d) => void (d.summary += ' It also uses <Picture 9>.'),

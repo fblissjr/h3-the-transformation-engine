@@ -24,6 +24,7 @@ import {
   MUSIC_SENTENCE_RANGE,
   ORDINARY_CUTS,
   REF_DETAIL_WORD_RANGE,
+  REF_EDITED_VIDEO_OPENER,
   SCENETRANS_TAG,
   SOUNDSCAPE_SENTENCE_RANGE,
   SPEED_PHRASE,
@@ -196,6 +197,8 @@ When only the timbre, rhythm, emotion or delivery of a voice is being referenced
 Retention says how faithfully each reference survives: ${VISUAL_RETENTION.join(', ')}.
 
 Task types describe what the job actually is: ${TASK_TYPES.join(', ')}. Presence of a video or an audio file does not by itself create a task type -- a video that only supplies a person's appearance is reference generation, not video editing.
+
+When video editing is one of the task types, \`summary\` opens with the exact sentence \`${REF_EDITED_VIDEO_OPENER}<Video N>.\`, naming the video actually being edited, before any other text. The bracketed task-type prefix is added by code, so do not write it yourself -- begin your summary at that sentence.
 
 Aim for ${REF_DETAIL_WORD_RANGE[0]}-${REF_DETAIL_WORD_RANGE[1]} words across all beats when the job is a generation task. Two exemptions, both from the same guide paragraph: a video-editing job scales its description with the complexity of the source video and is not held to that range, and dialogue-dense material fits the complete spoken timeline ahead of any word count. A single shot does not by itself justify a shorter description -- distribute detail across shots according to how much each one carries. A job can be both at once; the guide's own example prefix is [video editing + reference generation + audio reuse]. When the prefix names video editing alongside a generation type nothing says which of the two applies, so never pad toward the range to satisfy it -- let the information load set the length.`,
 };

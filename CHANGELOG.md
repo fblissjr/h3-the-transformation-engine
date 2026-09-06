@@ -4,6 +4,46 @@ All notable changes to this project are documented here. Semantic versioning.
 
 ## [Unreleased]
 
+### Added
+
+- **Ref 3's mandated opener for a video-editing summary.** The guide states that
+  a video-editing summary begins, after the bracketed task-type prefix, with
+  `The target video is an edited version of <Video 1>.` The string appeared
+  nowhere in `src/` and nowhere in the spec, while the rest of ref 3 was
+  implemented -- one clause of an otherwise finished section. Found by the prompt
+  inventory, and checked against the guide before adopting: it is a stated
+  imperative, not a line shown in a worked example, which is the distinction that
+  has already retracted two invented rules across the two repos.
+
+  `REF_EDITED_VIDEO_OPENER` holds the invariant head of the sentence and nothing
+  more. The guide writes `<Video 1>` because Video 1 is the source in its own
+  scenario; the real label is derived from slot order, so pinning the whole
+  literal would write a false reference whenever the edit source is not the first
+  video, and would make every reader of the constant a second implementation of
+  label resolution. `SLOT_ROLES` already carries `edit_source`, so nothing new
+  had to be modelled.
+
+  The diagnostic is `REF_SUMMARY_MISSING_EDIT_OPENER`, and it exists on the
+  `VOICEOVER_PHRASE_MISSING` precedent rather than by preference: that entry
+  already draws the line between a guide-mandated exact wording, which is
+  checkable, and a guide-mandated statement, which is a prompt instruction only,
+  because no allowlist can prove a statement's absence. Ref 3 fixes the wording,
+  so it falls on the checkable side. It fires only when a summary exists, so a
+  missing one reports `REF_MISSING_SUMMARY` alone rather than two errors for one
+  cause.
+
+  The planner prompt carries the instruction in the same change, interpolating
+  the same constant so the two cannot drift. Adding the diagnostic without it
+  would have produced the unclearable-error shape this repo already hit with
+  `SCENETRANS_UNPAIRED`, where a model doing the right thing could not clear a
+  rule no prompt had named. The instruction is Ref2VA-only; the T2VA prompt is
+  byte-identical to before at 11097 characters.
+
+  The control was broken to check it: disabling the rule body turns
+  `REF_SUMMARY_MISSING_EDIT_OPENER fires when its rule is violated` red and
+  nothing else, so the check reaches its subject rather than passing through a
+  neighbouring assertion.
+
 ### Changed
 
 - **VISION.md rewritten around what the app is rather than how it is used.** The

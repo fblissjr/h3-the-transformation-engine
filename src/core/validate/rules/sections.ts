@@ -9,7 +9,7 @@
 
 import type { Diagnostic, Rule } from '../types';
 import { error } from '../types';
-import { AUDIO_RETENTION, VISUAL_RETENTION } from '../../ir/vocab';
+import { AUDIO_RETENTION, REF_EDITED_VIDEO_OPENER, VISUAL_RETENTION } from '../../ir/vocab';
 import { ceilingViolations } from '../../normalize/labels';
 
 // ---------------------------------------------------------------------------
@@ -66,6 +66,25 @@ export const refSummary: Rule = (doc) => {
       error('REF_MISSING_TASK_TYPES', 'taskTypes', 'Ref2VA requires at least one task type for the summary prefix.'),
     );
   } else {
+    // Ref 3 fixes the opening sentence for a video edit. Checked only when there
+    // is a summary to check, so a missing one reports REF_MISSING_SUMMARY alone
+    // rather than two errors for one cause.
+    //
+    // The test is the invariant head, not the whole sentence: ref 3 writes
+    // `<Video 1>` because that is its own scenario's source, and the real label
+    // is derived from slot order. Reconstructing it here would duplicate label
+    // resolution and would reject a correct `<Video 2>`.
+    if (doc.taskTypes.includes('video editing') && doc.summary && doc.summary.trim() !== '') {
+      if (!doc.summary.trim().startsWith(REF_EDITED_VIDEO_OPENER)) {
+        out.push(
+          error(
+            'REF_SUMMARY_MISSING_EDIT_OPENER',
+            'summary',
+            `A video-editing summary must begin "${REF_EDITED_VIDEO_OPENER}<Video N>." after the task-type prefix.`,
+          ),
+        );
+      }
+    }
     const seen = new Set<string>();
     doc.taskTypes.forEach((t) => {
       if (seen.has(t)) {

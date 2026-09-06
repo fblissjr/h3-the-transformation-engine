@@ -420,6 +420,16 @@
         }
       }
     },
+    "editedVideoOpener": {
+      "value": "The target video is an edited version of ",
+      "guide": "ref 3",
+      "note": "The invariant head of the sentence ref 3 mandates for video-editing summaries, written after the bracketed task-type prefix. Stored without the label and the full stop on purpose: the guide's own line names <Video 1> because that is the video in its scenario, and the actual label is derived from slot order, so pinning the whole literal would make this a second implementation of label resolution and would write a false reference whenever the edit source is not the first video.",
+      "binds": {
+        "value": {
+          "export": "REF_EDITED_VIDEO_OPENER"
+        }
+      }
+    },
     "visualRetention": {
       "guide": "ref 4.1",
       "values": [
@@ -967,6 +977,7 @@
       "REF_MISSING_SUMMARY": "ref 1",
       "REF_MISSING_TASK_TYPES": "ref 3: the bracketed prefix",
       "REF_TASK_TYPE_DUPLICATE": "ref 3: do not repeat a type",
+      "REF_SUMMARY_MISSING_EDIT_OPENER": "ref 3: a video-editing summary opens with the mandated sentence. Checkable for the same reason VOICEOVER_PHRASE_MISSING is and REF_AUDIO_RELATIONSHIP is not -- the guide fixes the wording here rather than only requiring that something be stated. Anchored on the invariant head, not the full literal, because the video label is derived.",
       "REF_SUMMARY_NEW_LABEL": "ref 3: no new labels in the summary",
       "REF_LABEL_UNDEFINED": "ref 2: a cited label is defined",
       "REF_RETENTION_MISSING": "ref 4: one line per reference label",

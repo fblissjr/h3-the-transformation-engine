@@ -288,6 +288,19 @@ export const TASK_TYPES = [
 ] as const;
 export type TaskType = (typeof TASK_TYPES)[number];
 
+/**
+ * The head of the sentence ref 3 requires a video-editing summary to begin with,
+ * after the bracketed task-type prefix.
+ *
+ * The label and the full stop are deliberately not part of it. Ref 3 writes
+ * `The target video is an edited version of <Video 1>.` because Video 1 is the
+ * source in the guide's own scenario; the real label comes from slot order, so a
+ * document whose edit source is the second video needs `<Video 2>`. Pinning the
+ * whole literal would both write a false reference and make every reader of this
+ * constant a second implementation of label resolution.
+ */
+export const REF_EDITED_VIDEO_OPENER = 'The target video is an edited version of ';
+
 /** For <Subject N>, <Picture N>, <Video N>. Ref guide section 4.1. */
 export const VISUAL_RETENTION = [
   'fully_preserved',
