@@ -4,6 +4,47 @@ All notable changes to this project are documented here. Semantic versioning.
 
 ## [Unreleased]
 
+### Added
+
+- **Schema lineage detection: a database this build cannot write opens
+  read-only and says so.** `CREATE TABLE IF NOT EXISTS` grows a schema and
+  cannot change one -- a table that already exists is skipped whatever its
+  columns say -- so a file written by an older build opened successfully and
+  then threw `cannot INSERT into generated column` at an unrelated call site.
+  Reproduced before fixing.
+
+  The design was argued to a better answer than the one first proposed. Refusing
+  outright honours `src/db/db.ts`'s "no data migrations, deliberately" and breaks
+  CLAUDE.md's "a build that refuses to open what the previous build wrote loses
+  work that exists nowhere else". The two look like they collide and do not: the
+  first rule is about CONTENTS, the second about the CONTAINER. Read-only honours
+  both -- every document stays readable, nothing is rewritten, and no migration
+  code exists to be half-written. `open` now returns `{ db, writable, mismatch }`,
+  which is the shape `loadDocument` already has one level down.
+
+  Recovery is the caller's: `exportTables` dumps every row of every table via
+  `SELECT *`, needing no agreement about columns, which is exactly why it works
+  on the files `open` will not write. `archive` renames the database aside with
+  its WAL sidecars rather than deleting it -- dropping the documents from the
+  app's view without making them unrecoverable.
+
+  The version is `PRAGMA user_version`, and 0 is load-bearing: a fresh file and
+  a file written before this check both read 0, told apart by whether the file
+  has tables.
+
+- **The schema version is pinned to a hash of `server/schema.sql`.** A number
+  someone remembers to increment is a guarantee that holds because a person
+  maintains a list; this makes it enforced. Editing the schema turns the suite
+  red with a message naming the decision: additive changes -- a table, an index,
+  or a VIRTUAL generated column, all of which an existing file can take -- keep
+  the version and update the hash, while anything that makes an older file
+  unwritable bumps `SCHEMA_VERSION` too. Same move as the guide pins in
+  `contract.sources`.
+
+  Both new guards were broken to confirm they fire: appending a comment to
+  `schema.sql` turns the pin red, and neutering the lineage comparison turns the
+  three read-only assertions red and nothing else.
+
 ### Fixed
 
 - **`runs.contract_sha` renamed to `contract_json_sha`, because the short name

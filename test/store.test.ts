@@ -12,7 +12,9 @@
  * change detector rather than a check.
  */
 
-import { mkdtempSync, rmSync } from 'node:fs';
+import Database from 'better-sqlite3';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -26,6 +28,9 @@ import {
   saveVersion,
   setSetting,
   getSetting,
+  archive,
+  exportTables,
+  SCHEMA_VERSION,
   type Db,
 } from '../server/store';
 import { t2vaBaker } from './fixtures/guide-examples';
@@ -50,13 +55,13 @@ const record = (id: string, doc: unknown = t2vaBaker, title = `title of ${id}`) 
 
 describe('documents round-trip', () => {
   it('returns the document that was stored', () => {
-    const db = open(':memory:');
+    const db = open(':memory:').db;
     saveDocument(db, record('d1'));
     expect(loadDocument(db, 'd1')?.record.doc).toEqual(t2vaBaker);
   });
 
   it('derives mode and shot count from the body rather than storing them twice', () => {
-    const db: Db = open(':memory:');
+    const db: Db = open(':memory:').db;
     saveDocument(db, record('d1'));
     const row = db.prepare('SELECT mode, shot_count FROM documents WHERE id = ?').get('d1') as {
       mode: string;
@@ -81,7 +86,7 @@ describe('documents round-trip', () => {
    * this one round-trips a value the fixture does not contain.
    */
   it('stores the title the caller supplied, which the body does not carry', () => {
-    const db: Db = open(':memory:');
+    const db: Db = open(':memory:').db;
     saveDocument(db, record('d1', t2vaBaker, 'Bakery at dawn'));
     expect(loadDocument(db, 'd1')!.record.title).toBe('Bakery at dawn');
     expect(listDocuments(db)[0].title).toBe('Bakery at dawn');
@@ -90,14 +95,14 @@ describe('documents round-trip', () => {
   });
 
   it('keeps the title across a re-save of the same document', () => {
-    const db = open(':memory:');
+    const db = open(':memory:').db;
     saveDocument(db, record('d1', t2vaBaker, 'first name'));
     saveDocument(db, record('d1', t2vaBaker, 'renamed'));
     expect(loadDocument(db, 'd1')!.record.title).toBe('renamed');
   });
 
   it('omits soft-deleted documents from the list and from load', () => {
-    const db = open(':memory:');
+    const db = open(':memory:').db;
     saveDocument(db, record('d1'));
     deleteDocument(db, 'd1', Date.now());
     expect(loadDocument(db, 'd1')).toBeUndefined();
@@ -112,7 +117,7 @@ describe('the schema reports, it does not gate', () => {
    * there is no other copy.
    */
   it('returns a document that no longer matches the schema, and says so', () => {
-    const db = open(':memory:');
+    const db = open(':memory:').db;
     saveDocument(db, record('d1', { schemaVersion: '1.0.0', id: 'd1', mode: 'NOT_A_MODE' }));
     const got = loadDocument(db, 'd1');
     expect(got, 'the record still came back').toBeDefined();
@@ -121,7 +126,7 @@ describe('the schema reports, it does not gate', () => {
   });
 
   it('reports nothing for a document that parses', () => {
-    const db = open(':memory:');
+    const db = open(':memory:').db;
     saveDocument(db, record('d1'));
     expect(loadDocument(db, 'd1')!.schemaError).toBeNull();
   });
@@ -131,12 +136,12 @@ describe('opening an existing database', () => {
   /** Repair must never be a disguised reset. */
   it('keeps the rows that were already there', () => {
     const path = tempPath();
-    const first = open(path);
+    const first = open(path).db;
     saveDocument(first, record('d1'));
     setSetting(first, 'provider', 'heylook');
     first.close();
 
-    const second = open(path);
+    const second = open(path).db;
     expect(loadDocument(second, 'd1')).toBeDefined();
     expect(getSetting(second, 'provider', 'none')).toBe('heylook');
     second.close();
@@ -149,7 +154,7 @@ describe('referential integrity is actually on', () => {
    * insert is accepted and the orphan is invisible until something joins on it.
    */
   it('refuses a version whose document does not exist', () => {
-    const db = open(':memory:');
+    const db = open(':memory:').db;
     expect(() =>
       saveVersion(db, {
         id: 'v1',
@@ -174,7 +179,7 @@ describe('runs are grouped so a distribution is recoverable', () => {
    * because nothing says which calls constitute one arm.
    */
   it('counts stage outcomes per arm, which is the query the table exists for', () => {
-    const db = open(':memory:');
+    const db = open(':memory:').db;
     db.prepare('INSERT INTO experiments (id, created_at, question) VALUES (?,?,?)').run(
       'e1',
       1,
@@ -226,7 +231,7 @@ describe('runs are grouped so a distribution is recoverable', () => {
   });
 
   it('refuses a stage outside the harness vocabulary', () => {
-    const db = open(':memory:');
+    const db = open(':memory:').db;
     expect(() =>
       recordRun(db, {
         id: 'r1',
@@ -237,5 +242,133 @@ describe('runs are grouped so a distribution is recoverable', () => {
         stage: 'mostly_fine' as never,
       }),
     ).toThrow(/CHECK constraint/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Schema lineage
+// ---------------------------------------------------------------------------
+
+describe('a database written by a different schema', () => {
+  /** Build a file the way an older build would have left it. */
+  const stale = (path: string) => {
+    const old = new Database(path);
+    old.exec(`CREATE TABLE documents (
+      id TEXT PRIMARY KEY, body TEXT NOT NULL CHECK (json_valid(body)),
+      created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, deleted_at INTEGER,
+      head_version_id TEXT,
+      title TEXT GENERATED ALWAYS AS (body ->> '$.title') VIRTUAL) STRICT`);
+    old.prepare('INSERT INTO documents (id, body, created_at, updated_at) VALUES (?,?,?,?)').run(
+      'old1',
+      JSON.stringify(t2vaBaker),
+      1,
+      1,
+    );
+    old.close();
+  };
+
+  /**
+   * The pair, as everywhere else here: it is reported, AND it still opened.
+   *
+   * Refusing outright would honour "no migrations" and break "a build that
+   * refuses to open what the previous build wrote loses work that exists nowhere
+   * else". Read-only honours both, because the first rule is about contents and
+   * the second is about the container.
+   */
+  it('opens read-only and says so, rather than refusing or rewriting', () => {
+    const path = tempPath();
+    stale(path);
+    const opened = open(path);
+    expect(opened.writable).toBe(false);
+    expect(opened.mismatch).not.toBeNull();
+    expect(opened.mismatch!.found).toBe(0);
+    expect(opened.mismatch!.expected).toBe(SCHEMA_VERSION);
+    // The documents are still there to read, which is the whole point.
+    expect(
+      opened.db.prepare('SELECT id FROM documents').all(),
+    ).toEqual([{ id: 'old1' }]);
+    opened.db.close();
+  });
+
+  it('refuses writes to it', () => {
+    const path = tempPath();
+    stale(path);
+    const { db } = open(path);
+    expect(() =>
+      db.prepare('INSERT INTO documents (id, body, created_at, updated_at) VALUES (?,?,?,?)').run(
+        'x',
+        '{}',
+        1,
+        1,
+      ),
+    ).toThrow(/READONLY/i);
+    db.close();
+  });
+
+  it('leaves the file untouched, so an older build can still open it', () => {
+    const path = tempPath();
+    stale(path);
+    const before = readFileSync(path);
+    open(path).db.close();
+    expect(readFileSync(path).equals(before)).toBe(true);
+  });
+
+  /** Export has to work on precisely the files `open` will not write. */
+  it('can be exported without knowing its schema', () => {
+    const path = tempPath();
+    stale(path);
+    const dump = exportTables(path);
+    expect(Object.keys(dump)).toEqual(['documents']);
+    expect((dump.documents[0] as { id: string }).id).toBe('old1');
+  });
+
+  it('archives rather than deletes, and takes the WAL sidecars with it', () => {
+    const path = tempPath();
+    const db = open(path).db;
+    saveDocument(db, record('d1'));
+    db.close();
+    const moved = archive(path, 1234);
+    expect(existsSync(path)).toBe(false);
+    expect(existsSync(moved)).toBe(true);
+    // Still readable where it went. "Recreate" drops it from the app's view
+    // without making it unrecoverable.
+    expect(Object.keys(exportTables(moved))).toContain('documents');
+  });
+
+  it('stamps a fresh database so the next open recognises it', () => {
+    const path = tempPath();
+    const first = open(path);
+    expect(first.writable).toBe(true);
+    expect(first.db.pragma('user_version', { simple: true })).toBe(SCHEMA_VERSION);
+    first.db.close();
+    expect(open(path).writable).toBe(true);
+  });
+});
+
+/**
+ * The version is a number someone has to remember to increment, which is a
+ * guarantee that holds because a person maintains it. This is what makes it
+ * enforced instead: editing the schema without deciding turns the suite red.
+ *
+ * When it fails, the decision is which kind of change it was. Additive -- a new
+ * table, index, or a VIRTUAL generated column, all of which an existing file can
+ * take -- keeps the version and updates only this hash. Incompatible, meaning
+ * anything that makes an older file unwritable, bumps SCHEMA_VERSION too.
+ */
+describe('the schema version is pinned to the schema', () => {
+  it('matches the file it describes', () => {
+    const sql = readFileSync(join(import.meta.dirname, '../server/schema.sql'));
+    expect(
+      createHash('sha256').update(sql).digest('hex'),
+      'server/schema.sql changed. Additive change: update this hash. Incompatible change: bump SCHEMA_VERSION as well.',
+    ).toBe('02c4524a8085311f51176e7b308a34fb2208be254d496d988852a97c51f58cb0');
+  });
+
+  it('is a positive integer, so 0 stays available to mean unstamped', () => {
+    // `open` reads 0 from a fresh file and from one written before this check
+    // existed, and tells them apart by whether the file has tables. A
+    // SCHEMA_VERSION of 0 would collapse that distinction.
+    expect(SCHEMA_VERSION).toBeGreaterThan(0);
+    expect(Number.isInteger(SCHEMA_VERSION)).toBe(true);
   });
 });

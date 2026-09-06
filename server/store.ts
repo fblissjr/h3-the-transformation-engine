@@ -11,7 +11,7 @@
  */
 
 import Database from 'better-sqlite3';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
 import { H3DocumentSchema } from '../src/core/ir/schema';
 import type { H3Document } from '../src/core/ir/types';
@@ -77,23 +77,133 @@ export interface RunRecord {
 export type Db = Database.Database;
 
 /**
- * Open a database and bring it up to the schema.
+ * The shape this build writes. Bump it whenever a column changes meaning, type
+ * or generated-ness -- not when a table is merely added, which `IF NOT EXISTS`
+ * already handles.
+ */
+export const SCHEMA_VERSION = 1;
+
+/** What a lineage mismatch is, when there is one. */
+export interface SchemaMismatch {
+  path: string;
+  found: number;
+  expected: number;
+  /** Ready to show. The recovery is the caller's choice, so this states them. */
+  message: string;
+}
+
+export interface Opened {
+  db: Db;
+  /** False when the file was written by a different schema lineage. */
+  writable: boolean;
+  mismatch: SchemaMismatch | null;
+}
+
+/** Tables the file actually has, so detection depends on no particular one. */
+function tableNames(db: Db): string[] {
+  return (
+    db
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
+      .all() as { name: string }[]
+  ).map((r) => r.name);
+}
+
+/**
+ * Open a database, read-only if this build cannot write its shape.
  *
- * Every statement is `IF NOT EXISTS`, so this is both the create path and the
- * repair path and it is never a reset -- the same property `src/db/db.ts` holds
- * for IndexedDB, where a build that refused to open what the previous one wrote
- * would lose work that exists nowhere else.
+ * `CREATE TABLE IF NOT EXISTS` grows a schema and cannot change one: a table
+ * that already exists is skipped whatever its columns say. That was silent until
+ * this check existed -- a file written by an older build opened successfully and
+ * then threw `cannot INSERT into generated column` at an unrelated call site.
+ *
+ * It reports rather than gates, which is the same shape `loadDocument` already
+ * has one level down, and it is what lets two rules that look opposed both hold.
+ * "A build that refuses to open what the previous build wrote loses work that
+ * exists nowhere else" is about CONTENTS: every document here stays readable.
+ * `src/db/db.ts`'s "no data migrations, deliberately" is about the CONTAINER:
+ * nothing is rewritten, so no migration code exists to be half-written. Refusing
+ * outright would have honoured the second and broken the first; read-only
+ * honours both, and makes `exportTables` available on exactly the files that
+ * need it.
  *
  * `foreign_keys` is set here rather than in the schema file because it is a
  * per-connection pragma that SQLite defaults OFF: a connection that skipped it
  * would accept orphan rows silently.
  */
-export function open(path: string): Db {
-  const db = new Database(path);
-  db.pragma('journal_mode = WAL');
-  db.pragma('foreign_keys = ON');
-  db.exec(readFileSync(join(import.meta.dirname, 'schema.sql'), 'utf8'));
-  return db;
+export function open(path: string): Opened {
+  const probe = new Database(path);
+  const found = (probe.pragma('user_version', { simple: true }) as number) ?? 0;
+  const populated = tableNames(probe).length > 0;
+
+  // A fresh file reads 0 and has no tables. A file from before this check
+  // existed also reads 0 but HAS tables, and is exactly the case that used to
+  // fail at write time -- so it is a mismatch rather than something to stamp.
+  const compatible = found === SCHEMA_VERSION || (found === 0 && !populated);
+  if (!compatible) {
+    probe.close();
+    const db = new Database(path, { readonly: true });
+    return {
+      db,
+      writable: false,
+      mismatch: {
+        path,
+        found,
+        expected: SCHEMA_VERSION,
+        message:
+          `The database at ${path} was written by schema version ${found}; this build writes ` +
+          `${SCHEMA_VERSION}. It is open read-only and has not been modified. You can export it ` +
+          `to files, recreate it (which moves this file aside and starts empty, so the app will ` +
+          `no longer show these documents), or stop and open it with the build that wrote it.`,
+      },
+    };
+  }
+
+  probe.pragma('journal_mode = WAL');
+  probe.pragma('foreign_keys = ON');
+  probe.exec(readFileSync(join(import.meta.dirname, 'schema.sql'), 'utf8'));
+  probe.pragma(`user_version = ${SCHEMA_VERSION}`);
+  return { db: probe, writable: true, mismatch: null };
+}
+
+/**
+ * Every row of every table, as plain JSON, without knowing the schema.
+ *
+ * `SELECT *` needs no agreement about columns, which is the whole point: this
+ * has to work on precisely the databases `open` refuses. Returned rather than
+ * written so the caller decides where it goes and nothing here touches the file
+ * system beyond reading.
+ */
+export function exportTables(path: string): Record<string, unknown[]> {
+  const db = new Database(path, { readonly: true });
+  try {
+    const out: Record<string, unknown[]> = {};
+    for (const name of tableNames(db)) {
+      out[name] = db.prepare(`SELECT * FROM "${name}"`).all();
+    }
+    return out;
+  } finally {
+    db.close();
+  }
+}
+
+/**
+ * Move a database aside and return where it went.
+ *
+ * Renames rather than deletes. The user asked to drop the data, not to make it
+ * unrecoverable, and the difference costs one `rename` -- so "recreate" is
+ * honest about losing the documents from the app's view while leaving the bytes
+ * on disk for anyone who later wishes it had not.
+ *
+ * The WAL and shared-memory sidecars go too. Leaving them beside a fresh
+ * database of the same name is how a stale write log gets replayed into it.
+ */
+export function archive(path: string, now = Date.now()): string {
+  const target = `${path}.superseded-${now}`;
+  renameSync(path, target);
+  for (const suffix of ['-wal', '-shm']) {
+    if (existsSync(path + suffix)) renameSync(path + suffix, target + suffix);
+  }
+  return target;
 }
 
 /** The first schema complaint about a stored document, or null if it parses. */
