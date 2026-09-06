@@ -254,11 +254,41 @@ function report(todo: number | null): number {
       `extractor is v${EXTRACTOR_VERSION} and the pin was built with v${pin.extractorVersion}; re-init deliberately`,
     );
   }
+  /**
+   * Three hashes, three different claims, and they are deliberately not one.
+   *
+   *   the file on disk        what the guides say now
+   *   this pin               the text the dispositions below were made against
+   *   contract.sources       the text the spec was written against
+   *
+   * A reviewer suggested deriving this pin from `contract.sources` so there is
+   * only one source and they cannot disagree. That is the right instinct about
+   * duplicated values and the wrong call here: the two record different facts
+   * that happen to share a value today, and collapsing them destroys the one
+   * signal worth having. Updating a guide is a deliberate act (replace the
+   * file, update `contract.sources`), and re-dispositioning the ledger is a
+   * second deliberate act. If the pin were derived, doing the first without the
+   * second would leave a ledger silently agreeing with a spec it had never been
+   * re-read against.
+   *
+   * So both stay, and the disagreement is reported instead of prevented. The
+   * third comparison below is the one neither file catches alone: re-init the
+   * ledger without updating `contract.sources` and the ledger matches the live
+   * file while the spec does not, which every check here passed before it.
+   */
+  const sources: { id: string; sha256: string }[] = contract.sources;
   for (const live of guideHashes()) {
     const pinned = pin.guides.find((g) => g.id === live.id);
+    const spec = sources.find((s) => s.id === live.id);
     if (!pinned) problems.push(`guide "${live.id}" is not in the pin`);
     else if (pinned.sha256 !== live.sha256) {
       problems.push(`guide "${live.id}" has changed since the pin -- every disposition below is against the old text`);
+    }
+    if (pinned && spec && pinned.sha256 !== spec.sha256) {
+      problems.push(
+        `guide "${live.id}": the ledger was dispositioned against ${pinned.sha256.slice(0, 12)} but ` +
+          `contract.sources pins ${spec.sha256.slice(0, 12)} -- the spec and the ledger were updated against different text`,
+      );
     }
   }
 
