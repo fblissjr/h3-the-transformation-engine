@@ -6,6 +6,44 @@ All notable changes to this project are documented here. Semantic versioning.
 
 ### Added
 
+- **A guide-coverage ledger, for the one direction nothing checked.** The spec
+  and the code are bound to each other both ways, spec citations are checked to
+  name headings that exist, and the guides' worked examples are byte-compared to
+  the fixtures. None of that can notice a rule the guides *state* that the spec
+  never mentions, because spec and code agree and agreement is the whole of what
+  is tested. Two such rules were found by hand and both sat inside sections the
+  spec already cites, so no citation-level check would have reached them.
+
+  `reference/h3/guide-coverage.json` pins one entry per stated sentence -- 183
+  across both guides -- and `scripts/guide-coverage.ts` requires each to carry a
+  disposition. `covered` must name a dotted path into `contract.json` and that
+  path is resolved, so a coverage claim cannot be a bare assertion; `declined`
+  must carry a reason, on the `noAnchor` precedent, because a bare list of
+  declined ids is the ledger row that goes stale; `unverified` is the loud
+  default and the backlog. Currently 27 covered, 1 declined, 155 unverified.
+
+  It enumerates every prose sentence rather than a normative-looking subset,
+  and that was measured rather than assumed: two independent extractors written
+  for this task disagreed by 27 sentences over the same two files, one
+  under-matching and one over-matching. A filter nobody can reproduce cannot
+  define a backlog, so `normative` is recorded only to order the work.
+
+  The pin stores the sentence texts, not a count, because the sentence set
+  depends on the extractor -- a regenerated count would not be comparable to an
+  old one. Guide sha256s sit beside them, so a revision invalidates every
+  disposition loudly instead of carrying it forward against changed text.
+
+  Fenced blocks are stripped, so worked examples never enter the enumeration.
+  That is deliberate: an example can refute a rule and cannot establish one, and
+  reading examples as rules is what sank the last candidate rule considered here.
+
+  Deliberately not wired into `bun run test`. Unverified entries exit zero
+  because a backlog is not a fault and a permanently red check is one people
+  stop reading; inconsistencies -- a moved guide hash, a sentence with no entry,
+  an entry matching no sentence, an unresolvable `covered` path, a `declined`
+  with no reason -- exit nonzero. Both failure paths were exercised, the hash
+  guard by altering the pin's recorded value rather than by touching a guide.
+
 - **Schema lineage detection: a database this build cannot write opens
   read-only and says so.** `CREATE TABLE IF NOT EXISTS` grows a schema and
   cannot change one -- a table that already exists is skipped whatever its

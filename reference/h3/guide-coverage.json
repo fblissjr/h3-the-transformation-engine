@@ -1,0 +1,1510 @@
+{
+  "about": "Coverage ledger: does reference/h3/contract.json account for what the guides STATE? One entry per prose sentence; fenced blocks are excluded, so worked examples are not in here and an example can never be read as a rule. `covered` must name a contract.json path that resolves; `declined` must carry a reason; `unverified` is the backlog. Regenerate with scripts/guide-coverage.ts --init after a guide revision.",
+  "extractorVersion": 1,
+  "guides": [
+    {
+      "id": "base",
+      "file": "VIDEO_PROMPT_WRITING_GUIDE_base_en.md",
+      "sha256": "2cfebc096a6e08370f288d468d90b60f7f9bcb938f94bf090816e910e48e75fc"
+    },
+    {
+      "id": "ref",
+      "file": "VIDEO_PROMPT_WRITING_GUIDE_ref_en.md",
+      "sha256": "1e574f356716ad55612247ffb7bbccbcdb484ad96599d63c7dca1af186b1fab7"
+    }
+  ],
+  "entries": [
+    {
+      "id": "85474739ba38",
+      "guide": "base",
+      "section": "## 1. Task Overview",
+      "text": "**T2VA**: Builds a complete audiovisual timeline from text.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "6d0b2c14e0f3",
+      "guide": "base",
+      "section": "## 1. Task Overview",
+      "text": "**I2VA**: T2VA body + first-frame instruction + a visual path that develops forward from the first frame.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "418a906be406",
+      "guide": "base",
+      "section": "## 1. Task Overview",
+      "text": "**FL2VA**: T2VA body + first-and-last-frame instruction + a continuous path from the first frame to the last frame.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "642a4d21f9fd",
+      "guide": "base",
+      "section": "## 1. Task Overview",
+      "text": "**L2VA**: T2VA body + last-frame instruction + a path that converges from a plausible preceding state to the last frame.",
+      "normative": true,
+      "disposition": "covered",
+      "coveredBy": "vocabulary.modes"
+    },
+    {
+      "id": "ed08e1ab30c1",
+      "guide": "base",
+      "section": "### 2.1 Part One Is the Instruction",
+      "text": "**T2VA** has no image-alignment instruction and begins directly with the three core fields.",
+      "normative": true,
+      "disposition": "covered",
+      "coveredBy": "output.T2VA"
+    },
+    {
+      "id": "7a206a33287f",
+      "guide": "base",
+      "section": "### 2.1 Part One Is the Instruction",
+      "text": "Here, `N` is the index of the actual final shot, and `S.SS` is the effective video duration formatted to exactly two decimal places.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "b2e976db6631",
+      "guide": "base",
+      "section": "### 2.1 Part One Is the Instruction",
+      "text": "The instruction must be the first line of the final prompt, followed by one blank line before the core fields.",
+      "normative": true,
+      "disposition": "covered",
+      "coveredBy": "output.I2VA.goldenFixture"
+    },
+    {
+      "id": "e2cd0c435862",
+      "guide": "base",
+      "section": "### 2.2 Part Two Contains the Three Core Fields",
+      "text": "**integrated_multimodal_description**: Describes visuals, actions, shots, speakers, dialogue, singing, and diegetic audio along the timeline.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "f92056996c6d",
+      "guide": "base",
+      "section": "### 2.2 Part Two Contains the Three Core Fields",
+      "text": "**overall_soundscape**: Summarizes ambient sound, physical action sounds, and non-verbal human sounds across the entire video.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "9a375816f159",
+      "guide": "base",
+      "section": "### 2.2 Part Two Contains the Three Core Fields",
+      "text": "**non_diegetic_music**: Describes background music that the characters cannot hear and only the audience can hear.",
+      "normative": true,
+      "disposition": "covered",
+      "coveredBy": "output.T2VA"
+    },
+    {
+      "id": "b25663cd30be",
+      "guide": "base",
+      "section": "### 3.1 I2VA: Begin from the Image and Develop Forward",
+      "text": "`<Picture 1>` is the actual first frame of the video at 0.00 seconds and belongs to `[Shot 1]`.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "08a04594033d",
+      "guide": "base",
+      "section": "### 3.1 I2VA: Begin from the Image and Develop Forward",
+      "text": "The description should first establish the style, subjects, composition, and scene anchors in the image, then describe the next action.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "f1c06ff5488f",
+      "guide": "base",
+      "section": "### 3.1 I2VA: Begin from the Image and Develop Forward",
+      "text": "Character identity, clothing, colors, key objects, and spatial relationships should remain consistent.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "30b748513d14",
+      "guide": "base",
+      "section": "### 3.1 I2VA: Begin from the Image and Develop Forward",
+      "text": "Recommended structure: **first-frame anchor \u2192 action onset \u2192 continuous development \u2192 result or reaction**.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "98c3a20ab460",
+      "guide": "base",
+      "section": "### 3.2 FL2VA: Describe the Path Between the First and Last Frames",
+      "text": "Picture 1 is the opening, and Picture 2 is the ending.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "b630092bc6d4",
+      "guide": "base",
+      "section": "### 3.2 FL2VA: Describe the Path Between the First and Last Frames",
+      "text": "Focus on how the subject moves, how poses change, how objects are manipulated, how the composition evolves, and how the scene or lighting transitions.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "4cd5bb36b2c2",
+      "guide": "base",
+      "section": "### 3.2 FL2VA: Describe the Path Between the First and Last Frames",
+      "text": "FL2VA generally favors a single shot so the model can interpolate continuously from the first frame to the last frame.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "1b466e14e30e",
+      "guide": "base",
+      "section": "### 3.2 FL2VA: Describe the Path Between the First and Last Frames",
+      "text": "Use multiple shots only when they are explicitly specified.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "91ff9b1e579f",
+      "guide": "base",
+      "section": "### 3.2 FL2VA: Describe the Path Between the First and Last Frames",
+      "text": "The last frame must be reached by the final `[Shot N]` at the end of the video.",
+      "normative": true,
+      "disposition": "covered",
+      "coveredBy": "output.FL2VA"
+    },
+    {
+      "id": "67f59e408894",
+      "guide": "base",
+      "section": "### 3.2 FL2VA: Describe the Path Between the First and Last Frames",
+      "text": "Recommended structure: **first-frame state \u2192 observable intermediate changes \u2192 progressively narrowing differences \u2192 last-frame state**.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "0f2b4d80e3ab",
+      "guide": "base",
+      "section": "### 3.3 L2VA: Infer the Opening and Land on the Image at the End",
+      "text": "`<Picture 1>` is the final frame of the video and belongs to the last `[Shot N]`; it does not inherently belong to Shot 1.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "7b05e6c7be9f",
+      "guide": "base",
+      "section": "### 3.3 L2VA: Infer the Opening and Land on the Image at the End",
+      "text": "Infer a plausible earlier state from the user's intent and the last frame, then describe how the characters, objects, camera, and scene gradually approach the reference image.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "c6c964f611f9",
+      "guide": "base",
+      "section": "### 3.3 L2VA: Infer the Opening and Land on the Image at the End",
+      "text": "Recommended structure: **plausible preceding state \u2192 explicit action and transition path \u2192 gradual convergence in the final shot \u2192 last-frame landing**.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "9740a4cace1e",
+      "guide": "base",
+      "section": "### 4.1 Develop the Multimodal Description Along the Timeline",
+      "text": "`integrated_multimodal_description` is the main body of the rewritten prompt.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "875ece71a586",
+      "guide": "base",
+      "section": "### 4.1 Develop the Multimodal Description Along the Timeline",
+      "text": "Every detail should correspond to something visible or audible: visual style, initial composition, subject appearance and position, scene and key props, actions and reactions, shot changes, spoken language, and synchronized diegetic sound.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "c7979731f1f7",
+      "guide": "base",
+      "section": "### 4.1 Develop the Multimodal Description Along the Timeline",
+      "text": "At the beginning of `[Shot 1]`, state the overall style and initial composition.",
+      "normative": true,
+      "disposition": "covered",
+      "coveredBy": "output.T2VA.stylePlacement"
+    },
+    {
+      "id": "1029c2933702",
+      "guide": "base",
+      "section": "### 4.1 Develop the Multimodal Description Along the Timeline",
+      "text": "Common styles include `Cinematic`, `live-action`, `2D-animated`, `3D CG`, `claymation`, `watercolor`, and `vintage film`.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "e5e00388491c",
+      "guide": "base",
+      "section": "### 4.1 Develop the Multimodal Description Along the Timeline",
+      "text": "For keyframe tasks, derive the style from the reference image; for T2VA, select it from the user's text.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "1be0f38a011f",
+      "guide": "base",
+      "section": "### 4.2 Shots and Cuts",
+      "text": "Do not add a timestamp to the first shot.",
+      "normative": true,
+      "disposition": "covered",
+      "coveredBy": "output.T2VA.firstShotHasTimestamp"
+    },
+    {
+      "id": "fc10558ee4df",
+      "guide": "base",
+      "section": "### 4.2 Shots and Cuts",
+      "text": "Use sequential shot numbers for later shots, and begin each one with a strictly increasing cut time that falls within the video duration:",
+      "normative": true,
+      "disposition": "covered",
+      "coveredBy": "shotHeader"
+    },
+    {
+      "id": "f45a2abcbc30",
+      "guide": "base",
+      "section": "### 4.2 Shots and Cuts",
+      "text": "For ordinary cuts, use `the camera cuts to`, `the shot cuts to`, `the shot transitions to`, `the shot changes to`, or `the shot switches to`.",
+      "normative": true,
+      "disposition": "covered",
+      "coveredBy": "vocabulary.ordinaryCuts"
+    },
+    {
+      "id": "7e30fc953f60",
+      "guide": "base",
+      "section": "### 4.2 Shots and Cuts",
+      "text": "When explicitly requested by the user, cross-dissolve, fade, or wipe may also be used.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "94abaa9b1565",
+      "guide": "base",
+      "section": "### 4.2 Shots and Cuts",
+      "text": "A cut should introduce new information about the subject, space, state, viewpoint, or time.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "21e55729d989",
+      "guide": "base",
+      "section": "### 4.2 Shots and Cuts",
+      "text": "If only the distance or a slight angle needs to change, prefer camera motion.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "dc196442027a",
+      "guide": "base",
+      "section": "### 4.3 Camera Motion: Motion Type + Amplitude + Speed",
+      "text": "A complete camera-motion expression has three dimensions: the **motion type** defines how the camera moves, **amplitude** defines the range of compositional change, and **speed** defines the pacing of that change.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "6c6352e14dfe",
+      "guide": "base",
+      "section": "### 4.3 Camera Motion: Motion Type + Amplitude + Speed",
+      "text": "Add amplitude and speed only when they are meaningful; medium amplitude and normal speed are usually omitted.",
+      "normative": true,
+      "disposition": "covered",
+      "coveredBy": "vocabulary.amplitudes"
+    },
+    {
+      "id": "d593fa6b1a96",
+      "guide": "base",
+      "section": "### 4.3 Camera Motion: Motion Type + Amplitude + Speed",
+      "text": "Camera motion should be written as a natural English action within the shot, rather than stacked as separate labels at the end of a sentence:",
+      "normative": true,
+      "disposition": "covered",
+      "coveredBy": "vocabulary.cameraTypes"
+    },
+    {
+      "id": "918a372a5be6",
+      "guide": "base",
+      "section": "### 4.4 Speakers, Dialogue, and Singing",
+      "text": "Subjects who speak, sing, or produce an off-screen human voice use stable IDs such as `(S1)` and `(S2)`.",
+      "normative": true,
+      "disposition": "covered",
+      "coveredBy": "vocabulary.speakerIds"
+    },
+    {
+      "id": "6b05b168d3c0",
+      "guide": "base",
+      "section": "### 4.4 Speakers, Dialogue, and Singing",
+      "text": "When multiple already-numbered speakers speak or sing together, use a compound ID such as `(S1,S2)`.",
+      "normative": true,
+      "disposition": "covered",
+      "coveredBy": "vocabulary.speakerIds"
+    },
+    {
+      "id": "35c817f08084",
+      "guide": "base",
+      "section": "### 4.4 Speakers, Dialogue, and Singing",
+      "text": "A speaker keeps the same ID across shots; characters who never vocalize receive no speaker ID.",
+      "normative": true,
+      "disposition": "covered",
+      "coveredBy": "vocabulary.speakerIds"
+    },
+    {
+      "id": "cdeab51f4b0d",
+      "guide": "base",
+      "section": "### 4.4 Speakers, Dialogue, and Singing",
+      "text": "When a speaker first appears, provide enough information from the visual and audio context to establish a stable identity, such as character type, age, gender, whether the person is on-screen, pitch, timbre, speaking rate, or accent.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "2ccc7888ecfb",
+      "guide": "base",
+      "section": "### 4.4 Speakers, Dialogue, and Singing",
+      "text": "Place the speaker's identifying phrase, ID, action, and delivery outside `<d>`.",
+      "normative": true,
+      "disposition": "covered",
+      "coveredBy": "vocabulary.tags"
+    },
+    {
+      "id": "5d65530afdce",
+      "guide": "base",
+      "section": "### 4.4 Speakers, Dialogue, and Singing",
+      "text": "Inside `<d>`, include only the language tag and the actual user-provided spoken content.",
+      "normative": true,
+      "disposition": "covered",
+      "coveredBy": "vocabulary.tags"
+    },
+    {
+      "id": "6326edb8afc6",
+      "guide": "base",
+      "section": "### 4.4 Speakers, Dialogue, and Singing",
+      "text": "Preserve every original word and punctuation mark verbatim; do not translate or rewrite them.",
+      "normative": true,
+      "disposition": "covered",
+      "coveredBy": "vocabulary.dialogueAllowedPunctuation"
+    },
+    {
+      "id": "117f37d63c7d",
+      "guide": "base",
+      "section": "### 4.4 Speakers, Dialogue, and Singing",
+      "text": "For voiceover, use the exact phrase `says in an off-screen voiceover`.",
+      "normative": true,
+      "disposition": "covered",
+      "coveredBy": "vocabulary.voiceoverPhrase"
+    },
+    {
+      "id": "1e87ca28a1ab",
+      "guide": "base",
+      "section": "### 4.4 Speakers, Dialogue, and Singing",
+      "text": "Immediately after every voiceover `<d>` block, state that the corresponding on-screen character's lips remain closed:",
+      "normative": true,
+      "disposition": "covered",
+      "coveredBy": "diagnostics.codes.VOICEOVER_PHRASE_MISSING"
+    },
+    {
+      "id": "12a7c8cbd52d",
+      "guide": "base",
+      "section": "### 4.4 Speakers, Dialogue, and Singing",
+      "text": "When the same line of dialogue or lyrics crosses a cut, use `<scenetrans>` at the connecting points in both parts and explicitly state that the audio continues across the cut.",
+      "normative": true,
+      "disposition": "covered",
+      "coveredBy": "vocabulary.tags"
+    },
+    {
+      "id": "da651af212fe",
+      "guide": "base",
+      "section": "### 4.4 Speakers, Dialogue, and Singing",
+      "text": "Use `<cutoff>` when speech is truncated by the end of the video.",
+      "normative": true,
+      "disposition": "covered",
+      "coveredBy": "vocabulary.tags"
+    },
+    {
+      "id": "65ca4f0675fc",
+      "guide": "base",
+      "section": "### 4.4 Speakers, Dialogue, and Singing",
+      "text": "Continuity may be expressed with `continues seamlessly across the cut`, `continues uninterrupted into the next shot`, `carries over from the previous shot`, or `remains audible across the transition`.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "068b83b1a518",
+      "guide": "base",
+      "section": "### 4.5 On-Screen Text",
+      "text": "Place any banner, sign, label, subtitle, or neon text that is actually visible on screen in English double quotation marks.",
+      "normative": true,
+      "disposition": "covered",
+      "coveredBy": "vocabulary.onScreenText"
+    },
+    {
+      "id": "0aaf572204e4",
+      "guide": "base",
+      "section": "### 4.5 On-Screen Text",
+      "text": "Preserve the original text and punctuation verbatim, without translation.",
+      "normative": true,
+      "disposition": "covered",
+      "coveredBy": "vocabulary.onScreenText"
+    },
+    {
+      "id": "73e1dce766fa",
+      "guide": "base",
+      "section": "### 4.6 overall_soundscape",
+      "text": "Use 1\u20134 English sentences in one continuous paragraph to summarize the ambient sound, physical action sounds, and non-verbal human sounds across the full video, such as wind, rain, traffic, footsteps, fabric movement, impacts, breathing, laughter, or panting.",
+      "normative": true,
+      "disposition": "covered",
+      "coveredBy": "vocabulary.budgets.soundscapeSentences"
+    },
+    {
+      "id": "c22b6219d8eb",
+      "guide": "base",
+      "section": "### 4.6 overall_soundscape",
+      "text": "Dialogue, singing, and diegetic music already belong in the multimodal description and should not be repeated here.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "4de0ca750c26",
+      "guide": "base",
+      "section": "### 4.6 overall_soundscape",
+      "text": "Use `N/A` only when the user explicitly requests complete silence throughout the video.",
+      "normative": true,
+      "disposition": "covered",
+      "coveredBy": "vocabulary.notApplicable"
+    },
+    {
+      "id": "e6391006ffcc",
+      "guide": "base",
+      "section": "### 4.7 non_diegetic_music",
+      "text": "Use 1\u20133 English sentences to describe background music that the characters cannot hear and only the audience can hear.",
+      "normative": true,
+      "disposition": "covered",
+      "coveredBy": "vocabulary.budgets.musicSentences"
+    },
+    {
+      "id": "f9c44518ad8b",
+      "guide": "base",
+      "section": "### 4.7 non_diegetic_music",
+      "text": "Focus on instrumentation, speed, rhythm, and dynamic changes; do not use abstract mood words or explain the emotional function of the score.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "543d1d6a8a0c",
+      "guide": "base",
+      "section": "### 4.7 non_diegetic_music",
+      "text": "Singing, instruments, radio, television, or phone music audible to the characters are diegetic events and should appear in the multimodal description.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "f81812ce7ea0",
+      "guide": "base",
+      "section": "### 4.7 non_diegetic_music",
+      "text": "Use `N/A` when there is no non-diegetic music.",
+      "normative": true,
+      "disposition": "covered",
+      "coveredBy": "vocabulary.notApplicable"
+    },
+    {
+      "id": "94b25a72e702",
+      "guide": "base",
+      "section": "### Case 1: T2VA",
+      "text": "With no reference image, construct the complete timeline directly from the text.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "10a73e13dba3",
+      "guide": "base",
+      "section": "### Case 1: T2VA",
+      "text": "You may add scene, character, action, and sound details that remain consistent with the user's intent.",
+      "normative": true,
+      "disposition": "declined",
+      "reason": "Commentary introducing a worked example, not a rule about output. The latitude it grants -- adding consistent scene detail -- is planner craft rather than anything the serializer or validator can hold."
+    },
+    {
+      "id": "0bcbf5fbea28",
+      "guide": "base",
+      "section": "### Case 2: I2VA",
+      "text": "Write the first-frame instruction first, then use the subject, composition, and scene in Picture 1 as the starting point of Shot 1 before describing how the scene continues to develop.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "0bc555933704",
+      "guide": "base",
+      "section": "### Case 3: FL2VA",
+      "text": "The two images anchor the opening and ending respectively.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "b4b91e352a49",
+      "guide": "base",
+      "section": "### Case 3: FL2VA",
+      "text": "The body should not repeat two static image descriptions; instead, it should supply the motion path that connects them.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "21072437b60b",
+      "guide": "base",
+      "section": "### Case 3: FL2VA",
+      "text": "The following example is an eight-second single shot.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "4bcdbb0b2975",
+      "guide": "base",
+      "section": "### Case 4: L2VA",
+      "text": "The image anchors only the final moment.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "a8ccd6872960",
+      "guide": "base",
+      "section": "### Case 4: L2VA",
+      "text": "First establish a compatible earlier state, then let the actions, object states, and composition gradually land on Picture 1 in the final shot.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "97d2fb664794",
+      "guide": "base",
+      "section": "### Case 4: L2VA",
+      "text": "The following example is a six-second single shot.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "d1da148c4767",
+      "guide": "ref",
+      "section": "# Full-Reference Mode Rewrite Output Format Guide",
+      "text": "This guide explains how rewrite outputs are organized and written in full-reference mode.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "727f768d45f5",
+      "guide": "ref",
+      "section": "# Full-Reference Mode Rewrite Output Format Guide",
+      "text": "Write all six rewrite sections in English.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "a7ae91f77727",
+      "guide": "ref",
+      "section": "# Full-Reference Mode Rewrite Output Format Guide",
+      "text": "Preserve the original language only for dialogue and lyrics inside `<d>` and for text visibly present in the scene.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "57ce2595a399",
+      "guide": "ref",
+      "section": "# Full-Reference Mode Rewrite Output Format Guide",
+      "text": "**Description detail:** Make `detailed_description` as detailed and explicit as possible.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "61b7d4241e5a",
+      "guide": "ref",
+      "section": "# Full-Reference Mode Rewrite Output Format Guide",
+      "text": "For each shot, clearly establish the current composition, subject appearance and position, environment and lighting, actions and state changes, camera movement, current sound, and the points where referenced content actually appears or takes effect.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "5e2994beda22",
+      "guide": "ref",
+      "section": "# Full-Reference Mode Rewrite Output Format Guide",
+      "text": "Avoid reducing the description to a plot summary or a list of reference relationships.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "d9369c9777a9",
+      "guide": "ref",
+      "section": "# Full-Reference Mode Rewrite Output Format Guide",
+      "text": "The basic formats for shots, camera movement, speakers, dialogue, and ordinary sound are shared with the Video Prompt Writing Guide (T2VA / I2VA / FL2VA / L2VA).",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "228c82ced6f7",
+      "guide": "ref",
+      "section": "# Full-Reference Mode Rewrite Output Format Guide",
+      "text": "This guide focuses on the reference labels, analysis sections, and format differences specific to full-reference mode.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "e0dc57af8750",
+      "guide": "ref",
+      "section": "## 1. Overall Structure",
+      "text": "A complete rewrite output consists of six sections in the following order:",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "aefc6481aff4",
+      "guide": "ref",
+      "section": "## 2. Reference Labels and Definitions (`subject_definitions`)",
+      "text": "Full-reference rewrites use four types of labels to identify the source and role of referenced content:",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "dd2d3e753977",
+      "guide": "ref",
+      "section": "## 2. Reference Labels and Definitions (`subject_definitions`)",
+      "text": "Once a reference label is assigned to a piece of content, it keeps the same meaning across `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, and the audio sections.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "34163e30637f",
+      "guide": "ref",
+      "section": "## 2. Reference Labels and Definitions (`subject_definitions`)",
+      "text": "`subject_definitions` defines each piece of referenced content that must be tracked separately later, such as a person, an environment, a source video's structure, or an audio track.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "f3c495ce056b",
+      "guide": "ref",
+      "section": "## 2. Reference Labels and Definitions (`subject_definitions`)",
+      "text": "Give each item its own line and explain what its label denotes, its reference role, and the main features to follow; name the corresponding source asset when its provenance needs to be made explicit.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "c0e6cced55cf",
+      "guide": "ref",
+      "section": "## 2. Reference Labels and Definitions (`subject_definitions`)",
+      "text": "If `<Picture N>` or `<Video N>` only identifies the source of another referenced item and will not be analyzed or used separately later, cite it inside that item's definition without adding a separate line.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "7898020c2662",
+      "guide": "ref",
+      "section": "## 2. Reference Labels and Definitions (`subject_definitions`)",
+      "text": "`retention_analysis` records where each referenced item appears and whether it is fully preserved, partially preserved, transferred, or reused.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "153318bec27d",
+      "guide": "ref",
+      "section": "### 2.1 `<Subject N>`",
+      "text": "`<Subject N>` is used for reusable visible content, including:",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "ad44c269baa3",
+      "guide": "ref",
+      "section": "### 2.1 `<Subject N>`",
+      "text": "People, animals, or objects",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "28eba206d729",
+      "guide": "ref",
+      "section": "### 2.1 `<Subject N>`",
+      "text": "Scenes, backgrounds, or environments",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "7d86d81fa84d",
+      "guide": "ref",
+      "section": "### 2.1 `<Subject N>`",
+      "text": "Clothing, props, interfaces, or visual effects",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "0528116f0502",
+      "guide": "ref",
+      "section": "### 2.1 `<Subject N>`",
+      "text": "Styles, actions, expressions, or poses",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "2d046705b18c",
+      "guide": "ref",
+      "section": "### 2.1 `<Subject N>`",
+      "text": "It represents a content unit that will actually be used in the target video, rather than the source file itself.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "c71ebbfc06f0",
+      "guide": "ref",
+      "section": "### 2.1 `<Subject N>`",
+      "text": "One subject may be defined by multiple reference assets, and one reference asset may provide multiple subjects.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "208b19abaf3f",
+      "guide": "ref",
+      "section": "### 2.1 `<Subject N>`",
+      "text": "When the same subject comes from multiple assets, combine the sources and state what each asset provides:",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "e31644543108",
+      "guide": "ref",
+      "section": "### 2.2 `<Picture N>`",
+      "text": "Use a standalone `<Picture N>` when the reference image itself serves as a shot's first frame, keyframe, last frame, edited keyframe, or composition anchor:",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "94691b6026d3",
+      "guide": "ref",
+      "section": "### 2.2 `<Picture N>`",
+      "text": "If an image is used only to define a character, scene, costume, or style, do not create a standalone picture entry.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "fd7d8c0773b4",
+      "guide": "ref",
+      "section": "### 2.2 `<Picture N>`",
+      "text": "Instead, cite the image source inside the corresponding `<Subject N>` definition.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "f74ed3ae00a9",
+      "guide": "ref",
+      "section": "### 2.2 `<Picture N>`",
+      "text": "When an image acts as a storyboard or shot-planning reference, state which shots it maps to and what planning information it provides:",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "8bbe0d507660",
+      "guide": "ref",
+      "section": "### 2.3 `<Video N>`",
+      "text": "`<Video N>` is reserved for whole-video relationships, such as:",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "3252f01947c4",
+      "guide": "ref",
+      "section": "### 2.3 `<Video N>`",
+      "text": "Editing an original video",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "29ae4097b2bd",
+      "guide": "ref",
+      "section": "### 2.3 `<Video N>`",
+      "text": "Continuing from the end of an original video",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "8fe4537c63bf",
+      "guide": "ref",
+      "section": "### 2.3 `<Video N>`",
+      "text": "Referencing the original video's camera movement, cuts, rhythm, or temporal structure",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "5c0fc257b5c6",
+      "guide": "ref",
+      "section": "### 2.3 `<Video N>`",
+      "text": "If a person, object, scene, action, or effect from a reference video is reused as visible content, it still belongs under `<Subject N>`.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "2f2d2bede9c3",
+      "guide": "ref",
+      "section": "### 2.3 `<Video N>`",
+      "text": "`<Video N>` identifies the asset or structural source and does not replace subject labels.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "4e52223dae16",
+      "guide": "ref",
+      "section": "### 2.4 `<Audio N>`",
+      "text": "`<Audio N>` represents a standalone audio asset or an enabled synchronized audio track from a reference video.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "274901923a3d",
+      "guide": "ref",
+      "section": "### 2.4 `<Audio N>`",
+      "text": "Copying all or part of an audio signal",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "a43e90f694df",
+      "guide": "ref",
+      "section": "### 2.4 `<Audio N>`",
+      "text": "Referencing a background-music style",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "96e34502cb2e",
+      "guide": "ref",
+      "section": "### 2.4 `<Audio N>`",
+      "text": "Referencing a speaker's voice timbre and delivery",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "8be5ee512354",
+      "guide": "ref",
+      "section": "### 2.4 `<Audio N>`",
+      "text": "Using dialogue, lyrics, or sound effects from the original audio",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "141a566df092",
+      "guide": "ref",
+      "section": "### 2.4 `<Audio N>`",
+      "text": "Referencing beat, rhythm, or audio continuity",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "0188f872d533",
+      "guide": "ref",
+      "section": "### 2.4 `<Audio N>`",
+      "text": "When an `<Audio N>` explicitly corresponds to a target speaker, reuse that speaker's global ID in the definition: write `<Subject N> (Sx)` when the speaker maps to a defined subject, or use a stable voice description followed by `(Sx)` otherwise.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "85a0ab25c8d4",
+      "guide": "ref",
+      "section": "### 2.4 `<Audio N>`",
+      "text": "The ID comes from the target video's global speaker order and is not independently assigned or renumbered in the audio definition.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "57a0a55585ea",
+      "guide": "ref",
+      "section": "### 2.4 `<Audio N>`",
+      "text": "See Section 5.4 for the speaker-numbering rules:",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "766f8fddf132",
+      "guide": "ref",
+      "section": "### 2.4 `<Audio N>`",
+      "text": "When one audio asset serves multiple roles, describe those roles in one natural sentence rather than creating additional subsections.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "39fa03811a61",
+      "guide": "ref",
+      "section": "### 2.5 Visual and Audio Tracks from the Same Reference Video",
+      "text": "`<Video N>` and `<Audio N>` are numbered independently.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "c2a88c67460c",
+      "guide": "ref",
+      "section": "### 2.5 Visual and Audio Tracks from the Same Reference Video",
+      "text": "Each index indicates only the label's order within its own category and does not encode a pairing between the two categories.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "e3e4c5fa8a94",
+      "guide": "ref",
+      "section": "### 2.5 Visual and Audio Tracks from the Same Reference Video",
+      "text": "The same reference video may therefore correspond to `<Video 1>` and `<Audio 2>`; different indices do not prevent them from coming from the same source asset.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "83664f698f4f",
+      "guide": "ref",
+      "section": "### 2.5 Visual and Audio Tracks from the Same Reference Video",
+      "text": "An ordinary reference video does not create `<Audio N>` merely because the file contains sound.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "221a37390984",
+      "guide": "ref",
+      "section": "### 2.5 Visual and Audio Tracks from the Same Reference Video",
+      "text": "An `<Audio N>` definition primarily states the audio's role and does not have to name the `<Video N>` it comes from.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "2d49e25a4ae7",
+      "guide": "ref",
+      "section": "### 2.5 Visual and Audio Tracks from the Same Reference Video",
+      "text": "State the shared source only when needed to remove provenance ambiguity, for example:",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "b10f799262aa",
+      "guide": "ref",
+      "section": "## 3. `summary`",
+      "text": "This section uses one short English paragraph to summarize the target video and its reference relationships.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "438b1887d38c",
+      "guide": "ref",
+      "section": "## 3. `summary`",
+      "text": "It begins with a square-bracketed task-type prefix:",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "401ea120c261",
+      "guide": "ref",
+      "section": "## 3. `summary`",
+      "text": "Choose task types according to the actual role each reference asset plays in the target video:",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "11738b15aff9",
+      "guide": "ref",
+      "section": "## 3. `summary`",
+      "text": "When a task satisfies multiple relationships, combine the task types with ` + ` and do not repeat a type.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "ac7689c4b981",
+      "guide": "ref",
+      "section": "## 3. `summary`",
+      "text": "For example, continuing from a source video while using an image as the last frame is written as `[video continuation + keyframe completion]`.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "61da1681f97b",
+      "guide": "ref",
+      "section": "## 3. `summary`",
+      "text": "Editing a source video while retaining its original audio may be written as `[video editing + audio reuse]`.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "f39fffdf2a00",
+      "guide": "ref",
+      "section": "## 3. `summary`",
+      "text": "The mere presence of video or audio does not automatically create a corresponding task type.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "0ddb4442c2ac",
+      "guide": "ref",
+      "section": "## 3. `summary`",
+      "text": "If a reference video provides only camera movement, cuts, or rhythm, it normally belongs to `reference generation`.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "4892cce6d21f",
+      "guide": "ref",
+      "section": "## 3. `summary`",
+      "text": "Use `video editing` or `video continuation` only when that video is directly edited or continued.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "9e543c423256",
+      "guide": "ref",
+      "section": "## 3. `summary`",
+      "text": "When editing a source video, use `audio reuse` as well if its original audio remains audible.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "ce776a94fc8d",
+      "guide": "ref",
+      "section": "## 3. `summary`",
+      "text": "When continuing a source video without directly copying the audio signal, use `audio reference` if the new audio only continues the original track's audible characteristics.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "a9f7dc7883cd",
+      "guide": "ref",
+      "section": "## 3. `summary`",
+      "text": "The summary uses the previously defined `<Subject N>`, `<Picture N>`, `<Video N>`, and `<Audio N>` labels to describe the main subjects, shot flow, and roles of the reference assets.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "67f53468d3f1",
+      "guide": "ref",
+      "section": "## 3. `summary`",
+      "text": "Do not introduce new reference labels in this section.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "5c8447b2a28a",
+      "guide": "ref",
+      "section": "## 3. `summary`",
+      "text": "For video-editing tasks, begin the summary after the task-type prefix with:",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "d6ec1d69f719",
+      "guide": "ref",
+      "section": "## 4. `retention_analysis`",
+      "text": "This section describes how each piece of referenced content is preserved, transferred, copied, or referenced in the target video.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "0ad69897e63f",
+      "guide": "ref",
+      "section": "## 4. `retention_analysis`",
+      "text": "Use one line for each reference label and preserve the meaning established in `subject_definitions`.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "64c67be7346c",
+      "guide": "ref",
+      "section": "### 4.1 Visible Content",
+      "text": "`<Subject N>`, `<Picture N>`, and `<Video N>` use the following relationship markers.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "e34249402abd",
+      "guide": "ref",
+      "section": "### 4.1 Visible Content",
+      "text": "These markers are fixed English values in the output format:",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "5a3520de7ea7",
+      "guide": "ref",
+      "section": "### 4.2 Audio",
+      "text": "`<Audio N>` uses the following relationship markers:",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "cff0833117b1",
+      "guide": "ref",
+      "section": "### 4.2 Audio",
+      "text": "Choose each relationship marker only within the reference role already defined for that label in `subject_definitions`.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "a0927a44ca62",
+      "guide": "ref",
+      "section": "### 4.2 Audio",
+      "text": "Do not treat newly added actions, backgrounds, or plot events in the target video as losses of reference fidelity.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "bebeebbb9d48",
+      "guide": "ref",
+      "section": "## 5. `detailed_description`",
+      "text": "This is the main body of a full-reference rewrite.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "5a8068b2c937",
+      "guide": "ref",
+      "section": "## 5. `detailed_description`",
+      "text": "It describes visuals, actions, sound, and dialogue shot by shot in target-video playback order and inserts reference labels where they apply.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "5ff84c3f1c0c",
+      "guide": "ref",
+      "section": "### 5.1 Basic Format",
+      "text": "The basic format follows the Video Prompt Writing Guide (T2VA / I2VA / FL2VA / L2VA):",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "cc1b3c702f2d",
+      "guide": "ref",
+      "section": "### 5.1 Basic Format",
+      "text": "Write the body in English.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "bf42d03b1ea0",
+      "guide": "ref",
+      "section": "### 5.1 Basic Format",
+      "text": "Preserve the original language of dialogue, lyrics, and visible text.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "6208e51b5443",
+      "guide": "ref",
+      "section": "### 5.1 Basic Format",
+      "text": "`[Shot 1]` marks the opening shot and has no timestamp.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "40ff585e16ad",
+      "guide": "ref",
+      "section": "### 5.1 Basic Format",
+      "text": "Later shots use `[Shot N] At MM:SS.mmm, ...` to mark cut times.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "7395dbc18b37",
+      "guide": "ref",
+      "section": "### 5.1 Basic Format",
+      "text": "Write camera movement as natural English within the current shot, including movement type, amplitude, and speed when they need to be expressed.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "207cb55c9c42",
+      "guide": "ref",
+      "section": "### 5.1 Basic Format",
+      "text": "Give vocal sources stable `(S1)`, `(S2)`, and subsequent IDs.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "485ce8804bc2",
+      "guide": "ref",
+      "section": "### 5.1 Basic Format",
+      "text": "Write dialogue and lyrics as `<d>[Language] ...</d>`.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "37da11672130",
+      "guide": "ref",
+      "section": "### 5.1 Basic Format",
+      "text": "Use `<scenetrans>`, `<cutoff>`, and the corresponding continuity descriptions for dialogue crossing a cut, speech truncated by the video ending, and continuous audio across shots.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "bd8002c49fbf",
+      "guide": "ref",
+      "section": "### 5.1 Basic Format",
+      "text": "For complete rules and examples covering camera vocabulary, group speech, voice-over, dialogue across cuts, and visible text, see the Video Prompt Writing Guide (T2VA / I2VA / FL2VA / L2VA).",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "d3952f03c268",
+      "guide": "ref",
+      "section": "### 5.2 Full-Reference Mode Differences",
+      "text": "For generation tasks, `detailed_description` is normally 350-500 English words.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "fa38dbaf74e8",
+      "guide": "ref",
+      "section": "### 5.2 Full-Reference Mode Differences",
+      "text": "Dialogue-dense content prioritizes fitting the complete spoken timeline rather than mechanically reaching a word count.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "b9f3f242d643",
+      "guide": "ref",
+      "section": "### 5.2 Full-Reference Mode Differences",
+      "text": "Video-editing descriptions scale with the complexity of the source video and do not have to follow the generation-task range.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "97f8954f9f82",
+      "guide": "ref",
+      "section": "### 5.2 Full-Reference Mode Differences",
+      "text": "A single shot does not automatically justify a shorter description; distribute detail across multiple shots according to their information load.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "e7be8537433a",
+      "guide": "ref",
+      "section": "### 5.3 Using Reference Labels in Shots",
+      "text": "At the first clear appearance of an important `<Subject N>`, describe its referenced characteristics, position in the frame, and current action within what is actually visible in the shot.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "6dd623140da6",
+      "guide": "ref",
+      "section": "### 5.3 Using Reference Labels in Shots",
+      "text": "Continue using the same label in later shots without redefining what the label represents.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "f1d4a8568782",
+      "guide": "ref",
+      "section": "### 5.3 Using Reference Labels in Shots",
+      "text": "Use natural phrasing for concrete frame anchors:",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "7c8943e5efc9",
+      "guide": "ref",
+      "section": "### 5.3 Using Reference Labels in Shots",
+      "text": "When editing or continuing an original video, cite `<Video N>` naturally where its source state, structure, or continuation relationship applies.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "ecda6e37185c",
+      "guide": "ref",
+      "section": "### 5.3 Using Reference Labels in Shots",
+      "text": "Cite `<Audio N>` in the shot or semantic phase where the audio relationship is active.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "c1a82573aed8",
+      "guide": "ref",
+      "section": "### 5.4 Speakers, Audio Sources, and Dialogue",
+      "text": "The basic speaker-ID and `<d>` formats follow T2VA.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "20a615787ee3",
+      "guide": "ref",
+      "section": "### 5.4 Speakers, Audio Sources, and Dialogue",
+      "text": "When a referenced subject physically speaks, retain both the visual reference label and the speaker ID:",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "6923b931ddbf",
+      "guide": "ref",
+      "section": "### 5.4 Speakers, Audio Sources, and Dialogue",
+      "text": "`<Subject N>` identifies the referenced subject, while `(Sx)` identifies the actual speaker.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "9b9ef95b5b1d",
+      "guide": "ref",
+      "section": "### 5.4 Speakers, Audio Sources, and Dialogue",
+      "text": "When the subject speaks, write `<Subject N> (Sx)`.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "493fa06f7a81",
+      "guide": "ref",
+      "section": "### 5.4 Speakers, Audio Sources, and Dialogue",
+      "text": "If the same subject speaks off-screen, keep the same form and mark it as `off-screen`.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "3711a44d533a",
+      "guide": "ref",
+      "section": "### 5.4 Speakers, Audio Sources, and Dialogue",
+      "text": "When the speaker does not correspond to a defined subject, use a stable voice description followed by `(Sx)`.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "c787f50b8739",
+      "guide": "ref",
+      "section": "### 5.4 Speakers, Audio Sources, and Dialogue",
+      "text": "When verbal content is only a cue within a directly reused BGM or complete soundtrack, and no person, character, narrator, or other independent vocal source physically produces it, use `<Audio N>` as the audible source and do not invent an additional `(Sx)`.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "02546a582d0c",
+      "guide": "ref",
+      "section": "### 5.4 Speakers, Audio Sources, and Dialogue",
+      "text": "If a concrete person, character, narrator, or other independent vocal source produces the voice, assign and reuse `(Sx)` for that source:",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "8a7540b0a78b",
+      "guide": "ref",
+      "section": "### 5.4 Speakers, Audio Sources, and Dialogue",
+      "text": "When dialogue, narration, or lyrics from reference audio are directly reused, or when the input prompt explicitly requests their reperformance, preserve the exact source words and original language inside `<d>`.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "1f4daa4f537e",
+      "guide": "ref",
+      "section": "### 5.4 Speakers, Audio Sources, and Dialogue",
+      "text": "Write `[unclear]` for unintelligible spans instead of guessing or paraphrasing them.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "f3849616fe9d",
+      "guide": "ref",
+      "section": "### 5.4 Speakers, Audio Sources, and Dialogue",
+      "text": "Standardize punctuation to the basic written marks needed to express the sentence, such as `,`, `.`, `?`, and `!`; remove repeated tildes, emoji, bullets, and repeated or decorative punctuation.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "201916882f8b",
+      "guide": "ref",
+      "section": "### 5.4 Speakers, Audio Sources, and Dialogue",
+      "text": "End complete statements, questions, and exclamations with `.`, `?`, or `!` respectively before `</d>`.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "27d3297a9d9e",
+      "guide": "ref",
+      "section": "### 5.4 Speakers, Audio Sources, and Dialogue",
+      "text": "When only timbre, rhythm, emotion, or delivery is referenced, do not carry the original dialogue from the reference audio into the target video.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "e574b33fa3c9",
+      "guide": "ref",
+      "section": "### 5.4 Speakers, Audio Sources, and Dialogue",
+      "text": "Assign `(Sx)` once according to the order of actual vocal events in the target video.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "2ebe872a71be",
+      "guide": "ref",
+      "section": "### 5.4 Speakers, Audio Sources, and Dialogue",
+      "text": "Reuse the corresponding ID at every actual vocal event in `detailed_description`; an `<Audio N>` definition bound to a target speaker in `subject_definitions` also reuses the same `(Sx)` but never assigns a new one independently.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "3da7e7c793a6",
+      "guide": "ref",
+      "section": "### 5.4 Speakers, Audio Sources, and Dialogue",
+      "text": "Do not write `(Sx)` in `retention_analysis`.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "fff79ca13d6a",
+      "guide": "ref",
+      "section": "### 5.4 Speakers, Audio Sources, and Dialogue",
+      "text": "Verbal cues that exist only within a directly reused BGM or complete soundtrack use `<Audio N>`; voices physically produced by a concrete person, character, narrator, or other independent vocal source use `(Sx)`.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "54ed1b239320",
+      "guide": "ref",
+      "section": "## 6. `overall_soundscape` and `non_diegetic_music`",
+      "text": "The definitions of these two sound categories follow the Video Prompt Writing Guide (T2VA / I2VA / FL2VA / L2VA).",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "47ff7f342810",
+      "guide": "ref",
+      "section": "## 6. `overall_soundscape` and `non_diegetic_music`",
+      "text": "`overall_soundscape` summarizes ambience and physical sounds across the full video.",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "7eb63cfa3faa",
+      "guide": "ref",
+      "section": "## 6. `overall_soundscape` and `non_diegetic_music`",
+      "text": "Dialogue, singing, and sound events synchronized to a particular shot remain in `detailed_description`:",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "bc99c08d7683",
+      "guide": "ref",
+      "section": "## 6. `overall_soundscape` and `non_diegetic_music`",
+      "text": "`non_diegetic_music` describes background music that the characters cannot hear and that is audible only to the audience.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "7556d9e2da62",
+      "guide": "ref",
+      "section": "## 6. `overall_soundscape` and `non_diegetic_music`",
+      "text": "When music is present, state its instrumentation, tempo, and dynamic development:",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "464e766bfcde",
+      "guide": "ref",
+      "section": "## 6. `overall_soundscape` and `non_diegetic_music`",
+      "text": "When reference audio is used, state its copy or reference relationship only in the section that matches the audible layer: ambience and sound effects belong in `overall_soundscape`, while audience-only score belongs in `non_diegetic_music`.",
+      "normative": true,
+      "disposition": "unverified"
+    },
+    {
+      "id": "5e4eb416a740",
+      "guide": "ref",
+      "section": "## 6. `overall_soundscape` and `non_diegetic_music`",
+      "text": "If the same audio provides both kinds of content, describe the corresponding relationship in each section:",
+      "normative": false,
+      "disposition": "unverified"
+    },
+    {
+      "id": "c6f858b138a0",
+      "guide": "ref",
+      "section": "## 6. `overall_soundscape` and `non_diegetic_music`",
+      "text": "Write complete dialogue and lyrics only inside `<d>` in `detailed_description`; do not repeat them in these two sections.",
+      "normative": true,
+      "disposition": "unverified"
+    }
+  ]
+}
