@@ -6,6 +6,55 @@ All notable changes to this project are documented here. Semantic versioning.
 
 ### Added
 
+- **`documents.idea`, so a document can be regenerated.** The originating idea
+  was persisted nowhere: `doc.roll` carries a template and seed, and only when
+  wildcards were used, so a plainly typed idea left nothing behind. `types.ts`
+  already names the gap in its own `roll` comment -- "the template it was a seed
+  of lives in the idea box, which nothing persists" -- and CLAUDE.md carries it
+  as open work.
+
+  It stores the **expanded** idea, not the template. `CompileInput.idea` arrives
+  at `compile` already expanded and `roll` is the record of how, so storing both
+  gives the whole story while storing the template alone gives nothing in the
+  common case. Stored like `title` and for the same reason: the body has no idea
+  field, and adding one would be contract-adjacent.
+
+  **`SCHEMA_VERSION` is 2, the first real use of the mechanism.** The change is
+  incompatible rather than additive: `CREATE TABLE IF NOT EXISTS` skips a table
+  that already exists, so an older file would keep a `documents` with no `idea`
+  column and every write naming it would fail. Additive would have meant a new
+  table, index, or VIRTUAL generated column, which an existing file can take.
+  The pinned schema hash moved with it, which is what forced the decision to be
+  made rather than skipped.
+
+- **The dev server proxies `/api` to the bun server.** The browser is then
+  same-origin to its own storage in dev exactly as it is in production, so
+  `connect-src 'self'` covers the client in both modes with no policy change.
+  CORS was the alternative and is worse for a specific reason rather than on
+  taste: it would make dev and prod differ in the one layer whose failures are
+  hardest to read, since a refused cross-origin request arrives with no status
+  and no body and presents as the server being down. The target port comes from
+  `configFromEnv` rather than a literal, so it is one value with two consumers --
+  the same reason the CSP is generated from `parseInstances` instead of
+  maintained beside it.
+
+### Fixed
+
+- **Reads failed on exactly the databases read-only mode exists for.**
+  `loadDocument` and `listDocuments` named their columns, so the moment this
+  build knew a column an older file did not -- which is what adding `idea` did --
+  every read against that file failed. The whole promise of read-only mode is
+  that the documents stay readable, so this was the same shape as the export
+  round-trip bug one direction over: the recovery path did not work on the state
+  that needs it.
+
+  Both now `SELECT *` and read every field defensively. Found by a test rather
+  than by review: `serves reads` went red on a stale fixture the moment the new
+  column landed. Control: restoring the named column list turns that one test red
+  again and nothing else.
+
+### Added
+
 - **The bun server: static files and the API, at one origin.** `server/routes.ts`
   is a plain `Request -> Response` function and `server/index.ts` is a two-line
   adapter over it, so the tests call `handle` directly and actually execute the

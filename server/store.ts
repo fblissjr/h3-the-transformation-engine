@@ -20,6 +20,8 @@ import type { Task } from '../src/provider/types';
 export interface StoredDocument {
   id: string;
   title: string;
+  /** The expanded idea that produced it. See the column comment in schema.sql. */
+  idea: string;
   updatedAt: number;
   doc: H3Document;
   headVersionId: string;
@@ -111,7 +113,7 @@ export type WritableDb = Db & { readonly [writable]: true };
  * or generated-ness -- not when a table is merely added, which `IF NOT EXISTS`
  * already handles.
  */
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 /** What a lineage mismatch is, when there is one. */
 export interface SchemaMismatch {
@@ -282,16 +284,18 @@ export function archive(path: string, now = Date.now()): string {
 export function saveDocument(db: WritableDb, record: StoredDocument): void {
   const now = record.updatedAt;
   db.prepare(
-    `INSERT INTO documents (id, title, body, created_at, updated_at, head_version_id)
-     VALUES (@id, @title, @body, @now, @now, @head)
+    `INSERT INTO documents (id, title, idea, body, created_at, updated_at, head_version_id)
+     VALUES (@id, @title, @idea, @body, @now, @now, @head)
      ON CONFLICT (id) DO UPDATE SET
        title = excluded.title,
+       idea = excluded.idea,
        body = excluded.body,
        updated_at = excluded.updated_at,
        head_version_id = excluded.head_version_id`,
   ).run({
     id: record.id,
     title: record.title,
+    idea: record.idea ?? '',
     body: JSON.stringify(record.doc),
     now,
     head: record.headVersionId,
@@ -312,49 +316,50 @@ export function loadDocument(
   db: Db,
   id: string,
 ): { record: StoredDocument; schemaError: string | null } | undefined {
+  // `SELECT *` rather than a column list, and it is load-bearing rather than
+  // lazy. This has to work on a database written by a DIFFERENT schema, which is
+  // the whole promise of read-only mode -- and a named column list breaks the
+  // moment this build knows a column the file does not, which is exactly what
+  // adding `idea` did. A test caught it: "serves reads" went red on a stale
+  // fixture. Same class as the export round-trip bug, one direction over: the
+  // recovery path has to work on precisely the state that needs it.
+  //
+  // Every field is then read defensively, because on such a file any of them may
+  // be absent.
   const row = db
-    .prepare(
-      `SELECT id, body, updated_at, head_version_id, title
-         FROM documents WHERE id = ? AND deleted_at IS NULL`,
-    )
-    .get(id) as
-    | { id: string; body: string; updated_at: number; head_version_id: string | null; title: string | null }
-    | undefined;
+    .prepare(`SELECT * FROM documents WHERE id = ? AND deleted_at IS NULL`)
+    .get(id) as Record<string, unknown> | undefined;
   if (!row) return undefined;
 
-  const doc = JSON.parse(row.body) as H3Document;
+  const doc = JSON.parse(String(row.body)) as H3Document;
   return {
     record: {
-      id: row.id,
-      title: row.title ?? '',
-      updatedAt: row.updated_at,
+      id: String(row.id),
+      title: (row.title as string | null) ?? '',
+      idea: (row.idea as string | null) ?? '',
+      updatedAt: Number(row.updated_at),
       doc,
-      headVersionId: row.head_version_id ?? '',
+      headVersionId: (row.head_version_id as string | null) ?? '',
     },
     schemaError: describeSchemaFailure(doc),
   };
 }
 
 export function listDocuments(db: Db, limit = 200): StoredDocument[] {
+  // `SELECT *` for the same reason as `loadDocument`: this must survive a file
+  // whose columns differ from this build's.
   const rows = db
     .prepare(
-      `SELECT id, body, updated_at, head_version_id, title
-         FROM documents WHERE deleted_at IS NULL
-         ORDER BY updated_at DESC LIMIT ?`,
+      `SELECT * FROM documents WHERE deleted_at IS NULL ORDER BY updated_at DESC LIMIT ?`,
     )
-    .all(limit) as {
-    id: string;
-    body: string;
-    updated_at: number;
-    head_version_id: string | null;
-    title: string | null;
-  }[];
+    .all(limit) as Record<string, unknown>[];
   return rows.map((r) => ({
-    id: r.id,
-    title: r.title ?? '',
-    updatedAt: r.updated_at,
-    doc: JSON.parse(r.body) as H3Document,
-    headVersionId: r.head_version_id ?? '',
+    id: String(r.id),
+    title: (r.title as string | null) ?? '',
+    idea: (r.idea as string | null) ?? '',
+    updatedAt: Number(r.updated_at),
+    doc: JSON.parse(String(r.body)) as H3Document,
+    headVersionId: (r.head_version_id as string | null) ?? '',
   }));
 }
 

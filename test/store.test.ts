@@ -45,9 +45,15 @@ afterEach(() => {
   for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
 });
 
-const record = (id: string, doc: unknown = t2vaBaker, title = `title of ${id}`) => ({
+const record = (
+  id: string,
+  doc: unknown = t2vaBaker,
+  title = `title of ${id}`,
+  idea = `idea behind ${id}`,
+) => ({
   id,
   title,
+  idea,
   updatedAt: 1_700_000_000_000,
   doc: doc as never,
   headVersionId: `v_${id}`,
@@ -361,7 +367,19 @@ describe('the schema version is pinned to the schema', () => {
     expect(
       createHash('sha256').update(sql).digest('hex'),
       'server/schema.sql changed. Additive change: update this hash. Incompatible change: bump SCHEMA_VERSION as well.',
-    ).toBe('02c4524a8085311f51176e7b308a34fb2208be254d496d988852a97c51f58cb0');
+    ).toBe('ab7c8f28a8740fb8daabf786ebe235e7a9548215a96807e2408a28729379ae28');
+  });
+
+  /**
+   * The first real exercise of the mechanism. Adding `idea` is INCOMPATIBLE
+   * rather than additive: `CREATE TABLE IF NOT EXISTS` skips a table that
+   * already exists, so an older file would keep a `documents` with no `idea`
+   * column and every write naming it would fail. Additive would have meant a new
+   * table or index, or a VIRTUAL generated column, which an existing file can
+   * take.
+   */
+  it('was bumped for the idea column, which an existing file could not have taken', () => {
+    expect(SCHEMA_VERSION).toBe(2);
   });
 
   it('is a positive integer, so 0 stays available to mean unstamped', () => {
@@ -429,5 +447,41 @@ describe('an export can be read back in', () => {
     expect(keys).not.toContain('shot_count');
     // `title` is stored, not generated, so it must survive.
     expect(keys).toContain('title');
+  });
+});
+
+/**
+ * The originating idea, which nothing persisted before this.
+ *
+ * A document could not be regenerated: `doc.roll` holds the template and seed
+ * and only when wildcards were used, so a plainly typed idea left nothing
+ * behind. `types.ts` names the gap in its own `roll` comment -- "the template it
+ * was a seed of lives in the idea box, which nothing persists".
+ */
+describe('the idea that produced a document', () => {
+  it('round-trips, and survives a re-save', () => {
+    const db = mustWrite(open(':memory:'));
+    saveDocument(db, record('d1', t2vaBaker, 'T', 'a baker at dawn, rain outside'));
+    expect(loadDocument(db, 'd1')!.record.idea).toBe('a baker at dawn, rain outside');
+    saveDocument(db, record('d1', t2vaBaker, 'T', 'a baker at dusk'));
+    expect(loadDocument(db, 'd1')!.record.idea).toBe('a baker at dusk');
+  });
+
+  it('is on the list rows too, so a library view can show it', () => {
+    const db = mustWrite(open(':memory:'));
+    saveDocument(db, record('d1', t2vaBaker, 'T', 'the idea'));
+    expect(listDocuments(db)[0].idea).toBe('the idea');
+  });
+
+  /**
+   * The column defaults rather than requiring, so a caller that predates it --
+   * an HTTP body parsed as `unknown`, for instance -- still stores. The TYPE
+   * requires it, which is what makes new app code state it deliberately.
+   */
+  it('defaults to empty for a caller that omits it', () => {
+    const db = mustWrite(open(':memory:'));
+    const { idea: _dropped, ...without } = record('d1');
+    saveDocument(db, without as never);
+    expect(loadDocument(db, 'd1')!.record.idea).toBe('');
   });
 });

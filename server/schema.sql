@@ -38,6 +38,24 @@ CREATE TABLE IF NOT EXISTS documents (
   deleted_at      INTEGER,
   head_version_id TEXT,
 
+  -- The idea that produced this document, EXPANDED -- what the planner actually
+  -- received, not the template it was written as.
+  --
+  -- Without it a document cannot be regenerated, which CLAUDE.md carries as open
+  -- work and `types.ts` states in the `roll` comment: "the template it was a seed
+  -- of lives in the idea box, which nothing persists". `doc.roll` is not a
+  -- substitute -- it holds the template and seed, and only when wildcards were
+  -- used, so a plainly typed idea leaves nothing behind at all.
+  --
+  -- Expanded rather than templated because that is what conditions the model:
+  -- `CompileInput.idea` arrives at `compile` already expanded, and `roll` is the
+  -- record of how. Store both and you have the whole story; store the template
+  -- alone and you have nothing in the common case.
+  --
+  -- Stored like `title` and for the same reason: the body has no idea field, and
+  -- adding one would be contract-adjacent.
+  idea            TEXT NOT NULL DEFAULT '',
+
   -- Stored, not generated. `title` is an app-level name that lives on the
   -- StoredDocument wrapper and is set from the save label -- `H3Document` has no
   -- title field, so a column generated from `body ->> '$.title'` is NULL for

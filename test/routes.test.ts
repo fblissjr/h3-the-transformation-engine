@@ -30,6 +30,7 @@ afterEach(() => {
 const record = (id: string, title = `title of ${id}`) => ({
   id,
   title,
+  idea: `idea behind ${id}`,
   updatedAt: 1_700_000_000_000,
   doc: t2vaBaker as never,
   headVersionId: `v_${id}`,

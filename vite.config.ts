@@ -2,6 +2,9 @@ import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
 import { parseInstances, allOrigins } from './src/provider/registry.ts';
+// The `.ts` extension is required here for the same reason as the line above:
+// this file is loaded by Node, whose TypeScript loader does no extension search.
+import { configFromEnv } from './server/config.ts';
 
 /**
  * Write the configured heylook origin into the page's `connect-src`.
@@ -52,7 +55,29 @@ export default defineConfig(({ mode }) => {
   const instances = parseInstances(env.VITE_HEYLOOK_INSTANCES, env.VITE_HEYLOOK_ORIGIN);
   const origins = allOrigins(instances);
 
+  // The dev server proxies /api to the bun server so the browser is same-origin
+  // to its own storage in dev exactly as it is in production, where bun serves
+  // the built SPA itself.
+  //
+  // The alternative was CORS, and it is worse for a specific reason rather than
+  // on taste: it would make dev and prod differ in the one layer whose failures
+  // are hardest to read. `index.html` already says `connect-src 'self'`, so a
+  // same-origin /api needs no policy change in either mode -- while a
+  // cross-origin one is refused before the request leaves the page, with no
+  // status and no response body, which presents as the server being down.
+  //
+  // The target port comes from the server's own config rather than a literal,
+  // so it is one value with two consumers. That is the same reason the CSP above
+  // is generated from `parseInstances` instead of maintained beside it: two
+  // copies of a port drift, and the failure is a dev-only 404 on every save.
+  const server = configFromEnv(env);
+
   return {
+    server: {
+      proxy: {
+        '/api': { target: `http://localhost:${server.port}`, changeOrigin: false },
+      },
+    },
     plugins: [react(), heylookCsp(origins)],
     define: {
       // Injected rather than read from `import.meta.env` by the app.
