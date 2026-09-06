@@ -38,14 +38,23 @@ CREATE TABLE IF NOT EXISTS documents (
   deleted_at      INTEGER,
   head_version_id TEXT,
 
+  -- Stored, not generated. `title` is an app-level name that lives on the
+  -- StoredDocument wrapper and is set from the save label -- `H3Document` has no
+  -- title field, so a column generated from `body ->> '$.title'` is NULL for
+  -- every row. It was written that way here and shipped, because the test
+  -- asserting it compared the column to the fixture's own missing property and
+  -- so compared null to null. A null result establishes nothing unless you know
+  -- the check could have matched.
+  title           TEXT NOT NULL DEFAULT '',
+
   -- Projected from the body so the list view never parses JSON it does not need.
+  -- These two ARE functions of the body, which is what makes them safe to derive.
   -- VIRTUAL rather than STORED, for two measured reasons: an indexed VIRTUAL
   -- column beat an unindexed STORED one by 27x at 20k rows, and ALTER TABLE ADD
   -- COLUMN ... STORED is rejected outright on a populated table while VIRTUAL is
   -- accepted. So VIRTUAL is both faster where it matters and the only kind that
   -- can be added later.
   mode            TEXT    GENERATED ALWAYS AS (body ->> '$.mode') VIRTUAL,
-  title           TEXT    GENERATED ALWAYS AS (body ->> '$.title') VIRTUAL,
   shot_count      INTEGER GENERATED ALWAYS AS (json_array_length(body, '$.shots')) VIRTUAL
 ) STRICT;
 
@@ -119,6 +128,14 @@ CREATE TABLE IF NOT EXISTS runs (
   created_at     INTEGER NOT NULL,
 
   -- Null for a harness call that never became a document.
+  --
+  -- Deliberately carrying NO foreign key, unlike everything else in this file.
+  -- A measurement record has to outlive the artifact it measured: the erase
+  -- button hard-deletes and `versions` cascades, so an FK here would either
+  -- delete the evidence with the document or null the id and lose the ability to
+  -- group a document's runs after the fact. The id is kept as a plain value on
+  -- purpose. Stated because four FKs are present nearby and the next reader
+  -- would otherwise read this as an omission.
   document_id    TEXT,
   version_id     TEXT,
   arm_id         TEXT REFERENCES arms (id) ON DELETE SET NULL,
@@ -131,9 +148,16 @@ CREATE TABLE IF NOT EXISTS runs (
   -- The values that went on the wire, not the settings that were in force:
   -- they differ whenever the server's own cascade fills something in.
   task           TEXT,
-  thinking       TEXT,
+  -- `auto` is not a synonym for off: it omits the field entirely and lets the
+  -- server's own cascade decide, so it has to be recordable as its own value.
+  thinking       TEXT CHECK (thinking IS NULL OR thinking IN ('auto', 'on', 'off')),
+  -- heylook's `reasoning_effort`, a separate axis from `thinking` and only sent
+  -- with thinking on. Deliberately unconstrained, for the same reason
+  -- `failure_cause` is: its vocabulary is per model, so a closed set here would
+  -- make a legal value unrecordable the first time a new model is served.
+  effort         TEXT,
   enforce_schema INTEGER,
-  creative_mode  TEXT,
+  creative_mode  TEXT CHECK (creative_mode IS NULL OR json_valid(creative_mode)),
 
   -- The stage the call reached. The conformance harness's own vocabulary, and
   -- the stages are separate columns of an analysis, never summed: a model that

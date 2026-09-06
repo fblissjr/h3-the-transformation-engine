@@ -40,9 +40,9 @@ afterEach(() => {
   for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
 });
 
-const record = (id: string, doc: unknown = t2vaBaker) => ({
+const record = (id: string, doc: unknown = t2vaBaker, title = `title of ${id}`) => ({
   id,
-  title: 'ignored -- title is derived from the body',
+  title,
   updatedAt: 1_700_000_000_000,
   doc: doc as never,
   headVersionId: `v_${id}`,
@@ -55,19 +55,45 @@ describe('documents round-trip', () => {
     expect(loadDocument(db, 'd1')?.record.doc).toEqual(t2vaBaker);
   });
 
-  it('derives title and mode from the body rather than storing them twice', () => {
+  it('derives mode and shot count from the body rather than storing them twice', () => {
     const db: Db = open(':memory:');
     saveDocument(db, record('d1'));
-    const row = db.prepare('SELECT title, mode, shot_count FROM documents WHERE id = ?').get('d1') as {
-      title: string;
+    const row = db.prepare('SELECT mode, shot_count FROM documents WHERE id = ?').get('d1') as {
       mode: string;
       shot_count: number;
     };
-    expect(row.mode).toBe(t2vaBaker.mode);
-    expect(row.shot_count).toBe(t2vaBaker.shots.length);
     // A generated column cannot disagree with the body it is computed from,
     // which is the whole reason the list view reads these instead of a copy.
-    expect(row.title).toBe((t2vaBaker as { title?: string }).title ?? null);
+    expect(row.mode).toBe(t2vaBaker.mode);
+    expect(row.shot_count).toBe(t2vaBaker.shots.length);
+  });
+
+  /**
+   * `title` is NOT derived, and this assertion exists because the first version
+   * of it could not fail.
+   *
+   * It read `expect(row.title).toBe(fixture.title ?? null)` against a column
+   * generated from `body ->> '$.title'`. `H3Document` has no title -- it is an
+   * app-level name on the StoredDocument wrapper -- so the column was null for
+   * every row, the fixture's property was undefined, and the assertion compared
+   * null to null and passed while every document in the list view was untitled.
+   * A null result establishes nothing unless you know the check could match, so
+   * this one round-trips a value the fixture does not contain.
+   */
+  it('stores the title the caller supplied, which the body does not carry', () => {
+    const db: Db = open(':memory:');
+    saveDocument(db, record('d1', t2vaBaker, 'Bakery at dawn'));
+    expect(loadDocument(db, 'd1')!.record.title).toBe('Bakery at dawn');
+    expect(listDocuments(db)[0].title).toBe('Bakery at dawn');
+    // The body genuinely has no title, which is why deriving one was wrong.
+    expect((t2vaBaker as { title?: string }).title).toBeUndefined();
+  });
+
+  it('keeps the title across a re-save of the same document', () => {
+    const db = open(':memory:');
+    saveDocument(db, record('d1', t2vaBaker, 'first name'));
+    saveDocument(db, record('d1', t2vaBaker, 'renamed'));
+    expect(loadDocument(db, 'd1')!.record.title).toBe('renamed');
   });
 
   it('omits soft-deleted documents from the list and from load', () => {

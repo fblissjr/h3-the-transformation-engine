@@ -56,7 +56,8 @@ export interface RunRecord {
   model: string;
   instanceId?: string | null;
   task?: string | null;
-  thinking?: string | null;
+  thinking?: 'auto' | 'on' | 'off' | null;
+  effort?: string | null;
   enforceSchema?: boolean | null;
   creativeMode?: string | null;
   stage: RunStage;
@@ -111,14 +112,16 @@ export function describeSchemaFailure(doc: unknown): string | null {
 export function saveDocument(db: Db, record: StoredDocument): void {
   const now = record.updatedAt;
   db.prepare(
-    `INSERT INTO documents (id, body, created_at, updated_at, head_version_id)
-     VALUES (@id, @body, @now, @now, @head)
+    `INSERT INTO documents (id, title, body, created_at, updated_at, head_version_id)
+     VALUES (@id, @title, @body, @now, @now, @head)
      ON CONFLICT (id) DO UPDATE SET
+       title = excluded.title,
        body = excluded.body,
        updated_at = excluded.updated_at,
        head_version_id = excluded.head_version_id`,
   ).run({
     id: record.id,
+    title: record.title,
     body: JSON.stringify(record.doc),
     now,
     head: record.headVersionId,
@@ -237,13 +240,13 @@ export function recordRun(db: Db, run: RunRecord): void {
   db.prepare(
     `INSERT INTO runs (
        id, created_at, document_id, version_id, arm_id, role, provider, model,
-       instance_id, task, thinking, enforce_schema, creative_mode, stage,
+       instance_id, task, thinking, effort, enforce_schema, creative_mode, stage,
        failure_cause, reader_note, duration_ms, attempts, queued_ms,
        prompt_tokens, output_tokens, prompt_sha256, raw_output,
        app_version, contract_sha)
      VALUES (
        @id, @createdAt, @documentId, @versionId, @armId, @role, @provider, @model,
-       @instanceId, @task, @thinking, @enforceSchema, @creativeMode, @stage,
+       @instanceId, @task, @thinking, @effort, @enforceSchema, @creativeMode, @stage,
        @failureCause, @readerNote, @durationMs, @attempts, @queuedMs,
        @promptTokens, @outputTokens, @promptSha256, @rawOutput,
        @appVersion, @contractSha)`,
@@ -255,6 +258,7 @@ export function recordRun(db: Db, run: RunRecord): void {
     instanceId: run.instanceId ?? null,
     task: run.task ?? null,
     thinking: run.thinking ?? null,
+    effort: run.effort ?? null,
     enforceSchema: run.enforceSchema == null ? null : run.enforceSchema ? 1 : 0,
     creativeMode: run.creativeMode ?? null,
     failureCause: run.failureCause ?? null,

@@ -4,6 +4,52 @@ All notable changes to this project are documented here. Semantic versioning.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`documents.title` was generated from a field the document does not have, and
+  the test guarding it could not fail.** The column was
+  `GENERATED ALWAYS AS (body ->> '$.title')`, but `title` is an app-level name on
+  the `StoredDocument` wrapper set from the save label -- `H3Document` has no
+  such field. So the column was NULL for every row, `saveDocument` silently
+  discarded the title it was handed, `loadDocument` returned `''`, and every
+  document in the list view was untitled. `documents_list` was a covering index
+  carrying an always-NULL column.
+
+  It shipped green because the assertion was
+  `expect(row.title).toBe(fixture.title ?? null)`. The fixture has no `title`, so
+  the right side evaluated to `null`, the column was `null`, and the check passed
+  without ever touching the property. The test's name claimed it derived title
+  and mode from the body; the mode half did real work and the title half was
+  incapable of failing. That is this repo's own rule twice over -- a check whose
+  scope is narrower than the claim it supports, in its null-result form.
+
+  `title` is now a stored column written by the caller. `mode` and `shot_count`
+  stay generated, because those genuinely are functions of the body, which is
+  what makes deriving them safe. The replacement test round-trips a title the
+  fixture does not contain and asserts the body has none, so it fails if the
+  column ever goes back to being derived -- confirmed by reverting the schema and
+  watching both new assertions turn red.
+
+  Found by review, not by the suite. Worth recording as the fourth instance of
+  the class: writing the code is what makes you unable to see it.
+
+- **`runs.thinking` and `runs.creative_mode` were unconstrained, and `effort` was
+  missing.** `thinking` is now CHECK-constrained to `auto | on | off`, where
+  `auto` omits the field and lets the server's cascade decide and so is not a
+  synonym for off. `creative_mode` gained the `json_valid` check every other JSON
+  column already had. `effort` -- heylook's `reasoning_effort`, a separate axis
+  sent only with thinking on -- was not captured at all and now is, deliberately
+  unconstrained for the same reason `failure_cause` is: its vocabulary is per
+  model, so a closed set would make a legal value unrecordable the first time a
+  new model is served.
+
+- **`runs.document_id` and `runs.version_id` carry no foreign key on purpose,
+  and now say so.** A measurement record has to outlive the artifact it measured:
+  the erase button hard-deletes and `versions` cascades, so a foreign key would
+  either take the evidence with the document or null the id and lose the ability
+  to group a document's runs afterwards. Four foreign keys sit nearby, so the
+  absence read as an omission.
+
 ### Added
 
 - **The SQLite schema and store, in a new top-level `server/`.** Not under
