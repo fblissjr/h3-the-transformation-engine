@@ -130,3 +130,87 @@ describe('the purity check can fail', () => {
     expect(trips(net, 'const f = prefetch(x);')).toBe(false);
   });
 });
+
+// ---------------------------------------------------------------------------
+// The server boundary
+// ---------------------------------------------------------------------------
+
+/**
+ * Nothing the browser ships may reach the server's storage.
+ *
+ * The block above proves the compiler cannot reach the database layer; this
+ * proves the client cannot reach the native one. Vite bundles from `src/`, so a
+ * single convenient import would put `better-sqlite3` into a browser bundle,
+ * where it fails at load with an error about a `.node` file that says nothing
+ * about the import that caused it. The whole reason `server/` sits outside
+ * `src/` is to make that import a visible act rather than an easy one -- and a
+ * boundary that rests on where a directory sits is a convention, which is what
+ * this file's own header says erodes.
+ *
+ * Scanned across all of `src/`, and over `.tsx` as well: the UI is where a
+ * "just read it directly" import would actually be written.
+ */
+const SRC = join(import.meta.dirname, '../src');
+
+const SERVER_REACH: Forbidden[] = [
+  {
+    pattern: /from\s+['"][^'"]*\bserver\/[^'"]*['"]/,
+    why: 'the server directory',
+    scan: 'raw',
+  },
+  { pattern: /from\s+['"]better-sqlite3['"]/, why: 'the native database driver', scan: 'raw' },
+];
+
+function sourceFilesIn(dir: string): string[] {
+  return readdirSync(dir).flatMap((entry) => {
+    const full = join(dir, entry);
+    if (statSync(full).isDirectory()) return sourceFilesIn(full);
+    return /\.tsx?$/.test(entry) ? [full] : [];
+  });
+}
+
+describe('src cannot reach the server', () => {
+  const files = sourceFilesIn(SRC);
+
+  it('finds the source files at all', () => {
+    // Same guard as above: without it this passes vacuously if `src/` moves.
+    expect(files.length).toBeGreaterThan(20);
+  });
+
+  it('scans .tsx as well as .ts, which is where the import would be written', () => {
+    expect(files.some((f) => f.endsWith('.tsx'))).toBe(true);
+  });
+
+  for (const rule of SERVER_REACH) {
+    it(`does not import ${rule.why}`, () => {
+      const offenders = files.filter((f) => trips(rule, readFileSync(f, 'utf8')));
+      expect(offenders.map((f) => f.replace(`${SRC}/`, ''))).toEqual([]);
+    });
+  }
+});
+
+describe('the server boundary check can fail', () => {
+  const dir = SERVER_REACH.find((f) => f.why === 'the server directory')!;
+  const driver = SERVER_REACH.find((f) => f.why === 'the native database driver')!;
+
+  it('flags a reach into the server directory, at any depth', () => {
+    expect(trips(dir, "import { open } from '../../server/store';")).toBe(true);
+    expect(trips(dir, "import { open } from '../server/db/store';")).toBe(true);
+  });
+
+  it('flags the driver import', () => {
+    expect(trips(driver, "import Database from 'better-sqlite3';")).toBe(true);
+  });
+
+  /**
+   * The word "server" is ordinary prose in this repo -- heylook is a server, and
+   * `src/provider/` says so constantly. A rule that fired on those is one people
+   * would learn to ignore, so it matches an import path segment and nothing else.
+   */
+  it('ignores the word in prose, in identifiers, and in unrelated paths', () => {
+    expect(trips(dir, '// the heylook server serialises generation')).toBe(false);
+    expect(trips(dir, 'const serverOrigin = instance.origin;')).toBe(false);
+    expect(trips(dir, "import { x } from './observer';")).toBe(false);
+    expect(trips(dir, "import { y } from '../provider/heylook/config';")).toBe(false);
+  });
+});

@@ -4,6 +4,71 @@ All notable changes to this project are documented here. Semantic versioning.
 
 ## [Unreleased]
 
+### Added
+
+- **The SQLite schema and store, in a new top-level `server/`.** Not under
+  `src/`: Vite bundles from there, so a server module inside it is one careless
+  import from a browser bundle trying to load a `.node` file, and the error that
+  produces says nothing about the import that caused it.
+
+  Two halves with different shapes, joined on document and version id. The
+  library is a document store -- identity, lineage and timestamps as columns, the
+  H3 document as one JSON body with `check(json_valid(body))`. Measured on a
+  synthetic corpus in the real document shape: loading one whole document is
+  0.004ms from a JSON body against 0.013ms reassembled from normalised tables,
+  and loading one document is what this app does constantly. The decisive reason
+  is not the speed though -- shredding the body into tables would turn
+  `loadDocument`'s reported `schemaError` into an insert failure, which is
+  reports-does-not-gate broken at the storage layer.
+
+  Generated columns are VIRTUAL for two measured reasons: an indexed VIRTUAL
+  column beat an unindexed STORED one by 27x at 20k rows, and `ALTER TABLE ADD
+  COLUMN ... STORED` is rejected outright on a populated table while VIRTUAL is
+  accepted -- so VIRTUAL is both faster where it matters and the only kind that
+  can be added later. The list index is covering, which measured 0.241ms ->
+  0.014ms.
+
+  `foreign_keys` is set on the connection rather than in the schema file, because
+  SQLite defaults it OFF per connection and a connection that skipped it would
+  accept orphan rows silently.
+
+- **`experiments`, `arms` and `runs` -- the half that pays for the move.**
+  Nothing today records which prompt, model or settings produced a document, so
+  the question CLAUDE.md names as the main open one is not answerable
+  retroactively.
+
+  `runs` is at CALL grain, one row per thing the pipeline asked for, with
+  `attempts` and `queued_ms` carrying the retry story in aggregate: one call can
+  be several HTTP requests against a busy heylook, so the two are different
+  grains and the schema says which it means.
+
+  The arm grouping exists because the unit of comparison is a DISTRIBUTION, not
+  a call. PLAN.md records that a fixed seed does not reproduce -- the same idea
+  and seed gave a schema refusal in one run and a clean document in the next --
+  so n per arm has to be countable. A calls table with no arm key can hold every
+  call ever made and answer none of the measurement questions.
+
+  `stage` is the conformance harness's own vocabulary under a CHECK constraint,
+  never a boolean, because those stages are columns and not a sum. `reader_note`
+  is separate from it on purpose: two of the failures PLAN.md records are
+  explicitly things the validator cannot see, and collapsing them into the
+  mechanical outcome would lose that distinction.
+
+- **A guard that `src/` cannot import from `server/`.** `test/purity.test.ts`
+  already proves the compiler cannot reach the database layer; this proves the
+  client cannot reach the native one. It scans `.tsx` as well as `.ts`, since the
+  UI is where a "just read it directly" import would actually be written, and it
+  matches an import path segment rather than the word, because "server" is
+  ordinary prose throughout `src/provider/` and a rule that fired on those is one
+  people learn to ignore.
+
+  Broken both ways to check it reaches its subject: a reach into `server/` from
+  `src/db/db.ts` turns it red, and a `better-sqlite3` import in `src/main.tsx`
+  turns the driver rule red. The `.tsx` case is the one that matters, because it
+  is what proves the scan covers the UI rather than passing by never arriving.
+  `tsconfig.json` also gained `server`, without which `tsc` was reporting a clean
+  typecheck it had not read.
+
 ### Fixed
 
 - **The patch prompt stated each derived section twice, under two headings, with
