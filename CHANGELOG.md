@@ -4,7 +4,48 @@ All notable changes to this project are documented here. Semantic versioning.
 
 ## [Unreleased]
 
+### Changed
+
+- **VISION.md rewritten around what the app is rather than how it is used.** The
+  north star is now "a prompt compiler and structured editor for MiniMax H3":
+  generate a conformant prompt in any mode, then edit it as the structured data
+  it is, at any granularity. The test applied to every section was whether a
+  future change could *violate* it or merely *outdate* it -- an invariant with a
+  test pinning it stays, a mood does not.
+
+  Kept: the contract, `scope is the schema`, `structure is never a target`,
+  `transforms accumulate`. Added: `duration is the budget`, which was the
+  constraint the document never mentioned despite the compiler already sizing
+  shots, beats and the spoken-word ceiling against it. Removed: the
+  transform/look/enjoy loop and the rigor-makes-play-safe essay, whose durable
+  halves moved to CLAUDE.md and whose rest was mood.
+
+  One removed sentence was load-bearing and is not simply gone. VISION claimed
+  "seeds are recorded so a result can be had again", which holds only for
+  wildcard rolls -- a plainly typed idea is not persisted, so a document cannot
+  be regenerated. The claim was false and is deleted; the gap it was hiding is
+  now recorded under CLAUDE.md's open work so the deletion did not resolve it.
+
 ### Added
+
+- **`reference/engine-limits.md`.** The runtime facts this repo's duration
+  handling depends on -- frame rate, the 17n+5 grid, the duration floor and
+  ceiling -- vendored with their provenance and their evidentiary standing.
+  They were established in a sibling research repo that is gitignored here, so a
+  note pointing at its files would not resolve in a clean checkout. Prompt style
+  is explicitly not among what that repo is authoritative for; its copies of the
+  two guides are byte-identical to the pinned pair, so there is nothing there to
+  align prompt rules to.
+
+  The 362-frame ceiling is recorded as an owner decision on thin evidence rather
+  than a measurement, because that is what it is, and a ceiling quoted as though
+  measured is the guide-number failure this project already has a rule about.
+
+  Writing it surfaced two unenforced bounds, both left as decisions rather than
+  fixed: the duration picker's ceiling is one grid step short at 345 frames (and
+  345 is specifically the number the sibling repo withdrew as a fact about
+  `diffusers`), and the 5.0-second floor is not applied at all -- `gridFramesUpTo`
+  counts from `k = 0`, so the picker offers durations from 0.208s upward.
 
 - **A prompt inventory.** `src/provider/prompts/inventory.ts` decomposes a
   rendered prompt against the blocks a spec declares for it;
