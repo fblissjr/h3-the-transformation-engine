@@ -176,6 +176,16 @@ The one thing that would have to change structurally is storage: a single
 decision to make rather than a later refinement — the schema either has a place
 for it or it becomes a migration.
 
+One constraint arrives from the storage side and is easy to miss. The `runs`
+table in `server/schema.sql` already records a `role` per call, as a bare string,
+because the measurement half shipped before bindings existed. That is the right
+call for now — the binding table is what would own the vocabulary, and inventing
+it early would be a second source for something with one consumer. But when
+bindings land, `runs.role` and the binding key must come from the same
+enumeration or they will drift, and the drift is invisible: a binding for a role
+name nothing records, or a run recorded under a role nothing binds, both look
+fine from their own side.
+
 Two rules carry over from elsewhere in the codebase and should not be relitigated
 when this is built:
 
