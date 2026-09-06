@@ -129,7 +129,11 @@ Landed since 2026-09-01:
 - [x] **Prompt inventory**, rendering every prompt and reporting what claims it.
 - [x] **Guide-coverage ledger**, `reference/h3/guide-coverage.json`: 183 stated
       sentences pinned, 69 covered against resolving `contract.json` paths, 4
-      declined with reasons, 110 unverified of which 28 look normative. Pins the
+      declined with reasons, 110 unverified of which 28 look normative — as of
+      `708d45b`. **Re-derive rather than trust these: `bun run coverage`.** They
+      move as the backlog is worked and the ledger is the live source; a number
+      transcribed into a plan is exactly the stale-copy shape this repo keeps
+      finding. Pins the
       guide hashes beside each disposition, with a three-way check against
       `contract.sources` and the live files.
 
@@ -166,10 +170,18 @@ Open:
       hardened around them, which is sustainable only while it is written down.
 - [ ] **A/B the worked-example block on a weaker model**, reading the
       placeholder and speaker-id columns separately. `--strip-example` in the
-      conformance harness is the instrument. It now has a sibling of the same
-      shape and with no measurement either: the patch prompt's derived-section
-      framing, changed at `b5b98f9` on the grounds that the prose contradicted
-      itself and explicitly without claiming an output improvement.
+      conformance harness is the instrument.
+
+      It now has a *partial* sibling. The patch prompt's derived-section framing
+      was changed at `b5b98f9`, and the two halves have different standing. The
+      duplication it removed was an established defect — two top-level headings
+      per section, and a wrapper instructing the model to disregard the paragraph
+      directly beneath it — which needed no render to see. The reframing that
+      came with it, from planner-voiced to preservation-voiced, is a content
+      change whose effect is unmeasured in exactly the way the example block's
+      is. So the measurable question here is not "which arm is better" but the
+      narrower "did the incoherence cost anything", and only the second half
+      belongs beside this item.
 - [ ] **Decide the thinking default, now that the control is `auto | on | off`
       rather than a boolean.** `auto` sends no switch and lets the server's own
       cascade decide, which is a third option the original measurement never
