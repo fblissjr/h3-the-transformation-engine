@@ -182,6 +182,17 @@ Open:
       is. So the measurable question here is not "which arm is better" but the
       narrower "did the incoherence cost anything", and only the second half
       belongs beside this item.
+- [ ] **F9: ref 5.4's off-screen marking for a defined subject.** A stated guide
+      rule present in neither the spec nor the prompts. Spec-first if it is
+      wanted, and an owner ruling either way.
+- [ ] **F1: whether the planner preamble gets a spec shape.** Now measured rather
+      than argued — deleting the statement of invariant 1 leaves the suite green,
+      with a control that went red. So the question is live: the preamble is
+      unprotected, and whether that matters is the decision.
+- [ ] **The residual placement instruction in the glitch block.** "Give each mark
+      a different kind of surface" is still placement guidance in a preservation
+      context. Milder than the two already fixed, and removing it means first
+      deciding whether an assisted edit should see the surface vocabulary at all.
 - [ ] **Decide the thinking default, now that the control is `auto | on | off`
       rather than a boolean.** `auto` sends no switch and lets the server's own
       cascade decide, which is a third option the original measurement never
