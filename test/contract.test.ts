@@ -98,6 +98,12 @@ type Node = Record<string, unknown>;
  * `refDetailWords.appliesTo` could have said "everything" with the suite green. The
  * scope keys are the guide-number rule's own subject, so leaving them off this list is
  * the specific mistake that rule exists to prevent.
+ *
+ * `rule` was added for `referenceAudioRelationship`, whose claim is a placement
+ * rule rather than a string. Adding to this list grants leaf status, so it is the
+ * safe direction to extend: a key left off makes its entry invisible to the
+ * attribution check, which is the failure the list exists to catch, while a key
+ * wrongly added only subjects more of the spec to it.
  */
 const CLAIM_KEYS = [
   'values',
@@ -111,6 +117,7 @@ const CLAIM_KEYS = [
   'close',
   'appliesTo',
   'exemptions',
+  'rule',
 ] as const;
 
 const isLeaf = (node: Node) => CLAIM_KEYS.some((k) => k in node);
@@ -452,6 +459,12 @@ describe('every vocabulary claim is bound to what it describes', () => {
       'budgets.refDetailWords.appliesTo',
       'budgets.refDetailWords.exemptions',
       'onScreenText.quoting',
+      // Ref 6 mandates that a reference audio's relationship be stated in the
+      // section matching the audible layer, and fixes no wording for it. Same
+      // line VOICEOVER_PHRASE_MISSING draws, taken on the statement side: no
+      // allowlist can prove a statement's absence, and pattern-matching prose
+      // for one is the rule class this repo purged seventeen of.
+      'referenceAudioRelationship.rule',
       'tags.dialogue.form',
     ]);
   });

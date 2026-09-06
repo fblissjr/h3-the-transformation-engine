@@ -430,6 +430,16 @@
         }
       }
     },
+    "referenceAudioRelationship": {
+      "rule": "State a reference audio's copy-or-reference relationship only in the section that matches the audible layer: ambience and sound effects in overall_soundscape, audience-only score in non_diegetic_music. When one asset supplies both kinds of content, state the corresponding relationship in each section.",
+      "guide": "ref 6",
+      "note": "Neither stated nor shown before this entry. The # Audio block is mode-agnostic base 4.6/4.7 and never mentions reference audio; output.Ref2VA cites ref 6 for both sound fields and carried nothing about the relationship; and ref 7's own worked example does not demonstrate it either, since its soundscape is plain room tone and its music is N/A. So the gap was invisible to a citation-level reading, which is the class of miss that motivated it being recorded here at all.",
+      "binds": {
+        "rule": {
+          "unbound": "A rule about which section a statement belongs in, not a string. Ref 6 mandates that the relationship be stated and fixes no wording for it, so no allowlist can prove its absence and pattern-matching prose for it is the rule class this repo purged seventeen of. The planner prompt is the only implementation; the guide citation is the only binding available. This is the same line VOICEOVER_PHRASE_MISSING draws between a mandated wording and a mandated statement, taken on the statement side."
+        }
+      }
+    },
     "visualRetention": {
       "guide": "ref 4.1",
       "values": [

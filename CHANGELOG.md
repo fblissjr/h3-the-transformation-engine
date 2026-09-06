@@ -6,6 +6,33 @@ All notable changes to this project are documented here. Semantic versioning.
 
 ### Added
 
+- **Ref 6's placement rule for a reference audio's relationship.** The guide
+  requires that a reference audio's copy-or-reference relationship be stated in
+  the section matching the audible layer -- ambience and sound effects in
+  `overall_soundscape`, an audience-only score in `non_diegetic_music` -- and in
+  that section only. It was neither stated nor shown anywhere: the `# Audio`
+  block is mode-agnostic base 4.6/4.7 and never mentions reference audio,
+  `output.Ref2VA` cited ref 6 for both sound fields and carried nothing about the
+  relationship, and ref 7's own worked example does not demonstrate it either,
+  since its soundscape is plain room tone and its music is `N/A`. So a
+  citation-level reading of the spec passes clean over it, which is what made it
+  invisible.
+
+  Recorded as `vocabulary.referenceAudioRelationship` and deliberately
+  `unbound`. Ref 6 mandates that the relationship be *stated* and fixes no
+  wording for it, so it falls on the opposite side of the line
+  `VOICEOVER_PHRASE_MISSING` already draws: no allowlist can prove a statement's
+  absence, and pattern-matching prose for one is the rule class this repo purged
+  seventeen of. No diagnostic; the planner prompt is the whole implementation.
+
+  Worth saying plainly, because the workflow reads as stronger than it was: the
+  spec entry did fail the suite twice before passing, but both failures were
+  about the spec's own machinery -- `rule` was missing from `CLAIM_KEYS`, then
+  the pinned `unbound` exemption list rejected a new entry. Neither failure
+  tested the prompt text, and nothing does. That is what `unbound` records, and
+  the pinned list is what made adding it a decision rather than a quiet
+  widening.
+
 - **Ref 3's mandated opener for a video-editing summary.** The guide states that
   a video-editing summary begins, after the bracketed task-type prefix, with
   `The target video is an edited version of <Video 1>.` The string appeared

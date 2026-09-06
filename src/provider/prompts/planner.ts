@@ -194,6 +194,8 @@ When the job carries a reference's actual words across -- dialogue, narration or
 
 When only the timbre, rhythm, emotion or delivery of a voice is being referenced, do not carry the source's words across at all. That asset is supplying how something sounds, not what is said.
 
+When a reference audio is used, say whether it is copied or only referenced, and say it in the section that matches what is audible: ambience and sound effects in \`overall_soundscape\`, an audience-only score in \`non_diegetic_music\`. State it in that section only. If one asset supplies both kinds of content, state the relationship that applies in each.
+
 Retention says how faithfully each reference survives: ${VISUAL_RETENTION.join(', ')}.
 
 Task types describe what the job actually is: ${TASK_TYPES.join(', ')}. Presence of a video or an audio file does not by itself create a task type -- a video that only supplies a person's appearance is reference generation, not video editing.
