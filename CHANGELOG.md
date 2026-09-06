@@ -4,6 +4,43 @@ All notable changes to this project are documented here. Semantic versioning.
 
 ## [Unreleased]
 
+### Fixed
+
+- **The export could not be read back in, failing with the error the lineage
+  check exists to prevent.** `exportTables` used `SELECT *`, and `SELECT *`
+  includes generated columns -- so a dump of `documents` carried `mode` and
+  `shot_count`, and reading it into a fresh database failed with `cannot INSERT
+  into generated column`. That is the same sentence a stale file throws at
+  `saveDocument`, arriving one layer further out.
+
+  It mattered more than an ordinary bug because export is not a convenience
+  here: it is the migration mechanism the whole read-only answer rests on. "You
+  can always get your rows out and back in" is what makes refusing to rewrite a
+  file acceptable, so a dump that does not round-trip removes the load-bearing
+  half of the argument -- and nothing would have noticed until the moment someone
+  actually needed it.
+
+  The column list now comes from `pragma_table_xinfo` where `hidden` is 0,
+  derived per table at read time rather than from this build's schema, because
+  the files this runs on are by definition written by a different one and may
+  generate different columns. `table_info` cannot serve: it omits generated
+  columns of both kinds rather than marking them, so it cannot say what to leave
+  out. There is now a round-trip test, and reverting to `SELECT *` turns it red.
+
+- **A read-only handle can no longer be passed to a writer.** `open` returned
+  `{ db, writable, mismatch }` with nothing forcing a caller to read `writable`,
+  so a write against a mismatched database would have failed at
+  `SQLITE_READONLY` -- an error far from its cause, which is the exact failure
+  the lineage check was written to remove, reintroduced one level up.
+
+  `Opened` is now discriminated on `writable` and `WritableDb` is branded, so
+  narrowing is what produces a handle the write functions accept and `tsc`
+  rejects the rest. Same move as `WritableKeyMode` in
+  `src/crypto/secureStore.ts`, which excludes the decrypt-only mode so a write
+  fails to compile rather than at runtime. `mustWrite` states "I require a
+  writable database" once, at the caller that does, instead of every write site
+  re-deciding.
+
 ### Added
 
 - **A guide-coverage ledger, for the one direction nothing checked.** The spec
