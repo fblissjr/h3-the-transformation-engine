@@ -6,6 +6,16 @@ All notable changes to this project are documented here. Semantic versioning.
 
 ### Added
 
+- **`SHOT_HEADER_IN_PROSE`: a beat may not write the shot header the serializer owns.** Invariant 2 makes that structure the serializer's, so a beat carrying `[Shot 2]` renders the header twice with two cut times that disagree — and before this rule the whole document validated at zero diagnostics. That is provable from the document and its own derived values, which is what makes it a diagnostic rather than a preference.
+
+  The exclusion is the rule. `visibleTextQuoted` requires every `visibleText` entry to appear verbatim in double quotes inside the prose, per base 4.5, so a beat whose on-screen text is a clapperboard reading `[Shot 2]` is not merely allowed but mandated to contain a shot header. The naive pattern fires on it — measured on a fixture before the rule existed, which is the seventeen-rules failure caught in advance rather than after. Matches that are a declared and quoted `visibleText` entry are excluded; a header declared but not quoted is still a fault, since it renders doubled either way.
+
+  This couples the rule to `visibleTextQuoted` invisibly from both files: keying on `"${entry}"` is sound only while that rule guarantees the quoting. Said in the rule, because relaxing the other one turns this into a hole rather than a failure, and that direction does not announce itself.
+
+  The control carries the negative case, and nothing required it to. `test/validate.test.ts` proves every code can fire; no check anywhere proves a code does not fire on legitimate output, so omitting the clapperboard beat leaves the suite green with the rule wrong. Breakage run: dropping the exclusion turns exactly that assertion red.
+
+  `invariants[0].enforcedBy` said "two surfaces, and neither is a test", which this makes false. It now names three and says which of the four structural things the preamble lists this actually covers — shot numbers, and not cut timestamps, section headers or the alignment line.
+
 - **Every planner call is recorded, including the ones that fail.** This is the
   half the storage move was for: nothing recorded which prompt, model or
   settings produced a document, so the question CLAUDE.md names as the main open

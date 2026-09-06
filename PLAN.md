@@ -326,13 +326,19 @@ visible instead of read as neglect.
    reuses the KV prefix across calls.
 3. **Whether the schema trailer becomes a plan instance.** *Blocked on a render.* A prompt-quality bet
    with no measurement behind it; same standing as the example block.
-4. **Whether the two projects' rule sets stay deliberately separate.**
-   Recommended: yes, each traced to the guides and tokenizer independently, and
-   recommended that it be **stated now** rather than left open. It has been
-   load-bearing twice in one day without being decided — their corpus was
-   declined as a style source, and their stated-versus-shown rule was adopted.
-   Both were the right calls and both were made ad hoc against an undecided
-   question.
+4. **How the two projects relate.** Settled by the owner, 2026-09-06, and it
+   is smaller than the question was: **the two repos help each other, and that
+   is it.** They are not joined at the hip, nothing binds them, neither owes the
+   other a boundary, and there is no contract to ratify. Treating it as one was
+   my framing and it was wrong.
+
+   The one thing worth keeping written down is not about the relationship but
+   about what may be claimed: **the two repos agreeing is consistency, not
+   corroboration.** Rules moved between them within hours on the first day of
+   sharing, and a commit here called that convergence independent when it was
+   not. So a rule that crossed over must not later be cited as two sources
+   agreeing. That is claim hygiene, and it holds however loose the collaboration
+   is — which is the point, since it is loose by design.
 5. **Whether the server ever runs off this Mac.** Decides whether prebuilds for
    non-darwin targets matter.
 

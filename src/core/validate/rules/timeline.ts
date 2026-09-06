@@ -180,6 +180,55 @@ export const frameRolesOnImages: Rule = (doc) => {
   return out;
 };
 
+/**
+ * A beat's prose must not carry a shot header.
+ *
+ * Invariant 2 makes the structure the serializer's: it writes `[Shot N]` and
+ * the cut time itself. So a beat carrying one renders the header twice, with
+ * two timestamps that disagree -- `[Shot 2] At 00:05.000, [Shot 2] At
+ * 00:04.000, ...`. That is provable from the document and its own derived
+ * values, which is what separates it from a preference about wording. Before
+ * this rule the whole thing validated at zero diagnostics.
+ *
+ * THE EXCLUSION IS LOAD-BEARING, NOT DEFENSIVE, and it is why the naive form of
+ * this rule would have joined the seventeen removed for firing on legitimate
+ * output. `visibleTextQuoted` in ./speech.ts REQUIRES every `visibleText` entry
+ * to appear verbatim in English double quotes inside the prose, per base 4.5.
+ * So a beat whose on-screen text is a clapperboard reading `[Shot 2]`
+ * legitimately contains a shot header, validates clean, and is caught by the
+ * unexcluded pattern. Measured against a fixture before the rule was written.
+ *
+ * That makes this rule COUPLED to `visibleTextQuoted`, invisibly from either
+ * file: keying the exclusion on `"${entry}"` is only sound while that rule
+ * guarantees the quoting. Relax it and this becomes a hole rather than a
+ * failure, which is the direction that does not announce itself.
+ */
+export const shotHeaderInProse: Rule = (doc) => {
+  const out: Diagnostic[] = [];
+  doc.shots.forEach((shot, i) => {
+    shot.beats.forEach((beat, j) => {
+      const headers = beat.prose.match(/\[Shot\s*\d+\]/g) ?? [];
+      if (headers.length === 0) return;
+      // Only an entry the beat actually declares AND quotes is excluded, which
+      // is the same pair `visibleTextQuoted` checks. An undeclared header in
+      // quotes is still a fault -- it would render doubled just the same.
+      const quoted = (beat.visibleText ?? []).filter((entry) => beat.prose.includes(`"${entry}"`));
+      const offending = headers.filter((header) => !quoted.includes(header));
+      if (offending.length === 0) return;
+      out.push(
+        error(
+          'SHOT_HEADER_IN_PROSE',
+          `shots[${i}].beats[${j}].prose`,
+          `Beat prose writes ${offending[0]}. The serializer writes the shot header and its cut ` +
+            'time, so this renders twice with two timestamps that disagree. Describe the action ' +
+            'and let the structure be added around it.',
+        ),
+      );
+    });
+  });
+  return out;
+};
+
 export const timelineRules: Rule[] = [
   shotsPresent,
   durationPositive,
@@ -190,4 +239,5 @@ export const timelineRules: Rule[] = [
   modeMatchesSlots,
   cameraTypeValid,
   frameRolesOnImages,
+  shotHeaderInProse,
 ];

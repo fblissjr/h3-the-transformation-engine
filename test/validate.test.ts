@@ -198,6 +198,14 @@ const CONTROLS: Control[] = [
     inspects: has.cutoff,
   },
 
+  {
+    code: 'SHOT_HEADER_IN_PROSE',
+    base: crossCutBaker,
+    mutate: (d) =>
+      void (d.shots[1].beats[0].prose = `[Shot 2] At 00:04.000, ${d.shots[1].beats[0].prose}`),
+    inspects: has.shots,
+  },
+
   // --- visible text -------------------------------------------------------
   {
     code: 'VISIBLE_TEXT_NOT_QUOTED',
@@ -465,5 +473,54 @@ describe('dialogue punctuation scope', () => {
     });
     const codes = codesFor(doc);
     expect(codes).toContain('DIALOGUE_DECORATIVE_PUNCT');
+  });
+});
+
+describe('a shot header the beat legitimately shows on screen', () => {
+  /**
+   * The negative case, and the reason it is written by hand rather than
+   * generated: nothing requires it. `control coverage` proves every code CAN
+   * fire; no check anywhere proves a code does not fire on legitimate output.
+   * Omit this block and the suite stays green while the rule is wrong in the
+   * exact way that removed seventeen rules from this validator.
+   *
+   * The legitimacy is not a judgement call. `visibleTextQuoted` REQUIRES every
+   * `visibleText` entry to appear verbatim in double quotes inside the prose,
+   * per base 4.5 -- so a beat whose on-screen text is a clapperboard reading
+   * `[Shot 2]` is not merely allowed, it is mandated to contain a shot header.
+   * The unexcluded pattern fires on it; this asserts the rule does not.
+   */
+  const slate = (): H3Document => {
+    const doc = structuredClone(crossCutBaker);
+    const beat = doc.shots[1].beats[0];
+    beat.prose = `${beat.prose} A clapperboard reads "[Shot 2]" as the slate snaps shut.`;
+    beat.visibleText = [...(beat.visibleText ?? []), '[Shot 2]'];
+    return doc;
+  };
+
+  const codes = (doc: H3Document) =>
+    validate(doc, contextFor(doc)).diagnostics.map((d) => d.code);
+
+  it('is not reported, though the same characters in bare prose are', () => {
+    expect(codes(slate())).not.toContain('SHOT_HEADER_IN_PROSE');
+
+    // The discriminator: the identical header, undeclared and unquoted, is a
+    // fault. Without this half the assertion above could pass because the rule
+    // never fires at all.
+    const bare = structuredClone(crossCutBaker);
+    bare.shots[1].beats[0].prose = `[Shot 2] ${bare.shots[1].beats[0].prose}`;
+    expect(codes(bare)).toContain('SHOT_HEADER_IN_PROSE');
+  });
+
+  it('is still reported when the beat declares it but does not quote it', () => {
+    // The exclusion keys on the DECLARED-AND-QUOTED pair, which is what
+    // `visibleTextQuoted` itself checks. Declaring a header without quoting it
+    // is already a VISIBLE_TEXT_NOT_QUOTED fault, and it must not buy an
+    // exemption from this one -- it would render doubled just the same.
+    const doc = structuredClone(crossCutBaker);
+    const beat = doc.shots[1].beats[0];
+    beat.prose = `${beat.prose} A clapperboard reads [Shot 2] as the slate snaps shut.`;
+    beat.visibleText = [...(beat.visibleText ?? []), '[Shot 2]'];
+    expect(codes(doc)).toContain('SHOT_HEADER_IN_PROSE');
   });
 });
