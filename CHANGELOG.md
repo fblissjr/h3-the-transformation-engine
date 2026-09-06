@@ -52,6 +52,14 @@ All notable changes to this project are documented here. Semantic versioning.
 
 ### Changed
 
+- **`buildClient` can pass heylook a token and a thinking preference.** Both existed on `HeylookClientConfig` and neither could be reached: `heylookPolicyConfig` carries `backpressureBudgetMs` alone, `ClientParams` had no field for either, and `buildClient` passed none — so every client constructed with `THINKING_DEFAULT`, and the app could send no thinking value but off. That is why every `runs.thinking` recorded by `a9320fb` is NULL, and it is why the pending decision on the thinking default was unimplementable in either direction rather than merely undecided.
+
+  The two ride together because they are one shape: a field on the bag, a pass-through in the factory, a source in the engine. `heylookApiKey` is prefixed where `origin` and `model` are not, because `apiKey` on that bag is already Gemini's and one flat bag cannot hold two of that name; the comment says so rather than leaving the asymmetry to look arbitrary.
+
+  Asserted at `buildClient` rather than at the client, which is the whole point. `HeylookClient` accepting a field proves nothing about whether anything passes one — the existing client-level thinking test stayed green throughout the period when nothing could reach it. Breakage run and discriminating: deleting the thinking pass-through turns exactly the new test red and leaves the client-level one green, which is the gap stated as a result rather than as a claim.
+
+  The engine does not yet source either value, so no request made today changes. That is the next commit rather than a state to leave.
+
 - **The document store moved from IndexedDB to SQLite over HTTP.** Every
   signature in `src/db/db.ts` is unchanged, because they were already async --
   the swap is a change of transport, not of shape, which is what kept it out of

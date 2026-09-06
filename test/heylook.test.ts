@@ -34,6 +34,7 @@ import {
   HeylookClient,
   type HeylookModel,
 } from '../src/provider/heylook';
+import { buildClient } from '../src/provider/build';
 import { extractJsonObject, jsonShapeTrailer, withShapeTrailer } from '../src/provider/shape';
 import type { CallOptions } from '../src/provider/types';
 import { plannerJsonSchema } from '../src/core/ir/schema';
@@ -546,6 +547,79 @@ describe('the retry loop itself, not just the header arithmetic', () => {
     }
     expect(capture).toHaveLength(3);
     for (const headers of capture) expect(headers.has('Authorization')).toBe(false);
+  });
+
+  it('hands the token and the thinking preference from buildClient to the wire', async () => {
+    // The layer the two client-level tests above cannot see. `HeylookClient`
+    // accepting a field proves nothing about whether anything passes one, and
+    // that gap is the one this repo keeps rediscovering: `buildClient` exists at
+    // all because the `instrument` wrap once lived where no test could reach it,
+    // and every call went untraced with the suite green.
+    //
+    // Concretely, this is what was wrong until now. `heylookPolicyConfig`
+    // carries `backpressureBudgetMs` alone and `ClientParams` had no thinking
+    // field, so the client always constructed with THINKING_DEFAULT and the app
+    // could send no value but off -- which is why every `runs.thinking` was
+    // NULL. Asserting at the client would have stayed green throughout.
+    let seen: Headers | null = null;
+    let body: Record<string, unknown> | null = null;
+    const capture = (async (_url: string, init?: RequestInit) => {
+      seen = new Headers(init?.headers);
+      body = JSON.parse(String(init?.body));
+      return new Response(
+        JSON.stringify({ id: 'msg_1', content: [{ type: 'text', text: 'ok' }], stop_reason: 'end_turn' }),
+        { status: 200 },
+      );
+    }) as unknown as typeof fetch;
+
+    const EFFORT_MODEL: HeylookModel = {
+      ...TEXT_MODEL,
+      capabilities: ['chat', 'thinking', 'reasoning_effort'],
+    };
+    const client = buildClient({
+      provider: 'heylook',
+      origin: 'http://x',
+      model: EFFORT_MODEL,
+      heylookApiKey: 'sekrit',
+      thinking: { mode: 'on', effort: 'medium' },
+      fetchImpl: capture,
+    });
+    expect(client).not.toBeNull();
+    await client!.call({ ...base, maxOutputTokens: 8 });
+
+    expect((seen as unknown as Headers)?.get('Authorization')).toBe('Bearer sekrit');
+    expect((body as unknown as Record<string, unknown>).thinking).toBe(true);
+    expect((body as unknown as Record<string, unknown>).reasoning_effort).toBe('medium');
+  });
+
+  it('builds a client that sends neither when the bag carries neither', async () => {
+    // The other arm, so the assertions above cannot pass by the fields being set
+    // somewhere else. An empty-string token is included because that is what an
+    // untouched input field yields, and it must reach the client as no key.
+    let seen: Headers | null = null;
+    let body: Record<string, unknown> | null = null;
+    const capture = (async (_url: string, init?: RequestInit) => {
+      seen = new Headers(init?.headers);
+      body = JSON.parse(String(init?.body));
+      return new Response(
+        JSON.stringify({ id: 'msg_1', content: [{ type: 'text', text: 'ok' }], stop_reason: 'end_turn' }),
+        { status: 200 },
+      );
+    }) as unknown as typeof fetch;
+
+    const client = buildClient({
+      provider: 'heylook',
+      origin: 'http://x',
+      model: TEXT_MODEL,
+      heylookApiKey: '',
+      fetchImpl: capture,
+    });
+    await client!.call({ ...base, maxOutputTokens: 8 });
+
+    expect((seen as unknown as Headers)?.has('Authorization')).toBe(false);
+    // TEXT_MODEL advertises the thinking switch, so an absent preference falling
+    // back to the default is visible here as `false` rather than as omission.
+    expect((body as unknown as Record<string, unknown>).thinking).toBe(false);
   });
 
   it('refuses a per-call model switch rather than silently ignoring it', async () => {
