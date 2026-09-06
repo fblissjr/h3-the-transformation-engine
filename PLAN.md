@@ -359,11 +359,16 @@ visible instead of read as neglect.
    untouched and still a render question. Read as "the marks do nothing" this
    entry is being misread.
 
-   **`src/core/creative/glitch.ts:4` should be corrected whatever is decided
-   about the feature**, and it is checkable in one line by anyone: it says "an
-   ultra-rare string from the tokenizer corpus" with the tokenizer unqualified,
-   so it parses as a claim about H3. A fact recorded without the scope it was
-   true of, which is the guide-number rule one level out.
+   **Settled by the owner: there was never a mechanism to correct.** "Glitch
+   token" is a joke name, not a claim about a token id. So the provenance
+   sentence in `src/core/creative/glitch.ts` is removed rather than rescoped,
+   along with the matching `notInTheGuides` wording — the marks were picked for
+   looking wrong on screen, which is a thing a reader can check by looking.
+
+   Worth keeping the shape of how it went wrong, since the code did read as a
+   claim whatever was meant: an explanation offered for an effect that did not
+   need one, stated without the scope it was true of, is a fact about a
+   different model wearing this one's clothes. The effect never depended on it.
 
    Two limits carried with it. `coderef/` is gitignored, so a clean checkout
    cannot re-derive this and the finding has to carry its own evidence. And it

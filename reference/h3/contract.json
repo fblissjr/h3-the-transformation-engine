@@ -1025,7 +1025,7 @@
         "paths": [
           "src/core/creative/glitch.ts"
         ],
-        "why": "Anomalous tokenizer strings placed as visible on-screen text. Uses the guide's on-screen text rule rather than a new one."
+        "why": "Odd-looking strings placed as visible on-screen text, for the way they read in frame. Uses the guide's on-screen text rule rather than a new one. Not a claim about H3's tokenizer: the name is a joke, and every mark decomposes into ordinary subword tokens under the Qwen2 vocabulary H3 actually uses."
       },
       {
         "id": "frame-legibility",

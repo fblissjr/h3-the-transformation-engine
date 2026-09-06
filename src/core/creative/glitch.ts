@@ -1,11 +1,19 @@
 /**
  * Glitch-token infusion.
  *
- * A glitch token is an ultra-rare string from the tokenizer corpus -- one that
- * appears so seldom, and in such narrow contexts, that its embedding sits at an
- * odd edge of the space. Dropped into a scene as a visible mark, it reads as a
- * deliberate anomaly: legible, unexplained, and not attributable to anything in
- * the frame.
+ * A glitch mark is an odd-looking string dropped into a scene as visible text,
+ * where it reads as a deliberate anomaly: legible, unexplained, and not
+ * attributable to anything in the frame. That effect is the whole of the
+ * feature and it needs no theory behind it.
+ *
+ * "Glitch token" is a joke, not a claim. An earlier version of this comment
+ * described these as ultra-rare strings from the tokenizer corpus whose
+ * embeddings sit at an odd edge of the space, with the tokenizer unqualified,
+ * so it parsed as a statement about H3. It is not one: H3's text encoder is
+ * Qwen2 with a 151643 vocab, and every mark here decomposes into ordinary
+ * subword tokens under it. The provenance is removed rather than corrected
+ * because there was never a mechanism to state -- the strings were picked for
+ * looking wrong on screen, which is a thing a reader can check by looking.
  *
  * This is not the "glitch art" aesthetic. Nothing here corrupts the image; the
  * VHS and chroma-bleed treatments are finish packs, a different feature that
