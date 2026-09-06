@@ -489,6 +489,11 @@ export function buildSymbolIndex(srcDir: string): SymbolIndex {
   }
 
   walkFiles(srcDir, 'src');
+  // `server/` is code the wiki describes and was invisible here until the
+  // storage move made the wiki cite it. A symbol index that stops at `src/`
+  // reports every server symbol as unknown, which reads as the wiki being
+  // wrong when it is the index that is short.
+  walkFiles(join(ROOT_DIR, 'server'), 'server');
   walkFiles(join(ROOT_DIR, 'test'), 'test');
   walkFiles(join(ROOT_DIR, 'reference'), 'reference');
   walkFiles(join(ROOT_DIR, 'postmortems'), 'postmortems');
@@ -1062,7 +1067,11 @@ export function verifyTier3(
 
 export function verifyTier4(
   repoDir: string,
-  options: VerificationOptions = {},
+  // Unused, and surfaced only when `test/wiki.test.ts` pulled this file into
+  // the typecheck for the first time. `tsconfig.json` includes src, test and
+  // scripts -- never `wiki/` -- so the harness that checks the wiki was itself
+  // unchecked.
+  _options: VerificationOptions = {},
 ): TierResult {
   const issues: VerificationIssue[] = [];
   let checksRun = 0;

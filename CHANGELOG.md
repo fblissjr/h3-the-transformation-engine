@@ -137,6 +137,14 @@ All notable changes to this project are documented here. Semantic versioning.
 
 ### Fixed
 
+- **The wiki described a storage layer that no longer exists, and nothing said so for hours.** Thirteen `verify.ts` failures across six files citing `openHealed`, `ensureSchema`, `highestSuffix` and `closeDb`, none of which survive anywhere in the tree after the document store moved to SQLite. `db.md` still explained versionless schema repair, in-browser id allocation and connection teardown as the current design.
+
+  Rewritten to what is there: schema lineage as a stamped `PRAGMA user_version` pinned against a hash of `schema.sql`, read-only opening on a mismatch with the reasoning for why that satisfies both the never-refuse-to-open rule and the no-migrations rule, server-side id allocation in one transaction, and an erase that spans two stores and reports `clean: false` rather than throwing. The discrepancy ledger keeps its entries and marks them superseded, because a trap that stopped applying is still worth the record — the id-collision one especially, since its shape recurred as "a timestamp is not an ordering".
+
+  **The reason it went stale is the part worth fixing, and it was not the wiki.** `wiki/verify.ts` was in no script anyone runs: not `bun run test`, not `bun run build`, no hook. A control nothing runs is a control in name, which is the maintained-list-versus-construction split pointed at a check. `test/wiki.test.ts` now runs tiers 1 to 3 in the suite — tier 4 shells out to `tsc` and vitest, so calling it from inside vitest would recurse. Breakage confirmed: a bad symbol reference in a wiki page turns tier 3 red.
+
+  Two smaller things fell out. The symbol index stopped at `src/`, so every `server/` symbol the wiki cited read as unknown — the index was short, not the prose. And `wiki/verify.ts` had never been typechecked, because `tsconfig.json` includes src, test and scripts and not `wiki/`; importing it from a test surfaced an unused parameter that had sat there unseen.
+
 - **Version order was undefined for versions recorded in the same
   millisecond.** They compare equal on `created_at`, so the order fell out of
   storage rather than out of the sequence they were allocated in. Found by a

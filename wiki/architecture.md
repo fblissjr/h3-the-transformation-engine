@@ -223,7 +223,7 @@ To maintain total testability and isolation, the repository enforces strict arch
   - Manages wire protocols (Gemini Interactions API vs. heylook Anthropic Messages API).
   - Handles network errors, retry budgets, exponential backoff, and model cancellation.
 - **`src/crypto/` & `src/db/` (Persistence Boundary)**:
-  - Manages browser `IndexedDB` lifecycle with versionless schema repair (`openHealed`).
+  - Talks to the local server over `/api`, so documents, versions and settings live in SQLite. The only IndexedDB left in the app is the key vault.
   - Encrypts API keys at rest using WebCrypto AES-GCM-256 and PBKDF2 in the `"H3KeyVault"` store.
 - **`src/debug/` (Observability Sink)**:
   - Module-level in-memory ring buffer (800 events / 4MB limit) across 4 channels (`provider`, `pipeline`, `state`, `storage`).

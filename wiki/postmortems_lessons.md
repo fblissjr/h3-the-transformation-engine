@@ -158,7 +158,7 @@ This document consolidates all historical engineering lessons, traps, and false-
 3. **`device` key mode is decrypt-only:**
    The legacy `device` key mode derived an AES key from `navigator.userAgent + navigator.language`, which is public. `WritableKeyMode` excludes `'device'`; existing envelopes can be read, but new keys can only be written to `'origin'` (non-extractable CryptoKey in IndexedDB) or `'passphrase'` (PBKDF2-HMAC-SHA256 with 310,000 iterations).
 4. **Survey $\rightarrow$ Erase $\rightarrow$ Survey wipe protocol:**
-   `src/db/wipe.ts` surveys existing row counts, deletes stores, and re-surveys to verify that 0 rows remain before reporting completion. It explicitly calls `closeDb()` beforehand to avoid being blocked by open connections.
+   `src/db/wipe.ts` surveys existing row counts, deletes, and re-surveys to verify that 0 rows remain before reporting completion. It now spans two stores: the server re-reads its own SQLite counts and returns them even when rows survive, and the vault is deleted in the browser. A failed erase reports `clean: false` rather than throwing, because the report is the answer and only a transport failure is an error.
 
 ---
 

@@ -1,4 +1,4 @@
-# Database & Version Lifecycle Subsystem
+`exportTables`# Database & Version Lifecycle Subsystem
 
 [Documentation Index](index.md) | [Architecture](architecture.md) | [Cryptographic Storage](crypto.md) | [UI & State Management](ui.md) | [Operational Policy](policy.md) | [Telemetry & Debugging](debug.md)
 
@@ -37,104 +37,45 @@ The transformation engine deliberately avoids traditional data migration scripts
 
 ---
 
-## 2. Dynamic Schema Healing (`openHealed`)
+## 2. Schema Lineage (`PRAGMA user_version`)
 
-A common vulnerability in client-side IndexedDB applications is the static version upgrade failure. If another script, test suite, or browser extension opens `'H3TransformationEngine'` without defining stores, an empty database is initialized at version 1. Subsequent attempts to run `openDB(DB_NAME, 1, { upgrade })` skip the `upgrade` hook because the database is already at version 1, throwing missing store errors.
+The store moved from IndexedDB to SQLite behind a local server. What replaced versionless schema repair is a stamped lineage, and the failure it guards is different in kind: not a half-created schema, but a database written by a build whose columns this one no longer matches.
 
-### 2.1 Complete Schema Inspection
+### 2.1 The Stamp and Its Pin
 
-`schemaComplete(database)` checks both store existence and necessary index registrations:
-```typescript
-function schemaComplete(database: IDBPDatabase<H3Schema>): boolean {
-  if (!STORES.every((store) => database.objectStoreNames.contains(store))) return false;
+`server/store.ts` stamps `PRAGMA user_version` and compares it on open. The number is monotonic, starting at 1, and is bumped only for a change that makes an older file unwritable — additive changes do not bump it.
 
-  const transaction = database.transaction(['documents', 'versions'], 'readonly');
-  return (
-    transaction.objectStore('documents').indexNames.contains('updatedAt') &&
-    transaction.objectStore('versions').indexNames.contains('documentId')
-  );
-}
-```
-An index omission is treated as severely as a missing store, because queries against `versions.index('documentId')` would otherwise fail silently.
+A hand-incremented number is a guarantee held by someone remembering, so the suite pins the expected value against a sha256 of `server/schema.sql`. Editing the schema without bumping the version turns the suite red. That converts the maintained list into something enforced, which is the same move `contract.sources` makes for the guide files.
 
-### 2.2 Version-Independent Healing Protocol
+### 2.2 Read-Only Opening, Not Refusal and Not Migration
 
-`openHealed()` repairs incomplete schemas by dynamically incrementing the database version:
-```typescript
-async function openHealed(): Promise<IDBPDatabase<H3Schema>> {
-  const existing = await openDB<H3Schema>(DB_NAME);
-  if (schemaComplete(existing)) {
-    return existing;
-  }
+On a mismatch the file opens **read-only**. Every read serves, every write refuses, and the file is not touched.
 
-  const next = existing.version + 1;
-  existing.close();
-  return openDB<H3Schema>(DB_NAME, next, {
-    upgrade: (database, _old, _new, tx) => ensureSchema(database, tx),
-  });
-}
-```
-`ensureSchema` uses guarded store creation (`database.objectStoreNames.contains(store)`) so existing stores are preserved while missing stores or indexes are created.
+That resolves what looks like a conflict between two rules and is not one. "A build that refuses to open what the previous build wrote loses work that exists nowhere else" is about **contents**; "no data migrations, deliberately" is about the **container**. Honouring both means never losing the bytes and never writing per-version migration code, which read-only satisfies exactly: every document remains openable, nothing is rewritten.
 
----
+`open` returns `{ db, writable, mismatch }` rather than throwing, and `WritableDb` is a branded type, so narrowing on `writable` is what produces a handle the write functions accept. A write against a mismatched database is a compile error rather than a runtime surprise at an unrelated call site.
+
+The recovery path is `exportTables`, which works on exactly the files `open` will not write — it derives each table's column list at read time from `pragma_table_xinfo` where `hidden` is 0, so generated columns are excluded and the dump re-imports. `archive` moves a file aside with its `-wal` and `-shm` sidecars rather than deleting it; leaving the sidecars behind is how a stale write log gets replayed into a fresh database of the same name.
 
 ## 3. Immutable Version Trees & Overwrite Protection
 
 Every direct or assisted edit creates a new `StoredVersion` record. Version trees branch rather than overwrite, allowing users to navigate history or branch from any earlier point.
 
-### 3.1 Reload Overwrite Bug & `highestSuffix`
+### 3.1 Id Allocation Moved to the Server
 
-In historical prototypes, version identifiers were allocated using an in-memory counter (`let counter = 0`). Because `counter` reset to 0 on every page refresh, the first edit after a page reload was assigned `v0001`, overwriting the root revision on disk and producing self-parent cycles (`parentId === id`).
+In historical prototypes, version identifiers came from an in-memory counter that reset on every page refresh, so the first edit after a reload was assigned `v0001`, overwriting the root revision and producing self-parent cycles (`parentId === id`). The browser fix was to derive the next id from the keys already on disk.
 
-The ground truth implementation resolves this by querying existing keys on disk:
+That fix is now unnecessary rather than merely superseded. Allocation happens on the server, inside one SQLite transaction, with `rootId` derived there rather than accepted from the caller. The read-then-write race the browser transaction existed to prevent is prevented by SQLite plus the server being the only writer, which is strictly stronger than a same-tab guarantee.
 
-```typescript
-function highestSuffix(keys: readonly IDBValidKey[], prefix: string): number {
-  return keys.reduce<number>((max, key) => {
-    if (typeof key !== 'string' || !key.startsWith(prefix)) return max;
-    const n = Number.parseInt(key.slice(prefix.length), 10);
-    return Number.isFinite(n) && n > max ? n : max;
-  }, 0);
-}
-```
+Two consequences worth having:
 
-### 3.2 Single-Transaction Allocation in `recordVersion`
+- **A timestamp is not an ordering.** Two versions written in the same millisecond tied on `created_at` and fell back to storage order. Ids are zero-padded and break the tie. This was assumed unique twice in one arc and found by a test rather than by review.
+- `root_id` is stored alongside `parent_id` even though lineage is walkable from parents alone, because "every version of this document" is otherwise a recursive CTE written fifty times.
+### 3.2 One Transaction, on the Server
 
-Allocating the version key in one operation and writing it in another would introduce a read-modify-write race under rapid concurrent edits. `recordVersion` executes the scan and `store.put` inside a single `readwrite` transaction:
+Allocating the version key in one operation and writing it in another introduces a read-modify-write race. The browser implementation avoided that by doing both inside a single `readwrite` transaction; the server does the same thing inside one SQLite transaction, with the additional property that there is only ever one writer.
 
-```typescript
-export async function recordVersion(params: {
-  documentId: string;
-  parentId: string | null;
-  doc: H3Document;
-  label: string;
-  operations?: AppliedOperation[];
-}): Promise<StoredVersion> {
-  const tx = (await db()).transaction('versions', 'readwrite');
-  const store = tx.objectStore('versions');
-  const prefix = `${params.documentId}:v`;
-  const keys = await store.index('documentId').getAllKeys(params.documentId);
-
-  const version: StoredVersion = {
-    id: `${prefix}${String(highestSuffix(keys, prefix) + 1).padStart(4, '0')}`,
-    documentId: params.documentId,
-    parentId: params.parentId,
-    createdAt: Date.now(),
-    label: params.label,
-    doc: params.doc,
-    operations: (params.operations ?? []).map((o) => ({
-      path: o.path,
-      before: o.before,
-      after: o.after,
-      rationale: o.rationale,
-    })),
-  };
-  await store.put(version);
-  await tx.done;
-  return version;
-}
-```
-Because IndexedDB serializes overlapping `readwrite` transactions on the `versions` store, concurrent edits cannot be assigned duplicate sequence IDs.
+The client's part is now a POST. `postVersion` in `src/db/db.ts` hands over the document, the parent and the label, and receives the allocated record back — it does not choose the id, so no client can allocate a colliding one.
 
 ### 3.3 Parent Cycle Detection (`inCycle`) & Tree Assembly
 
@@ -186,8 +127,8 @@ Erasing persistent browser state reliably requires handling database locks, cach
                                     │
                                     ▼
                              Teardown & Erase
-             1. closeDb() drops memoized connection handle.
-             2. deleteReporting(DB_NAME) races deleteDB with 3s timeout.
+             1. POST /api/erase; the server deletes and re-counts.
+             2. deleteReporting races the vault delete with a 3s timeout.
              3. If scope === 'everything': removeAllSecrets() & destroyVault().
                                     │
                                     ▼
@@ -198,8 +139,9 @@ Erasing persistent browser state reliably requires handling database locks, cach
 
 ### 5.1 Connection Teardown & Tab Blocking Detection
 
-1. **Closing Connections:** An open connection handle blocks deleteDatabase indefinitely. `erase()` explicitly calls `closeDb()` before invoking deleteDB.
-2. **Blocked Timeout:** When another browser tab has `'H3TransformationEngine'` open, deleteDatabase hangs waiting for the other tab to close. `deleteReporting` races deleteDB against `BLOCKED_TIMEOUT_MS = 3_000`. If blocked, the report records `'H3TransformationEngine'` in `EraseReport.blocked` rather than hanging the interface.
+1. **Two stores, one report.** Documents, versions, settings and runs are deleted by the server, which re-reads its own counts afterwards and returns them; the key vault is deleted in the browser. A store the survey cannot see is one it would report as erased while the data sits on disk, which is why `runs` is in the survey — `raw_output` holds prompt text.
+2. **A failed erase is a 200 with `clean: false`, never a 500.** The report is the answer, and only a transport failure is an error. The client must then say "could not verify" rather than "erased": the property that has to survive the process boundary is that erasing reports what storage says, not what the code did.
+3. **Blocked Timeout (vault only).** When another browser tab holds the vault database open, the delete hangs waiting for it. `deleteReporting` races it against `BLOCKED_TIMEOUT_MS = 3_000` and records the name in `EraseReport.blocked` rather than hanging the interface.
 
 ### 5.2 Erase Scopes & Residue Verification
 

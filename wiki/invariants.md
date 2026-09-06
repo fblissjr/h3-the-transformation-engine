@@ -146,7 +146,7 @@ The provider boundary (`src/provider/`) manages external model execution and adh
    - When disabled, schemas are injected via shape trailers (`withShapeTrailer`) and responses are extracted using `extractJsonObject`.
 3. **Database Lifecycle Disciplines**:
    - When calling `openDB(DB_NAME)`, **never** supply a hardcoded version number.
-   - Database schema changes are handled dynamically via `openHealed()` in `src/db/db.ts`, checking for missing object stores or indexes and migrating without wiping user data.
+   - Database schema lineage is a stamped `PRAGMA user_version`, pinned in the suite against a hash of `server/schema.sql`. A database this build cannot write opens read-only and reports itself rather than being migrated or refused; export and archive work on exactly those files.
 4. **The Empty Search / Negative Grep Trap**:
    - A null search or empty grep result proves nothing unless the search pattern is independently proven capable of matching existing artifacts.
    - When writing tests or asserting absences, always construct a positive control confirming the assertion can fail.

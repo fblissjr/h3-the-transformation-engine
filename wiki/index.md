@@ -58,7 +58,7 @@ The knowledge base is structured into dedicated topic guides:
 - **[Crypto & Secure Storage](crypto.md)**
   Client-side AES-GCM-256 and PBKDF2 encryption ("H3KeyVault"), key modes (`origin`, `passphrase`, `device`), and non-extractable CryptoKey management.
 - **[Database Architecture & Version Lifecycle](db.md)**
-  IndexedDB persistence ("H3TransformationEngine"), dynamic versionless schema repair (`openHealed`), immutable version trees with parent pointers, and survey-erase-survey wipe routines.
+  SQLite behind a local server, schema lineage stamped in `PRAGMA user_version` with read-only opening on a mismatch, immutable version trees with parent pointers, and survey-erase-survey wipe routines that report what storage says rather than what the code did.
 - **[Telemetry & Debug Console](debug.md)**
   In-memory bounded circular event bus across 4 channels (`provider`, `pipeline`, `state`, `storage`), automatic PII/secret redaction, and UI debug console.
 - **[UI Component Hierarchy & State Management](ui.md)**
