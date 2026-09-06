@@ -13,7 +13,7 @@
 import Database from 'better-sqlite3';
 import { existsSync, readFileSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
-import { H3DocumentSchema } from '../src/core/ir/schema';
+import { describeSchemaFailure } from '../src/core/ir/schema';
 import type { H3Document } from '../src/core/ir/types';
 import type { Task } from '../src/provider/types';
 
@@ -273,15 +273,6 @@ export function archive(path: string, now = Date.now()): string {
     if (existsSync(path + suffix)) renameSync(path + suffix, target + suffix);
   }
   return target;
-}
-
-/** The first schema complaint about a stored document, or null if it parses. */
-export function describeSchemaFailure(doc: unknown): string | null {
-  const parsed = H3DocumentSchema.safeParse(doc);
-  if (parsed.success) return null;
-  const first = parsed.error.issues[0];
-  const where = first.path.length > 0 ? first.path.join('.') : 'the document';
-  return `${where}: ${first.message}`;
 }
 
 // ---------------------------------------------------------------------------

@@ -14,7 +14,7 @@
  */
 
 import { openDB, type DBSchema, type IDBPDatabase, type IDBPTransaction } from 'idb';
-import { H3DocumentSchema } from '../core/ir/schema';
+import { describeSchemaFailure } from '../core/ir/schema';
 import type { H3Document } from '../core/ir/types';
 import { trace } from '../debug';
 
@@ -207,15 +207,6 @@ export async function loadDocument(
     { level: schemaError == null ? 'info' : 'warn' },
   );
   return { record, schemaError };
-}
-
-/** The first schema complaint about a stored document, or null if it parses. */
-export function describeSchemaFailure(doc: unknown): string | null {
-  const parsed = H3DocumentSchema.safeParse(doc);
-  if (parsed.success) return null;
-  const first = parsed.error.issues[0];
-  const where = first.path.length > 0 ? first.path.join('.') : 'the document';
-  return `${where}: ${first.message}`;
 }
 
 export async function listDocuments(): Promise<StoredDocument[]> {

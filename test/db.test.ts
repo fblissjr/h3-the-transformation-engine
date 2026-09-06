@@ -17,7 +17,9 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 const { closeDb, db, DB_NAME, STORES } = await import('../src/db/db');
 const { buildTree, flattenTree, listVersions, recordVersion } = await import('../src/db/versions');
-const { describeSchemaFailure, listDocuments, loadDocument, saveDocument } = await import('../src/db/db');
+const { listDocuments, loadDocument, saveDocument } = await import('../src/db/db');
+// Deduped into core: both storage layers report a mismatch with one function.
+const { describeSchemaFailure } = await import('../src/core/ir/schema');
 const { t2vaBaker } = await import('./fixtures/guide-examples');
 
 const doc = {

@@ -390,3 +390,29 @@ export function plannerJsonSchema(): Record<string, unknown> {
 export function patchJsonSchema(): Record<string, unknown> {
   return z.toJSONSchema(PatchOutputSchema, { io: 'output' }) as Record<string, unknown>;
 }
+
+// ---------------------------------------------------------------------------
+// Reporting a mismatch
+// ---------------------------------------------------------------------------
+
+/**
+ * The first schema complaint about a stored document, or null if it parses.
+ *
+ * Lives here rather than beside either storage layer because both need it and
+ * it is a pure function of the schema above. It existed twice -- once in
+ * `src/db/db.ts` for IndexedDB and once in `server/store.ts` for SQLite -- which
+ * is the one-renderer-per-output-string rule broken by a copy that happened to
+ * agree. Two implementations of one format drift, and the drift is invisible
+ * because both look right.
+ *
+ * It REPORTS. Nothing here throws or gates, because every caller returns this
+ * beside the record rather than instead of it: a build that refused to open what
+ * the previous build wrote would lose work that exists nowhere else.
+ */
+export function describeSchemaFailure(doc: unknown): string | null {
+  const parsed = H3DocumentSchema.safeParse(doc);
+  if (parsed.success) return null;
+  const first = parsed.error.issues[0];
+  const where = first.path.length > 0 ? first.path.join('.') : 'the document';
+  return `${where}: ${first.message}`;
+}
