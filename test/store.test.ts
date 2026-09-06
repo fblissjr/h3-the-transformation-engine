@@ -31,7 +31,7 @@ import {
   archive,
   exportTables,
   SCHEMA_VERSION,
-  type Db,
+  mustWrite,
 } from '../server/store';
 import { t2vaBaker } from './fixtures/guide-examples';
 
@@ -55,13 +55,13 @@ const record = (id: string, doc: unknown = t2vaBaker, title = `title of ${id}`) 
 
 describe('documents round-trip', () => {
   it('returns the document that was stored', () => {
-    const db = open(':memory:').db;
+    const db = mustWrite(open(':memory:'));
     saveDocument(db, record('d1'));
     expect(loadDocument(db, 'd1')?.record.doc).toEqual(t2vaBaker);
   });
 
   it('derives mode and shot count from the body rather than storing them twice', () => {
-    const db: Db = open(':memory:').db;
+    const db = mustWrite(open(':memory:'));
     saveDocument(db, record('d1'));
     const row = db.prepare('SELECT mode, shot_count FROM documents WHERE id = ?').get('d1') as {
       mode: string;
@@ -86,7 +86,7 @@ describe('documents round-trip', () => {
    * this one round-trips a value the fixture does not contain.
    */
   it('stores the title the caller supplied, which the body does not carry', () => {
-    const db: Db = open(':memory:').db;
+    const db = mustWrite(open(':memory:'));
     saveDocument(db, record('d1', t2vaBaker, 'Bakery at dawn'));
     expect(loadDocument(db, 'd1')!.record.title).toBe('Bakery at dawn');
     expect(listDocuments(db)[0].title).toBe('Bakery at dawn');
@@ -95,14 +95,14 @@ describe('documents round-trip', () => {
   });
 
   it('keeps the title across a re-save of the same document', () => {
-    const db = open(':memory:').db;
+    const db = mustWrite(open(':memory:'));
     saveDocument(db, record('d1', t2vaBaker, 'first name'));
     saveDocument(db, record('d1', t2vaBaker, 'renamed'));
     expect(loadDocument(db, 'd1')!.record.title).toBe('renamed');
   });
 
   it('omits soft-deleted documents from the list and from load', () => {
-    const db = open(':memory:').db;
+    const db = mustWrite(open(':memory:'));
     saveDocument(db, record('d1'));
     deleteDocument(db, 'd1', Date.now());
     expect(loadDocument(db, 'd1')).toBeUndefined();
@@ -117,7 +117,7 @@ describe('the schema reports, it does not gate', () => {
    * there is no other copy.
    */
   it('returns a document that no longer matches the schema, and says so', () => {
-    const db = open(':memory:').db;
+    const db = mustWrite(open(':memory:'));
     saveDocument(db, record('d1', { schemaVersion: '1.0.0', id: 'd1', mode: 'NOT_A_MODE' }));
     const got = loadDocument(db, 'd1');
     expect(got, 'the record still came back').toBeDefined();
@@ -126,7 +126,7 @@ describe('the schema reports, it does not gate', () => {
   });
 
   it('reports nothing for a document that parses', () => {
-    const db = open(':memory:').db;
+    const db = mustWrite(open(':memory:'));
     saveDocument(db, record('d1'));
     expect(loadDocument(db, 'd1')!.schemaError).toBeNull();
   });
@@ -136,12 +136,12 @@ describe('opening an existing database', () => {
   /** Repair must never be a disguised reset. */
   it('keeps the rows that were already there', () => {
     const path = tempPath();
-    const first = open(path).db;
+    const first = mustWrite(open(path));
     saveDocument(first, record('d1'));
     setSetting(first, 'provider', 'heylook');
     first.close();
 
-    const second = open(path).db;
+    const second = mustWrite(open(path));
     expect(loadDocument(second, 'd1')).toBeDefined();
     expect(getSetting(second, 'provider', 'none')).toBe('heylook');
     second.close();
@@ -154,7 +154,7 @@ describe('referential integrity is actually on', () => {
    * insert is accepted and the orphan is invisible until something joins on it.
    */
   it('refuses a version whose document does not exist', () => {
-    const db = open(':memory:').db;
+    const db = mustWrite(open(':memory:'));
     expect(() =>
       saveVersion(db, {
         id: 'v1',
@@ -179,7 +179,7 @@ describe('runs are grouped so a distribution is recoverable', () => {
    * because nothing says which calls constitute one arm.
    */
   it('counts stage outcomes per arm, which is the query the table exists for', () => {
-    const db = open(':memory:').db;
+    const db = mustWrite(open(':memory:'));
     db.prepare('INSERT INTO experiments (id, created_at, question) VALUES (?,?,?)').run(
       'e1',
       1,
@@ -231,7 +231,7 @@ describe('runs are grouped so a distribution is recoverable', () => {
   });
 
   it('refuses a stage outside the harness vocabulary', () => {
-    const db = open(':memory:').db;
+    const db = mustWrite(open(':memory:'));
     expect(() =>
       recordRun(db, {
         id: 'r1',
@@ -324,7 +324,7 @@ describe('a database written by a different schema', () => {
 
   it('archives rather than deletes, and takes the WAL sidecars with it', () => {
     const path = tempPath();
-    const db = open(path).db;
+    const db = mustWrite(open(path));
     saveDocument(db, record('d1'));
     db.close();
     const moved = archive(path, 1234);
@@ -370,5 +370,64 @@ describe('the schema version is pinned to the schema', () => {
     // SCHEMA_VERSION of 0 would collapse that distinction.
     expect(SCHEMA_VERSION).toBeGreaterThan(0);
     expect(Number.isInteger(SCHEMA_VERSION)).toBe(true);
+  });
+});
+
+/**
+ * Export is the migration mechanism, not a convenience.
+ *
+ * The read-only answer to a lineage mismatch rests entirely on "you can always
+ * get your rows out and back in", so an export that does not round-trip removes
+ * the load-bearing half of it -- and nothing would notice until the moment
+ * someone actually needed it, which is the worst possible time to find out.
+ *
+ * The first version of `exportTables` used `SELECT *`, which includes generated
+ * columns, so a dump of `documents` carried `mode` and `shot_count` and reading
+ * it back failed with `cannot INSERT into generated column`. That is the same
+ * sentence a stale file throws at `saveDocument`, one layer further out.
+ */
+describe('an export can be read back in', () => {
+  const reimport = (dump: Record<string, unknown[]>, into: string) => {
+    const db = mustWrite(open(into));
+    for (const [table, rows] of Object.entries(dump)) {
+      for (const row of rows as Record<string, unknown>[]) {
+        const cols = Object.keys(row);
+        db.prepare(
+          `INSERT INTO "${table}" (${cols.map((c) => `"${c}"`).join(',')}) ` +
+            `VALUES (${cols.map(() => '?').join(',')})`,
+        ).run(...cols.map((c) => row[c]));
+      }
+    }
+    return db;
+  };
+
+  it('round-trips a document into a fresh database', () => {
+    const from = tempPath();
+    const source = mustWrite(open(from));
+    saveDocument(source, record('d1', t2vaBaker, 'Bakery at dawn'));
+    source.close();
+
+    const restored = reimport(exportTables(from), tempPath());
+    const got = loadDocument(restored, 'd1');
+    expect(got!.record.title).toBe('Bakery at dawn');
+    expect(got!.record.doc).toEqual(t2vaBaker);
+    // And the generated columns recompute on the way in rather than being
+    // carried across, which is why they must not be exported.
+    expect(
+      restored.prepare('SELECT mode, shot_count FROM documents WHERE id = ?').get('d1'),
+    ).toEqual({ mode: t2vaBaker.mode, shot_count: t2vaBaker.shots.length });
+  });
+
+  it('omits generated columns, which is what makes that possible', () => {
+    const path = tempPath();
+    const db = mustWrite(open(path));
+    saveDocument(db, record('d1'));
+    db.close();
+    const keys = Object.keys(exportTables(path).documents[0] as object);
+    expect(keys).toContain('body');
+    expect(keys).not.toContain('mode');
+    expect(keys).not.toContain('shot_count');
+    // `title` is stored, not generated, so it must survive.
+    expect(keys).toContain('title');
   });
 });

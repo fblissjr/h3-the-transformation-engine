@@ -77,6 +77,21 @@ export interface RunRecord {
 export type Db = Database.Database;
 
 /**
+ * A handle this build may write.
+ *
+ * Branded so `tsc` rejects handing a read-only database to a writer, rather
+ * than leaving it to SQLITE_READONLY at the moment of the insert -- which would
+ * be an error far from its cause, the exact failure mode the lineage check
+ * exists to remove, reintroduced one level up. Same move as `WritableKeyMode`
+ * in `src/crypto/secureStore.ts`, which excludes the decrypt-only mode so a
+ * write fails to compile instead of failing at runtime.
+ *
+ * The brand is applied in exactly one place: `open`, after the version matched.
+ */
+declare const writable: unique symbol;
+export type WritableDb = Db & { readonly [writable]: true };
+
+/**
  * The shape this build writes. Bump it whenever a column changes meaning, type
  * or generated-ness -- not when a table is merely added, which `IF NOT EXISTS`
  * already handles.
@@ -92,12 +107,13 @@ export interface SchemaMismatch {
   message: string;
 }
 
-export interface Opened {
-  db: Db;
-  /** False when the file was written by a different schema lineage. */
-  writable: boolean;
-  mismatch: SchemaMismatch | null;
-}
+/**
+ * Discriminated on `writable`, so narrowing it is what produces a handle the
+ * write functions accept. A caller cannot reach `WritableDb` without checking.
+ */
+export type Opened =
+  | { db: WritableDb; writable: true; mismatch: null }
+  | { db: Db; writable: false; mismatch: SchemaMismatch };
 
 /** Tables the file actually has, so detection depends on no particular one. */
 function tableNames(db: Db): string[] {
@@ -162,7 +178,21 @@ export function open(path: string): Opened {
   probe.pragma('foreign_keys = ON');
   probe.exec(readFileSync(join(import.meta.dirname, 'schema.sql'), 'utf8'));
   probe.pragma(`user_version = ${SCHEMA_VERSION}`);
-  return { db: probe, writable: true, mismatch: null };
+  return { db: probe as WritableDb, writable: true, mismatch: null };
+}
+
+/**
+ * The writable handle, or a throw naming why there is not one.
+ *
+ * For the callers that genuinely cannot proceed read-only -- the server at
+ * startup. It throws rather than returning a union so that "I require a writable
+ * database" is stated once, at the point that requires it, instead of every
+ * write site re-deciding. Anything that can degrade gracefully should narrow
+ * `Opened` itself and offer the recoveries in `mismatch.message`.
+ */
+export function mustWrite(opened: Opened): WritableDb {
+  if (!opened.writable) throw new Error(opened.mismatch.message);
+  return opened.db;
 }
 
 /**
@@ -178,7 +208,31 @@ export function exportTables(path: string): Record<string, unknown[]> {
   try {
     const out: Record<string, unknown[]> = {};
     for (const name of tableNames(db)) {
-      out[name] = db.prepare(`SELECT * FROM "${name}"`).all();
+      // Not `SELECT *`: that includes generated columns, and a dump carrying
+      // them cannot be read back -- the insert fails with `cannot INSERT into
+      // generated column`, which is the same sentence a stale file throws at
+      // saveDocument, one layer further out. Export is the migration mechanism
+      // here, so a dump that does not round-trip removes the load-bearing half
+      // of the read-only answer, and nothing would notice until the moment
+      // someone actually needed it.
+      //
+      // `hidden` is 0 for an ordinary column, 2 for VIRTUAL and 3 for STORED,
+      // so ordinary columns are the ones to take. `table_info` cannot be used
+      // for this: it omits generated columns of both kinds rather than marking
+      // them, so it cannot tell you what to leave out.
+      //
+      // Derived per table at read time rather than from this build's schema,
+      // because the files this runs on are by definition written by a different
+      // one and may generate different columns.
+      const cols = (
+        db.prepare(`SELECT name, hidden FROM pragma_table_xinfo(?)`).all(name) as {
+          name: string;
+          hidden: number;
+        }[]
+      )
+        .filter((c) => c.hidden === 0)
+        .map((c) => `"${c.name}"`);
+      out[name] = db.prepare(`SELECT ${cols.join(', ')} FROM "${name}"`).all();
     }
     return out;
   } finally {
@@ -219,7 +273,7 @@ export function describeSchemaFailure(doc: unknown): string | null {
 // Documents
 // ---------------------------------------------------------------------------
 
-export function saveDocument(db: Db, record: StoredDocument): void {
+export function saveDocument(db: WritableDb, record: StoredDocument): void {
   const now = record.updatedAt;
   db.prepare(
     `INSERT INTO documents (id, title, body, created_at, updated_at, head_version_id)
@@ -299,7 +353,7 @@ export function listDocuments(db: Db, limit = 200): StoredDocument[] {
 }
 
 /** Soft delete. The erase button hard-deletes; this is the undoable one. */
-export function deleteDocument(db: Db, id: string, at: number): void {
+export function deleteDocument(db: WritableDb, id: string, at: number): void {
   db.prepare('UPDATE documents SET deleted_at = ? WHERE id = ?').run(at, id);
 }
 
@@ -307,7 +361,7 @@ export function deleteDocument(db: Db, id: string, at: number): void {
 // Versions
 // ---------------------------------------------------------------------------
 
-export function saveVersion(db: Db, v: StoredVersion): void {
+export function saveVersion(db: WritableDb, v: StoredVersion): void {
   db.prepare(
     `INSERT INTO versions (id, document_id, parent_id, root_id, created_at, label, body, operations)
      VALUES (@id, @documentId, @parentId, @rootId, @createdAt, @label, @body, @operations)`,
@@ -346,7 +400,7 @@ export function listVersions(db: Db, documentId: string): StoredVersion[] {
 // Measurement
 // ---------------------------------------------------------------------------
 
-export function recordRun(db: Db, run: RunRecord): void {
+export function recordRun(db: WritableDb, run: RunRecord): void {
   db.prepare(
     `INSERT INTO runs (
        id, created_at, document_id, version_id, arm_id, role, provider, model,
@@ -396,7 +450,7 @@ export function getSetting<T>(db: Db, key: string, fallback: T): T {
   return row ? (JSON.parse(row.value) as T) : fallback;
 }
 
-export function setSetting(db: Db, key: string, value: unknown): void {
+export function setSetting(db: WritableDb, key: string, value: unknown): void {
   db.prepare(
     `INSERT INTO settings (key, value) VALUES (?, ?)
      ON CONFLICT (key) DO UPDATE SET value = excluded.value`,
