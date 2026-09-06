@@ -4,6 +4,79 @@ All notable changes to this project are documented here. Semantic versioning.
 
 ## [Unreleased]
 
+### Changed
+
+- **The document store moved from IndexedDB to SQLite over HTTP.** Every
+  signature in `src/db/db.ts` is unchanged, because they were already async --
+  the swap is a change of transport, not of shape, which is what kept it out of
+  the call sites. Same origin in both modes: bun serves the built SPA in
+  production and vite proxies `/api` in dev, so `connect-src 'self'` covers it
+  with no policy entry.
+
+  **The key vault did not move**, and the honest sentence is that the document
+  store moved and the vault did not. `src/crypto/secureStore.ts` holds the Gemini
+  API key, and with no proxy the browser calls Gemini directly, so the key has to
+  be in the browser -- sending it to the server would put it on disk there for no
+  benefit, reversing a decided point rather than implementing one. `idb` is now
+  imported by two files instead of three, both of them vault work.
+
+  **Version id allocation moved to the server**, where it belongs: reading the
+  highest id and then writing separately is a read-then-write race, and it was
+  reachable -- two edits could resolve the same id and the second write would
+  destroy the first row. IndexedDB serialised that inside a readwrite
+  transaction; SQLite does the same, and the server is now the only writer, which
+  is a stronger guarantee than the browser could give. `rootId` is derived there
+  too rather than accepted, so a caller cannot write one that disagrees with its
+  own ancestry.
+
+  **`documents.idea` stops being written by nobody.** `useEngine` now supplies
+  the expanded idea at both save sites. On checking out a version it is re-rolled
+  from the template and seed that version carries, rather than read off component
+  state -- `setIdea` has not taken effect within the same tick, so the state still
+  describes the version being left.
+
+- **The erase button reports across the process boundary.** The server deletes
+  its own rows and **re-reads its own counts**, returning 200 with those counts
+  even when rows survive. That is the property most at risk of being lost across
+  a boundary, where it is tempting to answer "the statement ran" instead; only a
+  transport failure is an error, so "could not verify" stays distinguishable from
+  "erased".
+
+  The survey now covers `runs`, `arms` and `experiments` as well. `runs` is the
+  one that matters: `raw_output` holds prompt text, so a survey that skipped it
+  would let the button report a clean erase with every prompt still on disk. The
+  assertion is a full-object comparison, so adding a table without thinking about
+  it turns the test red.
+
+  The blocked-delete timeout moved to the vault rather than being deleted. The
+  documents are the server's now and cannot be held open by another tab; the
+  vault is still IndexedDB in this browser, so it is still the thing a second tab
+  can block.
+
+### Fixed
+
+- **Version order was undefined for versions recorded in the same
+  millisecond.** They compare equal on `created_at`, so the order fell out of
+  storage rather than out of the sequence they were allocated in. Found by a
+  test, not by review. Ids are zero-padded and now break the tie, so they sort in
+  allocation order.
+
+### Removed
+
+- **The four IndexedDB schema-repair tests.** They guarded a wedge that cannot
+  happen against SQLite: `openDB(name, 1, ...)` skipping its `upgrade` on a
+  database already at version 1. The property that replaced it -- opening an
+  existing database must never reset it -- is asserted in `test/store.test.ts`
+  under "keeps the rows that were already there", and the retirement is stated in
+  `test/db.test.ts` rather than left as a silent deletion.
+
+  What did **not** retire is the pairing this repo insists on: it is reported,
+  and it still opened. `fake-indexeddb` was only ever the harness for that; the
+  property is about the seam, and it now runs against the real store. All three
+  storage test files route `fetch` into the actual route handler rather than
+  stubbing it -- a stub would be green whether or not any server code ran.
+  Control: deleting one route handler turns five tests red across three files.
+
 ### Added
 
 - **`documents.idea`, so a document can be regenerated.** The originating idea

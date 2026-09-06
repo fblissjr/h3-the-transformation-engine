@@ -917,6 +917,11 @@ export function useEngine() {
       await saveDocument({
         id: DOC_ID,
         title: label,
+        // The EXPANDED idea, which is what actually reached the planner. The
+        // template and seed live in `doc.roll` when there were placeholders;
+        // storing the expansion beside them means a plainly typed idea leaves
+        // something behind too, which it did not before.
+        idea: effectiveIdea,
         updatedAt: Date.now(),
         doc: next,
         headVersionId: version.id,
@@ -1130,9 +1135,17 @@ export function useEngine() {
     } else {
       setSeed(null);
     }
+    // Re-rolled from the template and seed the version carries, rather than
+    // read off component state: `setIdea` above has not taken effect within this
+    // tick, so `effectiveIdea` still describes the version being left. A version
+    // with no roll had no placeholders, so its idea was never expanded.
+    const checkedOutIdea = version.doc.roll
+      ? rollSeeded(version.doc.roll.template, version.doc.roll.seed).text
+      : effectiveIdea;
     await saveDocument({
       id: DOC_ID,
       title: version.label,
+      idea: checkedOutIdea,
       updatedAt: Date.now(),
       doc: version.doc,
       headVersionId: version.id,

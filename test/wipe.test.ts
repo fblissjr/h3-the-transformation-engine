@@ -14,7 +14,7 @@
  */
 
 import 'fake-indexeddb/auto';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 // Node has no Web Storage by default and the module reads it at call time.
 class MemoryStorage {
@@ -40,35 +40,57 @@ class MemoryStorage {
 }
 globalThis.localStorage = new MemoryStorage() as unknown as Storage;
 
-const { closeDb, db } = await import('../src/db/db');
+const { mkdtempSync, rmSync } = await import('node:fs');
+const { tmpdir } = await import('node:os');
+const { join } = await import('node:path');
+const { handle } = await import('../server/routes');
+const { open } = await import('../server/store');
+const { saveDocument, setSetting } = await import('../src/db/db');
+const { recordVersion } = await import('../src/db/versions');
 const { API_KEY_NAME, getSecret, hasSecret, listSecretKeys, setSecret, vaultKeyCount } =
   await import('../src/crypto/secureStore');
 const { describeResidue, erase, isClean, residueTotal, survey } = await import('../src/db/wipe');
 
-const doc = { id: 'workspace', title: 't', updatedAt: 1, doc: {} as never, headVersionId: 'v1' };
-const version = {
-  id: 'v1',
-  documentId: 'workspace',
-  parentId: null,
-  createdAt: 1,
-  label: 'Generated',
+const doc = {
+  id: 'workspace',
+  title: 't',
+  idea: 'the idea that produced it',
+  updatedAt: 1,
   doc: {} as never,
-  operations: [],
+  headVersionId: 'workspace:v0001',
 };
 
+/** Seeded through the real seam, so the counts come from real rows. */
 async function seed(): Promise<void> {
-  const database = await db();
-  await database.put('documents', doc);
-  await database.put('versions', version);
-  await database.put('versions', { ...version, id: 'v2', parentId: 'v1' });
-  await database.put('settings', { key: 'lastMode', value: 'T2VA' });
+  await saveDocument(doc);
+  await recordVersion({ documentId: 'workspace', parentId: null, doc: {} as never, label: 'Generated' });
+  await recordVersion({
+    documentId: 'workspace',
+    parentId: 'workspace:v0001',
+    doc: {} as never,
+    label: 'Edited',
+  });
+  await setSetting('lastMode', 'T2VA');
   await setSecret(API_KEY_NAME, 'AIza-not-a-real-key');
 }
 
+const dirs: string[] = [];
+
 beforeEach(async () => {
-  await closeDb();
+  const d = mkdtempSync(join(tmpdir(), 'h3-wipe-'));
+  dirs.push(d);
+  const databasePath = join(d, 'app.db');
+  const ctx = { opened: open(databasePath), databasePath };
+  // Routed to the real handler rather than stubbed: the whole property under
+  // test is that the report says what STORAGE says, which a stub cannot show.
+  globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) =>
+    handle(new Request(new URL(String(input), 'http://seam.test'), init), ctx)) as typeof fetch;
   localStorage.clear();
   await erase('everything');
+});
+
+afterEach(() => {
+  for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
 });
 
 describe('the survey sees what is actually there', () => {
@@ -77,7 +99,19 @@ describe('the survey sees what is actually there', () => {
     // without erasing anything.
     await seed();
     const residue = await survey();
-    expect(residue.rows).toEqual({ documents: 1, versions: 2, settings: 1 });
+    // The full object, not a subset. `runs` is on it deliberately: it holds
+    // `raw_output`, which is prompt text, so a survey that stopped covering it
+    // would let the button report a clean erase with every prompt still on
+    // disk. Adding a table to ERASABLE without thinking turns this red, which
+    // is the behaviour worth having.
+    expect(residue.rows).toEqual({
+      documents: 1,
+      versions: 2,
+      settings: 1,
+      runs: 0,
+      arms: 0,
+      experiments: 0,
+    });
     expect(residue.vaultKeys).toBe(1);
     expect(residue.secrets).toEqual(['h3-secure:gemini-api-key']);
     expect(residueTotal(residue)).toBe(6);
@@ -115,8 +149,7 @@ describe('the verifier can report red', () => {
   });
 
   it('notices a single leftover row', async () => {
-    const database = await db();
-    await database.put('settings', { key: 'lastMode', value: 'T2VA' });
+    await setSetting('lastMode', 'T2VA');
     const residue = await survey();
     expect(isClean(residue, 'documents')).toBe(false);
     expect(describeResidue(residue, 'documents')).toBe('1 in settings');
@@ -129,7 +162,14 @@ describe('erase documents', () => {
     const report = await erase('documents');
 
     expect(residueTotal(report.before)).toBe(6);
-    expect(report.after.rows).toEqual({ documents: 0, versions: 0, settings: 0 });
+    expect(report.after.rows).toEqual({
+      documents: 0,
+      versions: 0,
+      settings: 0,
+      runs: 0,
+      arms: 0,
+      experiments: 0,
+    });
     expect(report.blocked).toEqual([]);
     expect(report.clean).toBe(true);
   });
@@ -142,14 +182,21 @@ describe('erase documents', () => {
     expect(await getSecret(API_KEY_NAME)).toBe('AIza-not-a-real-key');
   });
 
-  it('leaves a database that reads as empty rather than a stale handle', async () => {
+  /**
+   * The IndexedDB form of this guarded a memoised connection surviving the
+   * delete and still serving rows from a database that was gone. That handle no
+   * longer exists -- the store is behind HTTP and the server holds the only
+   * connection -- but the property it protected does: after an erase, a READ
+   * has to come back empty, not merely the report.
+   */
+  it('leaves storage that reads as empty, not just a report that says so', async () => {
     await seed();
     await erase('documents');
-    // The bug this guards: a memoised connection surviving the delete and
-    // continuing to serve rows from the database that was removed.
-    const database = await db();
-    expect(await database.getAll('versions')).toEqual([]);
-    expect(await database.get('documents', 'workspace')).toBeUndefined();
+    const { listDocuments, loadDocument } = await import('../src/db/db');
+    const { listVersions } = await import('../src/db/versions');
+    expect(await listDocuments()).toEqual([]);
+    expect(await loadDocument('workspace')).toBeUndefined();
+    expect(await listVersions('workspace')).toEqual([]);
   });
 });
 

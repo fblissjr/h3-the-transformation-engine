@@ -19,8 +19,11 @@ import {
   getSetting,
   listDocuments,
   listVersions,
+  recordVersion,
   loadDocument,
+  eraseAll,
   recordRun,
+  surveyCounts,
   saveDocument,
   saveVersion,
   setSetting,
@@ -143,8 +146,21 @@ export async function handle(req: Request, ctx: ServerContext): Promise<Response
   }
 
   const versions = /^\/api\/documents\/([^/]+)\/versions$/.exec(path);
-  if (versions && method === 'GET') {
-    return json(listVersions(ctx.opened.db, decodeURIComponent(versions[1])));
+  if (versions) {
+    const documentId = decodeURIComponent(versions[1]);
+    if (method === 'GET') return json(listVersions(ctx.opened.db, documentId));
+    if (method === 'POST') {
+      const db = writable(ctx);
+      if (!db) return conflict(ctx);
+      const body = await req.json();
+      const bad = missing(body, ['label', 'doc']);
+      if (bad) return bad;
+      // The id and rootId are allocated here, in one transaction, rather than
+      // accepted from the caller. See `recordVersion` for why.
+      return json(
+        recordVersion(db, { documentId, ...(body as { parentId: string | null; label: string; doc: never }) }),
+      );
+    }
   }
 
   if (/^\/api\/versions\/[^/]+$/.test(path) && method === 'PUT') {
@@ -182,6 +198,26 @@ export async function handle(req: Request, ctx: ServerContext): Promise<Response
     if (bad) return bad;
     recordRun(db, body as RunRecord);
     return json({ ok: true });
+  }
+
+  // --- erasing -------------------------------------------------------------
+  if (path === '/api/survey' && method === 'GET') {
+    return json(surveyCounts(ctx.opened.db));
+  }
+
+  /**
+   * Always 200 with the counts, never 500 on a failed erase.
+   *
+   * The report IS the answer: `after` is re-read from storage, so a row that
+   * survived is data the caller has to see rather than an exception it cannot
+   * describe. Only a transport failure is an error. A mismatched database still
+   * answers 409, because that is a state that prevents the write rather than a
+   * failed one.
+   */
+  if (path === '/api/erase' && method === 'POST') {
+    const db = writable(ctx);
+    if (!db) return conflict(ctx);
+    return json(eraseAll(db));
   }
 
   // --- recovery ------------------------------------------------------------

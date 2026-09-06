@@ -8,26 +8,37 @@
  * it and a build that will not open what the last one saved loses settings that
  * exist nowhere else.
  *
- * Written against `fake-indexeddb` rather than a mock, so a round trip is a
- * real one.
+ * Written against the real store and the real routes rather than a mock, so a
+ * round trip is a round trip. `fetch` is pointed at the route handler rather
+ * than stubbed: a stub would make this green whether or not the settings ever
+ * reached storage.
  */
 
-import 'fake-indexeddb/auto';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { handle, type ServerContext } from '../server/routes';
+import { open } from '../server/store';
 
-const { closeDb, getSetting, setSetting } = await import('../src/db/db');
+const { getSetting, setSetting } = await import('../src/db/db');
 const { INSTANCE_POLICY_SETTING, loadInstancePolicies, parseStoredPolicies, setInstanceAttribute } =
   await import('../src/db/policy');
 const { POLICY_FIELDS, POLICY_KEYS } = await import('../src/core/policy');
 
-beforeEach(async () => {
-  closeDb();
-  await new Promise<void>((resolve) => {
-    const request = indexedDB.deleteDatabase('H3TransformationEngine');
-    request.onsuccess = () => resolve();
-    request.onerror = () => resolve();
-    request.onblocked = () => resolve();
-  });
+const dirs: string[] = [];
+
+beforeEach(() => {
+  const d = mkdtempSync(join(tmpdir(), 'h3-policy-'));
+  dirs.push(d);
+  const databasePath = join(d, 'app.db');
+  const ctx: ServerContext = { opened: open(databasePath), databasePath };
+  globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) =>
+    handle(new Request(new URL(String(input), 'http://seam.test'), init), ctx)) as typeof fetch;
+});
+
+afterEach(() => {
+  for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
 });
 
 describe('every attribute is answered for, by construction', () => {

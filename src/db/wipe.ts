@@ -20,9 +20,8 @@
  */
 
 import { deleteDB } from 'idb';
-import { closeDb, db, DB_NAME, STORES, type StoreName } from './db';
+import { eraseServer, surveyServer, type ServerTable } from './db';
 import {
-  destroyVault,
   listSecretKeys,
   removeAllSecrets,
   VAULT_DB_NAME,
@@ -38,8 +37,14 @@ import {
 const BLOCKED_TIMEOUT_MS = 3_000;
 
 export interface Residue {
-  /** Row counts per store in the document database. */
-  rows: Record<StoreName, number>;
+  /**
+   * Row counts per table, as the server reports them.
+   *
+   * `runs` is among them and it is the one that matters most: `raw_output`
+   * holds prompt text, so a survey that skipped it would let this button report
+   * a clean erase while every prompt sat on the server's disk.
+   */
+  rows: Record<ServerTable, number>;
   /** Wrapping keys still held in the vault. */
   vaultKeys: number;
   /** localStorage keys still under the secure prefix, by name. */
@@ -61,17 +66,27 @@ export interface EraseReport {
 // Survey
 // ---------------------------------------------------------------------------
 
+/**
+ * What is still stored, across both halves.
+ *
+ * The documents are the server's and the key vault is the browser's, so this
+ * asks each for its own counts. Neither can answer for the other, which is why
+ * the report has two kinds of number in it rather than one.
+ */
 export async function survey(): Promise<Residue> {
-  const database = await db();
-  const rows = {} as Record<StoreName, number>;
-  for (const store of STORES) rows[store] = await database.count(store);
-
-  return { rows, vaultKeys: await vaultKeyCount(), secrets: listSecretKeys() };
+  return {
+    rows: await surveyServer(),
+    vaultKeys: await vaultKeyCount(),
+    secrets: listSecretKeys(),
+  };
 }
+
+/** The tables the survey covers, read off whatever the server reported. */
+const tablesOf = (rows: Record<string, number>) => Object.keys(rows) as ServerTable[];
 
 /** Total number of things a survey found, across every kind of storage. */
 export function residueTotal(residue: Residue): number {
-  const rows = STORES.reduce((sum, store) => sum + residue.rows[store], 0);
+  const rows = tablesOf(residue.rows).reduce((sum, t) => sum + residue.rows[t], 0);
   return rows + residue.vaultKeys + residue.secrets.length;
 }
 
@@ -82,7 +97,7 @@ export function residueTotal(residue: Residue): number {
  * and reporting it as unclean would train the user to ignore the readout.
  */
 export function isClean(residue: Residue, scope: EraseScope): boolean {
-  const noRows = STORES.every((store) => residue.rows[store] === 0);
+  const noRows = tablesOf(residue.rows).every((t) => residue.rows[t] === 0);
   if (scope === 'documents') return noRows;
   return noRows && residue.vaultKeys === 0 && residue.secrets.length === 0;
 }
@@ -90,8 +105,8 @@ export function isClean(residue: Residue, scope: EraseScope): boolean {
 /** Human-readable list of what is still there. Empty string when nothing is. */
 export function describeResidue(residue: Residue, scope: EraseScope): string {
   const parts: string[] = [];
-  for (const store of STORES) {
-    if (residue.rows[store] > 0) parts.push(`${residue.rows[store]} in ${store}`);
+  for (const table of tablesOf(residue.rows)) {
+    if (residue.rows[table] > 0) parts.push(`${residue.rows[table]} in ${table}`);
   }
   if (scope === 'everything') {
     if (residue.vaultKeys > 0) parts.push(`${residue.vaultKeys} wrapping key`);
@@ -110,6 +125,11 @@ export function describeResidue(residue: Residue, scope: EraseScope): string {
  * The race is not a shortcut around correctness -- the survey afterwards is what
  * settles whether data is gone. It exists so a blocked delete surfaces as a
  * blocked delete instead of an interface that never comes back.
+ *
+ * It now guards the VAULT rather than the document store. The documents moved
+ * to the server, whose delete has its own failure mode and cannot be held open
+ * by another tab; the vault is still IndexedDB in this browser, so it is still
+ * the thing a second tab can block.
  */
 async function deleteReporting(name: string): Promise<'deleted' | 'blocked'> {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -137,18 +157,22 @@ export async function erase(scope: EraseScope): Promise<EraseReport> {
   const before = await survey();
   const blocked: string[] = [];
 
-  // The cached handle has to go first, or the delete waits on this tab's own
-  // connection and the next read is served from a database that was deleted.
-  await closeDb();
-  if ((await deleteReporting(DB_NAME)) === 'blocked') blocked.push(DB_NAME);
+  // The server deletes its own rows and re-reads its own counts. It reports
+  // what storage says rather than that the statement ran, which is the property
+  // most at risk of being lost across a process boundary -- and a row that
+  // survived has to reach the user as data, not as an exception the button
+  // cannot describe.
+  await eraseServer();
 
   if (scope === 'everything') {
     removeAllSecrets();
-    await destroyVault();
+    if ((await deleteReporting(VAULT_DB_NAME)) === 'blocked') blocked.push(VAULT_DB_NAME);
     // Counting reopens an empty vault, same as the document database above. A
     // non-zero count here means the delete did not take, which is the only
     // outcome worth reporting -- the next `setSecret` mints a fresh key.
-    if ((await vaultKeyCount()) > 0) blocked.push(VAULT_DB_NAME);
+    if ((await vaultKeyCount()) > 0 && !blocked.includes(VAULT_DB_NAME)) {
+      blocked.push(VAULT_DB_NAME);
+    }
   }
 
   const after = await survey();

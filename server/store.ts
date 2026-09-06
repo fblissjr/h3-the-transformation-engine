@@ -388,11 +388,82 @@ export function saveVersion(db: WritableDb, v: StoredVersion): void {
   });
 }
 
+/**
+ * Allocate an id and write the version, in ONE transaction.
+ *
+ * The allocation moved here from the browser with the store. Reading the
+ * highest id and then inserting in a separate step is a read-then-write race,
+ * and it was reachable: two edits could resolve the same highest id and the
+ * second write would destroy the first version row. IndexedDB serialised that
+ * inside a readwrite transaction; SQLite does the same inside `transaction`,
+ * and the server is now the only writer, which is a stronger guarantee than
+ * the browser could give.
+ *
+ * `rootId` is derived rather than supplied: a version with no parent roots its
+ * own tree, and any other inherits its parent's. Passing it in would let a
+ * caller create a version whose root disagrees with its ancestry.
+ */
+export function recordVersion(
+  db: WritableDb,
+  params: {
+    documentId: string;
+    parentId: string | null;
+    label: string;
+    doc: H3Document;
+    operations?: StoredVersion['operations'];
+  },
+): StoredVersion {
+  return db.transaction(() => {
+    const prefix = `${params.documentId}:v`;
+    const rows = db
+      .prepare('SELECT id FROM versions WHERE document_id = ?')
+      .all(params.documentId) as { id: string }[];
+    // A suffix this build did not write is skipped rather than guessed at, so
+    // an id from a future scheme cannot drag the sequence backwards.
+    const highest = rows.reduce((max, r) => {
+      if (!r.id.startsWith(prefix)) return max;
+      const n = Number.parseInt(r.id.slice(prefix.length), 10);
+      return Number.isFinite(n) && n > max ? n : max;
+    }, 0);
+
+    const id = `${prefix}${String(highest + 1).padStart(4, '0')}`;
+    const parentRoot = params.parentId
+      ? (
+          db.prepare('SELECT root_id FROM versions WHERE id = ?').get(params.parentId) as
+            | { root_id: string }
+            | undefined
+        )?.root_id
+      : undefined;
+
+    const version: StoredVersion = {
+      id,
+      documentId: params.documentId,
+      parentId: params.parentId,
+      rootId: parentRoot ?? id,
+      createdAt: Date.now(),
+      label: params.label,
+      doc: params.doc,
+      operations: params.operations ?? [],
+    };
+    saveVersion(db, version);
+    return version;
+  })();
+}
+
+/**
+ * Every version of a document, oldest first.
+ *
+ * The id breaks the tie on `created_at`, and the tie is reachable: two versions
+ * recorded in the same millisecond compare equal, and the order then falls out
+ * of storage rather than out of the sequence they were allocated in. Ids are
+ * zero-padded, so they sort in allocation order.
+ */
 export function listVersions(db: Db, documentId: string): StoredVersion[] {
   const rows = db
     .prepare(
       `SELECT id, document_id, parent_id, root_id, created_at, label, body, operations
-         FROM versions WHERE document_id = ? ORDER BY created_at DESC`,
+         FROM versions WHERE document_id = ?
+         ORDER BY created_at ASC, id ASC`,
     )
     .all(documentId) as Record<string, string | number | null>[];
   return rows.map((r) => ({
@@ -448,6 +519,51 @@ export function recordRun(db: WritableDb, run: RunRecord): void {
     appVersion: run.appVersion ?? null,
     contractJsonSha: run.contractJsonSha ?? null,
   });
+}
+
+// ---------------------------------------------------------------------------
+// Erasing
+// ---------------------------------------------------------------------------
+
+/**
+ * The tables the erase button surveys and clears.
+ *
+ * `runs` is on this list and it is the one that matters most: `raw_output`
+ * holds prompt text, so a survey that skipped it would let the button report a
+ * clean erase while every prompt sat on disk. The experiments and arms around
+ * it go too, since an arm whose runs are gone measures nothing.
+ */
+export const ERASABLE = ['documents', 'versions', 'settings', 'runs', 'arms', 'experiments'] as const;
+export type ErasableTable = (typeof ERASABLE)[number];
+
+/** Row counts per table, read from storage rather than assumed. */
+export function surveyCounts(db: Db): Record<ErasableTable, number> {
+  const out = {} as Record<ErasableTable, number>;
+  for (const table of ERASABLE) {
+    out[table] = (db.prepare(`SELECT count(*) n FROM "${table}"`).get() as { n: number }).n;
+  }
+  return out;
+}
+
+/**
+ * Delete everything, then RE-READ the counts.
+ *
+ * The returned `after` is what storage says, not what the code did. That is the
+ * property the IndexedDB version had and the one most at risk of being lost
+ * across a process boundary, where it is tempting to answer "the statement ran"
+ * instead. A caller can then report "could not verify" honestly.
+ *
+ * Order matters: children before parents, because foreign keys are on.
+ */
+export function eraseAll(db: WritableDb): {
+  before: Record<ErasableTable, number>;
+  after: Record<ErasableTable, number>;
+} {
+  const before = surveyCounts(db);
+  db.transaction(() => {
+    for (const table of ERASABLE) db.prepare(`DELETE FROM "${table}"`).run();
+  })();
+  return { before, after: surveyCounts(db) };
 }
 
 // ---------------------------------------------------------------------------
