@@ -229,6 +229,15 @@ All notable changes to this project are documented here. Semantic versioning.
   explicitly things the validator cannot see, and collapsing them into the
   mechanical outcome would lose that distinction.
 
+  `role` is typed to the provider seam's existing `Task` union rather than to a
+  string. `CallOptions.task` already names these roles and both `pipeline.ts`
+  call sites already pass them, so this reuses the enumeration instead of
+  starting a second one — which matters because when per-role bindings land, a
+  binding for a role nothing records and a run under a role nothing binds both
+  look fine locally, and the drift is invisible from either side. Deliberately
+  not a SQL CHECK: that would be a copy of the union somewhere `tsc` cannot see,
+  drifting the moment `Task` widens to take the analysis roles.
+
 - **A guard that `src/` cannot import from `server/`.** `test/purity.test.ts`
   already proves the compiler cannot reach the database layer; this proves the
   client cannot reach the native one. It scans `.tsx` as well as `.ts`, since the

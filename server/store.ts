@@ -15,6 +15,7 @@ import { existsSync, readFileSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
 import { H3DocumentSchema } from '../src/core/ir/schema';
 import type { H3Document } from '../src/core/ir/types';
+import type { Task } from '../src/provider/types';
 
 export interface StoredDocument {
   id: string;
@@ -51,7 +52,21 @@ export interface RunRecord {
   documentId?: string | null;
   versionId?: string | null;
   armId?: string | null;
-  role: string;
+  /**
+   * Which role made the call, typed to the provider seam's own `Task` union
+   * rather than a string.
+   *
+   * `CallOptions.task` already names these and both `pipeline.ts` call sites
+   * already pass them, so this is the existing enumeration rather than a second
+   * one. That matters for the binding rows: a binding for a role nothing records
+   * and a run under a role nothing binds both look fine locally, and the drift is
+   * invisible from either side, so the two have to resolve from one place. When
+   * the analysis roles join the seam, `Task` widens and this follows for free.
+   *
+   * Deliberately NOT a CHECK constraint in SQL: that would be a second copy of
+   * the union, in a place `tsc` cannot see, drifting the moment `Task` widens.
+   */
+  role: Task;
   provider: string;
   model: string;
   instanceId?: string | null;
