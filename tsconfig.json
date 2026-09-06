@@ -41,5 +41,8 @@
       "@lib/*": ["./src/lib/*"]
     }
   },
-  "include": ["src", "test", "scripts", "server"]
+  // `server` has its own tsconfig: it compiles against bun's globals rather
+  // than the DOM, and pulling those in here breaks the client's `fetch` typing.
+  // `bun run typecheck` runs both.
+  "include": ["src", "test", "scripts"]
 }

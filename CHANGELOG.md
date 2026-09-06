@@ -4,6 +4,62 @@ All notable changes to this project are documented here. Semantic versioning.
 
 ## [Unreleased]
 
+### Added
+
+- **The bun server: static files and the API, at one origin.** `server/routes.ts`
+  is a plain `Request -> Response` function and `server/index.ts` is a two-line
+  adapter over it, so the tests call `handle` directly and actually execute the
+  routing, the state checks and the store calls. A suite that stubbed the
+  client's `fetch` instead would be green whether or not any server code ran --
+  the across-a-boundary hollow green this repo keeps rediscovering.
+
+  The surface mirrors `server/store.ts` rather than being designed as REST,
+  because the seam it replaces is already async and its signatures do not change,
+  which keeps the swap mechanical and the diff readable.
+
+  Three states, designed in rather than retrofitted: no database, matching, and
+  mismatched. **The server boots on a database it cannot write** and surfaces the
+  state, rather than refusing to start. The file is fine and only this build
+  cannot write it, so refusing to boot would report a broken server for a version
+  skew with a clean recovery -- and it would put that recovery behind knowing a
+  script exists. `mustWrite` guards the write endpoints, never the boot.
+
+  **A write to a mismatched database is 409, not 500.** The request is well
+  formed and the state prevents it, which is a different thing from the server
+  being broken, and the client can only say something useful if the two are
+  distinguishable. `GET /api/status` lets the UI show the state without waiting
+  for a save to fail. Export and archive work on a mismatched database on
+  purpose: they are the recoveries the message offers, so gating them behind
+  writability would leave the state with no way out.
+
+  Bootstrap config -- database path, port, static dir -- comes from the
+  environment, since the server cannot read config from a store it has not
+  opened. Instance origins stay out of it for the CSP reason.
+
+  `server/` gained its own `tsconfig.json`. `@types/bun` declares globals that
+  conflict with the DOM lib the client compiles against -- its `fetch` carries a
+  `preconnect` property, which makes `typeof fetch` in
+  `src/provider/heylook/client.ts` stop matching a plain function. Pulling those
+  in project-wide turned one green typecheck red in a file unrelated to the
+  server. That conflict is the type-level statement of why `server/` sits outside
+  `src/` at all, and `bun run typecheck` now runs both projects.
+
+- **The write routes answer a malformed body with 400.** Found by the
+  every-route-is-reached check on its first honest run: a body with no `doc`
+  reached `saveDocument` and SQLite answered `NOT NULL constraint failed:
+  documents.body` -- a 500 naming a column, at a layer the caller cannot see, for
+  a mistake the caller made.
+
+  Presence only, deliberately. Whether a document *parses* is reported and not
+  gated -- that is why `loadDocument` returns `schemaError` beside the record --
+  so validating shape here would refuse to store what an older build wrote. The
+  guard checks only what the schema declares NOT NULL, which is the line between
+  a malformed request and an outdated document. There is a test asserting a
+  document the schema rejects still stores with 200 and reports its error.
+
+  Control: deleting the `/api/export` handler turns two route tests red, so the
+  suite reaches the server rather than passing by never arriving.
+
 ### Changed
 
 - **Guide-coverage ledger: the ref guide dispositioned, and `coveredBy` takes a

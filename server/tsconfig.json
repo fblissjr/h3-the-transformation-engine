@@ -1,0 +1,20 @@
+{
+  // The server's own type environment, separate from the browser's.
+  //
+  // `@types/bun` declares globals that conflict with the DOM lib the client is
+  // compiled against -- its `fetch` carries a `preconnect` property, which makes
+  // `typeof fetch` in `src/provider/heylook/client.ts` stop matching a plain
+  // function. Pulling those globals in project-wide turned one green typecheck
+  // red in a file that has nothing to do with the server.
+  //
+  // That conflict is the type-level statement of why `server/` sits outside
+  // `src/` at all: two runtimes, two global environments, and a boundary that
+  // `test/purity.test.ts` already enforces at the import level. This is the same
+  // boundary expressed to the compiler.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2022"],
+    "types": ["bun"]
+  },
+  "include": [".", "../src/core", "../src/provider/types.ts"]
+}
