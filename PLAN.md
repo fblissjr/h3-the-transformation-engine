@@ -120,9 +120,22 @@ Two notes worth keeping rather than dropping:
 
 Open, in order:
 
-- [ ] **Phase F, `recordRun` into `pipeline.ts`**, with `raw_output` retention
-      shipping in the same phase rather than after it. Kept separate from D and E
-      because it is a different file and a different risk.
+- [x] **Phase F**, `recordRun` and retention, landed at `a9320fb`. **That closes
+      A through F: the storage track is done.** `compile` fires an observation on
+      every path including the failing ones, which are the point — a table of
+      successes answers none of the questions, since "did thinking-on improve
+      conformance" is a comparison of failure rates. The pipeline knows the
+      stage, the timing and the reply and does not know the model, the document
+      or the arm, so it hands out half a record and the caller completes it.
+      Recording is fire-and-forget on `src/debug/`'s own rule: a lost row is a
+      gap in the data, a thrown one is a lost document. Retention is enforced
+      inside `recordRun` rather than at the caller so it holds for a caller that
+      forgets, and off means NULL rather than truncated, because a partial prompt
+      is not evidence and is still prompt text on disk.
+- [ ] **`runs.arm_id` is never set.** `experiments` and `arms` exist and nothing
+      writes them, because no experiment has yet been run through the app — the
+      conformance harness is still what runs arms. Correct today; wrong the
+      moment two configurations are compared from the UI.
 - [ ] **The additive-column path**, using `pragma_table_xinfo` where `hidden` is
       0. Deferred until a change is genuinely additive and a version bump would
       be wrong. The cost side belongs next to that condition: until it exists,
@@ -235,8 +248,19 @@ Landed:
 
 Open, in order:
 
-- [ ] **Wire the bearer token** through `buildClient` and the engine. Waits on
-      track A's contended files.
+- [ ] **Wire the bearer token and the thinking preference together**, through
+      `ClientParams`, `buildClient` and the engine. Unblocked as of `a9320fb`.
+
+      They ride together because they are one shape: both add a field to
+      `ClientParams`, both are passed by `buildClient`, both need a source in
+      `useEngine`. And thinking is a larger gap than it was reported as —
+      `heylookPolicyConfig` returns `{ backpressureBudgetMs }` only, `ClientParams`
+      has no `thinking` field, and `buildClient` passes none, so `HeylookClient`
+      always receives `THINKING_DEFAULT`. **The app cannot currently express any
+      thinking value but off.** So `runs.thinking` is correctly NULL — there is
+      no value to source rather than a value in an awkward place — and the
+      pending decision on the thinking default is unimplementable either way
+      until this lands.
 - [ ] **Video analysis behind `InferenceClient`**, with a `contract.json` entry
       for its prompt. It is the only model call outside the seam and the only
       prompt with no contract entry. First analysis role.
