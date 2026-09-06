@@ -539,6 +539,40 @@ describe('a shot header the beat legitimately shows on screen', () => {
     expect(codes(doc)).toContain('SHOT_HEADER_IN_PROSE');
   });
 
+  it('builds a span per occurrence, so a second slate does not cover a bare header', () => {
+    // Span construction rather than a single match. Two quoted occurrences of
+    // one entry must produce two spans; if they collapsed to one, a bare header
+    // between or after them would be excluded by position rather than by right.
+    const doc = structuredClone(crossCutBaker);
+    const beat = doc.shots[1].beats[0];
+    beat.prose = `A board reads "[Shot 2]". [Shot 2] ${beat.prose} It reads "[Shot 2]" again.`;
+    beat.visibleText = [...(beat.visibleText ?? []), '[Shot 2]'];
+    expect(codes(doc)).toContain('SHOT_HEADER_IN_PROSE');
+  });
+
+  it('gives no cover to an entry that never appears in the prose', () => {
+    // A declared entry contributes a span only where it is actually quoted in
+    // the prose. Declaring one and not writing it is already a
+    // VISIBLE_TEXT_NOT_QUOTED fault and must buy nothing here.
+    const doc = structuredClone(crossCutBaker);
+    const beat = doc.shots[1].beats[0];
+    beat.prose = `[Shot 2] ${beat.prose}`;
+    beat.visibleText = [...(beat.visibleText ?? []), '[Shot 2]'];
+    expect(codes(doc)).toContain('SHOT_HEADER_IN_PROSE');
+  });
+
+  it('agrees with itself on a spacing variant', () => {
+    // The pattern allows `\s*` inside the header, and the exclusion is a
+    // literal `indexOf`. Those are two different mechanisms looking at the same
+    // characters, so a variant the regex accepts must also be found by the span
+    // lookup -- otherwise a legitimate slate written `[Shot  2]` would fire.
+    const doc = structuredClone(crossCutBaker);
+    const beat = doc.shots[1].beats[0];
+    beat.prose = `${beat.prose} A board reads "TAKE 3 [Shot  2]" as it snaps.`;
+    beat.visibleText = [...(beat.visibleText ?? []), 'TAKE 3 [Shot  2]'];
+    expect(codes(doc)).not.toContain('SHOT_HEADER_IN_PROSE');
+  });
+
   it('is still reported when the beat declares it but does not quote it', () => {
     // The exclusion keys on the DECLARED-AND-QUOTED pair, which is what
     // `visibleTextQuoted` itself checks. Declaring a header without quoting it

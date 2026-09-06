@@ -222,6 +222,12 @@ export const shotHeaderInProse: Rule = (doc) => {
       // `visibleText` occurrence. Declared AND quoted is the same pair
       // `visibleTextQuoted` checks; a header declared without quotes is still a
       // fault, and is already a VISIBLE_TEXT_NOT_QUOTED one.
+      // `indexOf` on a literal, deliberately, and not a regex built from the
+      // entry. `visibleText` is content the model writes, so compiling it into
+      // a pattern would let `[Shot 2]` become a character class and match
+      // something else entirely -- an injection through data this rule exists
+      // to reason about. Left as a note because the next person to make this
+      // loop faster will reach for a regex.
       const spans: [number, number][] = [];
       for (const entry of beat.visibleText ?? []) {
         const needle = `"${entry}"`;
