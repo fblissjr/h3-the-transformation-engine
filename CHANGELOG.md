@@ -6,6 +6,19 @@ All notable changes to this project are documented here. Semantic versioning.
 
 ### Fixed
 
+- **`runs.contract_sha` renamed to `contract_json_sha`, because the short name
+  invited the wrong value.** The obvious reading is one of
+  `contract.sources[].sha256` — but those pin the two MiniMax guide files, not
+  the spec. They are load-bearing for guide fidelity and essentially never
+  change, so a run tagged with one would record which vendor guide was on disk,
+  which is not the question the column exists to answer. What groups runs is
+  which generation of the prompt spec produced them, so the value is the hash of
+  `reference/h3/contract.json` itself; its `version` field is the weaker
+  alternative, being `1.0.0` and not bumped per prompt edit. The hash covers the
+  guides transitively anyway, since their shas live inside the file. Caught in
+  review before the column was ever written to, which is the only cheap time to
+  catch a naming problem in a measurement table.
+
 - **`documents.title` was generated from a field the document does not have, and
   the test guarding it could not fail.** The column was
   `GENERATED ALWAYS AS (body ->> '$.title')`, but `title` is an app-level name on

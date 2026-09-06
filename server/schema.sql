@@ -197,9 +197,25 @@ CREATE TABLE IF NOT EXISTS runs (
   raw_output     TEXT,
 
   -- Which build and which prompt contract produced this, so a run recorded
-  -- against an older prompt is identifiable rather than silently comparable.
-  app_version    TEXT,
-  contract_sha   TEXT
+  -- against an older prompt is identifiable rather than silently comparable --
+  -- the misquotation class, applied to a measurement instead of a number.
+  --
+  -- `contract_json_sha` names its file on purpose. The obvious reading of a
+  -- bare `contract_sha` is one of `contract.sources[].sha256`, and those pin the
+  -- two MiniMax GUIDE files rather than the spec: they are load-bearing for
+  -- guide fidelity, they essentially never change, and a run tagged with one
+  -- would say which vendor guide was on disk, which is not the question. What
+  -- groups runs is which generation of the prompt spec produced them, so this is
+  -- the hash of reference/h3/contract.json itself. Its `version` field is the
+  -- weaker alternative -- 1.0.0 today, and not bumped per prompt edit. The hash
+  -- transitively covers the guides anyway, since their shas are inside the file.
+  --
+  -- It earns its place beside `prompt_sha256` rather than instead of it: the
+  -- per-call hash says two runs sent identical bytes, this says two runs belong
+  -- to one generation of the spec even when their prompts legitimately differ by
+  -- mode or creative record.
+  app_version       TEXT,
+  contract_json_sha TEXT
 ) STRICT;
 
 CREATE INDEX IF NOT EXISTS runs_arm ON runs (arm_id, created_at DESC);

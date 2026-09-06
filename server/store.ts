@@ -71,7 +71,7 @@ export interface RunRecord {
   promptSha256?: string | null;
   rawOutput?: string | null;
   appVersion?: string | null;
-  contractSha?: string | null;
+  contractJsonSha?: string | null;
 }
 
 export type Db = Database.Database;
@@ -243,13 +243,13 @@ export function recordRun(db: Db, run: RunRecord): void {
        instance_id, task, thinking, effort, enforce_schema, creative_mode, stage,
        failure_cause, reader_note, duration_ms, attempts, queued_ms,
        prompt_tokens, output_tokens, prompt_sha256, raw_output,
-       app_version, contract_sha)
+       app_version, contract_json_sha)
      VALUES (
        @id, @createdAt, @documentId, @versionId, @armId, @role, @provider, @model,
        @instanceId, @task, @thinking, @effort, @enforceSchema, @creativeMode, @stage,
        @failureCause, @readerNote, @durationMs, @attempts, @queuedMs,
        @promptTokens, @outputTokens, @promptSha256, @rawOutput,
-       @appVersion, @contractSha)`,
+       @appVersion, @contractJsonSha)`,
   ).run({
     ...run,
     documentId: run.documentId ?? null,
@@ -271,7 +271,7 @@ export function recordRun(db: Db, run: RunRecord): void {
     promptSha256: run.promptSha256 ?? null,
     rawOutput: run.rawOutput ?? null,
     appVersion: run.appVersion ?? null,
-    contractSha: run.contractSha ?? null,
+    contractJsonSha: run.contractJsonSha ?? null,
   });
 }
 
