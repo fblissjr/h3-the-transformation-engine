@@ -41,8 +41,9 @@ the state. When the two disagree, this file is stale and the internal one is not
   source.
 - The two repos agreeing is consistency, not corroboration. The only independent
   source either has is MiniMax's guides and tokenizer config.
-- The app does not yet talk to the server. The browser still reads and writes
-  IndexedDB until track A's seam swap lands.
+- The app talks to the server for documents, versions and settings as of
+  `fd9bd87`. The Gemini key vault is the one thing still in IndexedDB, by
+  decision rather than by lag.
 
 ## Track A: storage and server
 
@@ -67,51 +68,58 @@ Landed:
 - [x] **Phase B**, the bun server: static files and the API at one origin.
 - [x] **Phase C**, `/api` proxied in dev, so the browser is same-origin in both
       modes and `connect-src 'self'` needs no change.
+- [x] **Phases D and E**, landed together at `fd9bd87`: the document store moved
+      to SQLite over HTTP, and erase now reports across the process boundary.
 - [x] **Phase G**, the originating idea persisted. Holds the expanded idea, not
       a template: `CompileInput.idea` is already expanded when it reaches
       `compile`, and `doc.roll` is absent whenever no wildcards were used.
 
-**The state of the world today, because the phase list does not say it.** Two
-stores exist and the app uses the old one. IndexedDB and SQLite are both real,
-nothing syncs them, and nothing states which is authoritative — `from 'idb'` is
-still imported by `src/db/db.ts`, `src/db/wipe.ts` and `src/crypto/secureStore.ts`.
-This is the most confusing fact about the tree and it closes in D, which is in
-progress.
+**One document store, and a vault beside it.** As of `fd9bd87` the library is on
+SQLite: `src/db/db.ts` is an HTTP client with every signature unchanged, so the
+swap never reached its call sites. Saying "we removed IndexedDB" would be wrong
+in the other direction — `idb` is still imported by two files, and both are the
+key vault: `src/crypto/secureStore.ts`, and `src/db/wipe.ts` for the vault delete
+only. That is deliberate. With no inference proxy the browser calls Gemini
+directly, so the key has to be in the browser, and moving that store to SQLite
+would put an API key on the server's disk.
 
-**"Remove IndexedDB" is not total, and the honest sentence is that the document
-store moves and the key vault does not.** Of the three files importing `idb`,
-`db.ts` and `wipe.ts` move; `src/crypto/secureStore.ts` stays. That is not
-inertia: with no inference proxy the browser calls Gemini directly, so the key
-has to be in the browser, and moving that store to SQLite would put the API key
-on the server's disk. So `idb` remains a dependency for the vault alone. Stated
-here because anyone checking later will find an `idb` import and conclude the
-removal was abandoned.
+Three things closed with it, each of which this file previously tracked as a
+known state rather than a bug:
 
-Three consequences worth naming rather than inferring:
+- **`documents.idea` is written**, at both save sites. On checkout it is
+  re-rolled from that version's own template and seed rather than read off state,
+  because `setIdea` has not taken effect within the tick — the naive version
+  would have recorded the idea of the version being *left*.
+- **Erase re-reads its counts server-side** and returns 200 with them even when
+  rows survive, and the survey covers `runs`, so `raw_output` cannot hide behind
+  a clean report.
+- **Version id allocation moved to the server**, inside one transaction, with
+  `rootId` derived there rather than accepted. The read-then-write race the
+  IndexedDB transaction guarded is now prevented by SQLite plus a single writer,
+  which is strictly stronger.
 
-- **The recovery story is API-only.** `exportTables` and `archive` have routes
-  and no UI, so read-only mode is reachable by curl and not by a person — which
-  is most of what the read-only argument was for. Closes in D.
-- **`documents.idea` is written by nobody.** The column exists; `useEngine` is
-  what fills it, which is inside D. Until that lands every row holds `''`, which
-  is exactly the empty-field shape `CLAUDE.md` now warns about — tracked so a
-  column of empty strings does not later read as "no ideas recorded".
-- **`wipe.ts` does not know SQLite exists.** A correctness bug the moment the
-  server is real, not a nicety: the button re-reads counts and can return
-  `clean: false` on purpose, so a store it cannot see is one it reports as erased
-  while `raw_output` sits on disk.
+Two notes worth keeping rather than dropping:
+
+- **Ordering by timestamp was assumed unique twice in this arc.** Two versions
+  written in the same millisecond tied on `created_at` and fell back to storage
+  order. Ids are zero-padded and break the tie. Found by the tests, not by
+  review.
+- **Four IndexedDB repair cases retired and the reports-does-not-gate pairing did
+  not.** The retired four guarded `openDB(name, 1)` skipping its upgrade, which
+  cannot happen against SQLite, and `store.test.ts` already asserts the
+  replacement property. `fake-indexeddb` was only ever the harness; the pairing
+  now runs against the real store. All three storage test files route `fetch`
+  into the real route handler, and deleting one route turns five tests red across
+  three files.
+- **`mustWrite` has no production caller and that is now a decision, not an
+  oversight.** The routes narrow `Opened` themselves, which is the
+  degrade-gracefully path, so the only caller that would want it is a startup
+  that cannot proceed read-only — and there is deliberately no such startup. It
+  stays as a test helper with that stated in its comment; the alternative is
+  deleting it and having every test narrow by hand.
 
 Open, in order:
 
-- [ ] **Phases D and E together, the seam swap and erase.** Both live in
-      `src/db/` — `db.ts` and `wipe.ts` — so splitting them means two passes over
-      one directory and two reviews of overlapping context. `src/db/db.ts` goes
-      from `idb` to `fetch` with signatures unchanged; every function there is
-      already async, so it is a drop-in, and `db/versions.ts` is pure and does
-      not move. Erase must report what storage says across the process boundary:
-      a failed erase returns 200 with `clean: false`, never a 500, because the
-      report is the answer and only a transport failure is an error. Check: the
-      409 path surfaces `mismatch.message` rather than a generic failure.
 - [ ] **Phase F, `recordRun` into `pipeline.ts`**, with `raw_output` retention
       shipping in the same phase rather than after it. Kept separate from D and E
       because it is a different file and a different risk.
