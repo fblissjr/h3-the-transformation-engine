@@ -723,6 +723,13 @@
   "prompts": {
     "planner": {
       "builder": "src/provider/prompts/planner.ts:buildPlannerSystemPrompt",
+      "preamble": {
+        "source": "core",
+        "house": true,
+        "note": "The text before the first heading: the model's job in one sentence, then the statement of invariant 1 -- the sentences are what conditions H3, and every structural thing around them (shot numbers, cut timestamps, section headers, the alignment line) is added afterwards by code. Arguably the most load-bearing instruction in the prompt, and nothing downstream backs it up: assemble passes prose through verbatim, and a beat carrying a shot header renders two headers with two disagreeing cut times at zero diagnostics.",
+        "asserts": [],
+        "noAnchor": "Owner ruling, 2026-09-06, on the F1 case in the prompt audit. It cannot be a block -- it has no heading, and test/contract.test.ts slices each block from its heading forward, so text before the first one is unreachable by construction rather than by omission. The mechanisms that would reach it were measured and all fail the test CLAUDE.md sets for a new assertion. A wording anchor is refuted by the same argument that gives # How to write its noAnchor, and a rewrite that says the same thing better turns it red. A presence floor survives that rewrite but stays green through a preamble gutted of its meaning and refilled to length, so it is a tripwire against outright deletion and not protection of the invariant. Rather than ship a green check that reads as more than it is, the text is claimed here and left unasserted."
+      },
       "note": "Blocks are joined in this order. Anything marked conditional is absent when its input is absent. Adding a block means adding it here first; the conformance test fails otherwise.",
       "blocks": [
         {
@@ -860,6 +867,13 @@
     },
     "patch": {
       "builder": "src/provider/prompts/patch.ts:buildPatchSystemPrompt",
+      "preamble": {
+        "source": "core",
+        "house": true,
+        "note": "The text before the first heading: the model's job, then the operations contract -- a list of path/value operations, never a rewritten document, and never a path outside the editable set. Unlike the planner's, this one restates something code already enforces: PATCHABLE_LEAVES in src/core/ir/paths.ts discards out-of-set paths through isPatchable whatever the model was told. So deleting it would cost a courtesy to the model rather than a guarantee.",
+        "asserts": [],
+        "noAnchor": "Same construction problem as the planner preamble and the same ruling, but a weaker case for wanting an anchor in the first place, since the allowlist half is enforced in code. Claimed here so that neither preamble is left unaccounted for, which was the whole of the F1 finding."
+      },
       "blocks": [
         {
           "heading": "# Rules",
@@ -910,7 +924,7 @@
     {
       "id": "beats-carry-prose",
       "statement": "The planner writes the sentences; the serializer assembles structure around them and never expands an enum into a sentence.",
-      "enforcedBy": "review, and the absence of any enum-to-prose path in src/core/serialize"
+      "enforcedBy": "Two surfaces, and neither is a test. On the code side, the absence of any enum-to-prose path in src/core/serialize. On the instruction side, the planner preamble at prompts.planner.preamble, which is what tells the model not to write the structure itself; it is deliberately unanchored, and deleting it turns nothing in the suite red. Naming it here is a pointer for a reader, not a control."
     },
     {
       "id": "prompt-is-derived",

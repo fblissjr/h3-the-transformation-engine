@@ -854,6 +854,32 @@ describe('prompt blocks match the spec', () => {
       expect(source, prompt.builder).toContain(`export function ${fn}`);
     }
   });
+
+  /**
+   * The preamble is claimed and deliberately unasserted -- owner ruling, 2026-09-06.
+   *
+   * What this reads is the spec entry, NOT the prompt. It cannot tell you the
+   * preamble is present, or that it still says anything: deleting the whole thing
+   * from either builder leaves this green, which was measured before the ruling and
+   * is the point rather than an oversight. The mechanisms that would have caught it
+   * were a wording anchor, refuted by the same reasoning that gives `# How to write`
+   * its noAnchor, and a presence floor, which stays green through a preamble gutted
+   * and refilled to length.
+   *
+   * So why read the key at all: a spec field nothing reads could claim anything with
+   * the suite green, which this file has already had to fix three times -- `source`,
+   * the shot-header pattern, and open/close/join. An unread `preamble` would be the
+   * fourth, and worse, because it would have been added to look like protection.
+   * Requiring the reason to exist is what stops the entry being decorative.
+   */
+  it('claims each preamble and makes it say why it carries no anchor', () => {
+    for (const [side, prompt] of Object.entries(contract.prompts)) {
+      const preamble = (prompt as { preamble?: { asserts?: unknown[]; noAnchor?: string } }).preamble;
+      expect(preamble, `${side} has no preamble entry`).toBeDefined();
+      expect(preamble!.asserts, `${side} preamble carries an anchor`).toEqual([]);
+      expect(String(preamble!.noAnchor ?? '').length, `${side} preamble noAnchor`).toBeGreaterThan(30);
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
