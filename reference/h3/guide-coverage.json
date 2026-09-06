@@ -592,7 +592,8 @@
       "section": "# Full-Reference Mode Rewrite Output Format Guide",
       "text": "Write all six rewrite sections in English.",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "covered",
+      "coveredBy": "output.Ref2VA.sections"
     },
     {
       "id": "a7ae91f77727",
@@ -600,7 +601,11 @@
       "section": "# Full-Reference Mode Rewrite Output Format Guide",
       "text": "Preserve the original language only for dialogue and lyrics inside `<d>` and for text visibly present in the scene.",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "covered",
+      "coveredBy": [
+        "vocabulary.tags",
+        "vocabulary.onScreenText"
+      ]
     },
     {
       "id": "57ce2595a399",
@@ -624,7 +629,8 @@
       "section": "# Full-Reference Mode Rewrite Output Format Guide",
       "text": "Avoid reducing the description to a plot summary or a list of reference relationships.",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "declined",
+      "reason": "A quality instruction about description depth. Nothing structural to check, and pattern-matching prose for plot-summary-ness is the rule class this repo purged seventeen of."
     },
     {
       "id": "d9369c9777a9",
@@ -656,7 +662,8 @@
       "section": "## 2. Reference Labels and Definitions (`subject_definitions`)",
       "text": "Full-reference rewrites use four types of labels to identify the source and role of referenced content:",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "covered",
+      "coveredBy": "vocabulary.labelKinds"
     },
     {
       "id": "dd2d3e753977",
@@ -672,7 +679,8 @@
       "section": "## 2. Reference Labels and Definitions (`subject_definitions`)",
       "text": "`subject_definitions` defines each piece of referenced content that must be tracked separately later, such as a person, an environment, a source video's structure, or an audio track.",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "covered",
+      "coveredBy": "output.Ref2VA.sections"
     },
     {
       "id": "f3c495ce056b",
@@ -680,7 +688,8 @@
       "section": "## 2. Reference Labels and Definitions (`subject_definitions`)",
       "text": "Give each item its own line and explain what its label denotes, its reference role, and the main features to follow; name the corresponding source asset when its provenance needs to be made explicit.",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "covered",
+      "coveredBy": "output.Ref2VA.sections"
     },
     {
       "id": "c0e6cced55cf",
@@ -688,7 +697,11 @@
       "section": "## 2. Reference Labels and Definitions (`subject_definitions`)",
       "text": "If `<Picture N>` or `<Video N>` only identifies the source of another referenced item and will not be analyzed or used separately later, cite it inside that item's definition without adding a separate line.",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "covered",
+      "coveredBy": [
+        "vocabulary.frameAnchorRoles",
+        "vocabulary.subjectContentRoles"
+      ]
     },
     {
       "id": "7898020c2662",
@@ -768,7 +781,8 @@
       "section": "### 2.2 `<Picture N>`",
       "text": "Use a standalone `<Picture N>` when the reference image itself serves as a shot's first frame, keyframe, last frame, edited keyframe, or composition anchor:",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "covered",
+      "coveredBy": "vocabulary.frameAnchorRoles"
     },
     {
       "id": "94691b6026d3",
@@ -776,7 +790,11 @@
       "section": "### 2.2 `<Picture N>`",
       "text": "If an image is used only to define a character, scene, costume, or style, do not create a standalone picture entry.",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "covered",
+      "coveredBy": [
+        "vocabulary.subjectContentRoles",
+        "diagnostics.codes.FRAME_ROLE_ON_NON_IMAGE"
+      ]
     },
     {
       "id": "fd7d8c0773b4",
@@ -896,7 +914,11 @@
       "section": "### 2.4 `<Audio N>`",
       "text": "When an `<Audio N>` explicitly corresponds to a target speaker, reuse that speaker's global ID in the definition: write `<Subject N> (Sx)` when the speaker maps to a defined subject, or use a stable voice description followed by `(Sx)` otherwise.",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "covered",
+      "coveredBy": [
+        "vocabulary.speakerIds",
+        "vocabulary.audioRoles"
+      ]
     },
     {
       "id": "85a0ab25c8d4",
@@ -936,7 +958,8 @@
       "section": "### 2.5 Visual and Audio Tracks from the Same Reference Video",
       "text": "Each index indicates only the label's order within its own category and does not encode a pairing between the two categories.",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "covered",
+      "coveredBy": "vocabulary.labelKinds"
     },
     {
       "id": "e3e4c5fa8a94",
@@ -944,7 +967,8 @@
       "section": "### 2.5 Visual and Audio Tracks from the Same Reference Video",
       "text": "The same reference video may therefore correspond to `<Video 1>` and `<Audio 2>`; different indices do not prevent them from coming from the same source asset.",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "covered",
+      "coveredBy": "vocabulary.labelKinds"
     },
     {
       "id": "83664f698f4f",
@@ -968,7 +992,8 @@
       "section": "### 2.5 Visual and Audio Tracks from the Same Reference Video",
       "text": "State the shared source only when needed to remove provenance ambiguity, for example:",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "declined",
+      "reason": "States when to name a shared source for disambiguation -- a judgement about one asset pair, not a rule the serializer or validator can hold. Planner guidance at most."
     },
     {
       "id": "b10f799262aa",
@@ -976,7 +1001,8 @@
       "section": "## 3. `summary`",
       "text": "This section uses one short English paragraph to summarize the target video and its reference relationships.",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "covered",
+      "coveredBy": "output.Ref2VA.sections"
     },
     {
       "id": "438b1887d38c",
@@ -984,7 +1010,8 @@
       "section": "## 3. `summary`",
       "text": "It begins with a square-bracketed task-type prefix:",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "covered",
+      "coveredBy": "output.Ref2VA.summaryPrefix"
     },
     {
       "id": "401ea120c261",
@@ -992,7 +1019,8 @@
       "section": "## 3. `summary`",
       "text": "Choose task types according to the actual role each reference asset plays in the target video:",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "covered",
+      "coveredBy": "vocabulary.taskTypes"
     },
     {
       "id": "11738b15aff9",
@@ -1000,7 +1028,11 @@
       "section": "## 3. `summary`",
       "text": "When a task satisfies multiple relationships, combine the task types with ` + ` and do not repeat a type.",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "covered",
+      "coveredBy": [
+        "output.Ref2VA.summaryPrefix",
+        "diagnostics.codes.REF_TASK_TYPE_DUPLICATE"
+      ]
     },
     {
       "id": "ac7689c4b981",
@@ -1032,7 +1064,8 @@
       "section": "## 3. `summary`",
       "text": "If a reference video provides only camera movement, cuts, or rhythm, it normally belongs to `reference generation`.",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "covered",
+      "coveredBy": "vocabulary.taskTypes"
     },
     {
       "id": "4892cce6d21f",
@@ -1040,7 +1073,8 @@
       "section": "## 3. `summary`",
       "text": "Use `video editing` or `video continuation` only when that video is directly edited or continued.",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "covered",
+      "coveredBy": "vocabulary.taskTypes"
     },
     {
       "id": "9e543c423256",
@@ -1048,7 +1082,8 @@
       "section": "## 3. `summary`",
       "text": "When editing a source video, use `audio reuse` as well if its original audio remains audible.",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "covered",
+      "coveredBy": "vocabulary.taskTypes"
     },
     {
       "id": "ce776a94fc8d",
@@ -1056,7 +1091,8 @@
       "section": "## 3. `summary`",
       "text": "When continuing a source video without directly copying the audio signal, use `audio reference` if the new audio only continues the original track's audible characteristics.",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "covered",
+      "coveredBy": "vocabulary.taskTypes"
     },
     {
       "id": "a9f7dc7883cd",
@@ -1064,7 +1100,8 @@
       "section": "## 3. `summary`",
       "text": "The summary uses the previously defined `<Subject N>`, `<Picture N>`, `<Video N>`, and `<Audio N>` labels to describe the main subjects, shot flow, and roles of the reference assets.",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "covered",
+      "coveredBy": "diagnostics.codes.REF_LABEL_UNDEFINED"
     },
     {
       "id": "67f53468d3f1",
@@ -1072,7 +1109,8 @@
       "section": "## 3. `summary`",
       "text": "Do not introduce new reference labels in this section.",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "covered",
+      "coveredBy": "diagnostics.codes.REF_SUMMARY_NEW_LABEL"
     },
     {
       "id": "5c8447b2a28a",
@@ -1080,7 +1118,11 @@
       "section": "## 3. `summary`",
       "text": "For video-editing tasks, begin the summary after the task-type prefix with:",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "covered",
+      "coveredBy": [
+        "vocabulary.editedVideoOpener",
+        "diagnostics.codes.REF_SUMMARY_MISSING_EDIT_OPENER"
+      ]
     },
     {
       "id": "d6ec1d69f719",
@@ -1096,7 +1138,8 @@
       "section": "## 4. `retention_analysis`",
       "text": "Use one line for each reference label and preserve the meaning established in `subject_definitions`.",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "covered",
+      "coveredBy": "diagnostics.codes.REF_RETENTION_MISSING"
     },
     {
       "id": "64c67be7346c",
@@ -1104,7 +1147,8 @@
       "section": "### 4.1 Visible Content",
       "text": "`<Subject N>`, `<Picture N>`, and `<Video N>` use the following relationship markers.",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "covered",
+      "coveredBy": "vocabulary.visualRetention"
     },
     {
       "id": "e34249402abd",
@@ -1120,7 +1164,8 @@
       "section": "### 4.2 Audio",
       "text": "`<Audio N>` uses the following relationship markers:",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "covered",
+      "coveredBy": "vocabulary.audioRetention"
     },
     {
       "id": "cff0833117b1",
@@ -1128,7 +1173,8 @@
       "section": "### 4.2 Audio",
       "text": "Choose each relationship marker only within the reference role already defined for that label in `subject_definitions`.",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "covered",
+      "coveredBy": "diagnostics.codes.REF_RETENTION_MARKER_WRONG_CLASS"
     },
     {
       "id": "a0927a44ca62",
@@ -1168,7 +1214,8 @@
       "section": "### 5.1 Basic Format",
       "text": "Write the body in English.",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "covered",
+      "coveredBy": "output.Ref2VA.sections"
     },
     {
       "id": "bf42d03b1ea0",
@@ -1176,7 +1223,11 @@
       "section": "### 5.1 Basic Format",
       "text": "Preserve the original language of dialogue, lyrics, and visible text.",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "covered",
+      "coveredBy": [
+        "vocabulary.tags",
+        "vocabulary.onScreenText"
+      ]
     },
     {
       "id": "6208e51b5443",
@@ -1192,7 +1243,8 @@
       "section": "### 5.1 Basic Format",
       "text": "Later shots use `[Shot N] At MM:SS.mmm, ...` to mark cut times.",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "covered",
+      "coveredBy": "shotHeader"
     },
     {
       "id": "7395dbc18b37",
@@ -1208,7 +1260,8 @@
       "section": "### 5.1 Basic Format",
       "text": "Give vocal sources stable `(S1)`, `(S2)`, and subsequent IDs.",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "covered",
+      "coveredBy": "vocabulary.speakerIds"
     },
     {
       "id": "485ce8804bc2",
@@ -1216,7 +1269,8 @@
       "section": "### 5.1 Basic Format",
       "text": "Write dialogue and lyrics as `<d>[Language] ...</d>`.",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "covered",
+      "coveredBy": "vocabulary.tags"
     },
     {
       "id": "37da11672130",
@@ -1224,7 +1278,11 @@
       "section": "### 5.1 Basic Format",
       "text": "Use `<scenetrans>`, `<cutoff>`, and the corresponding continuity descriptions for dialogue crossing a cut, speech truncated by the video ending, and continuous audio across shots.",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "covered",
+      "coveredBy": [
+        "vocabulary.tags",
+        "vocabulary.continuityPhrases"
+      ]
     },
     {
       "id": "bd8002c49fbf",
@@ -1256,7 +1314,8 @@
       "section": "### 5.2 Full-Reference Mode Differences",
       "text": "Video-editing descriptions scale with the complexity of the source video and do not have to follow the generation-task range.",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "covered",
+      "coveredBy": "vocabulary.budgets.refDetailWords"
     },
     {
       "id": "97f8954f9f82",
@@ -1288,7 +1347,8 @@
       "section": "### 5.3 Using Reference Labels in Shots",
       "text": "Use natural phrasing for concrete frame anchors:",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "declined",
+      "reason": "Introduces three example phrasings for frame anchors. The guide offers them as natural phrasing rather than a closed set, so there is nothing to bind; a closed list here would be an invented restriction."
     },
     {
       "id": "7c8943e5efc9",
@@ -1336,7 +1396,8 @@
       "section": "### 5.4 Speakers, Audio Sources, and Dialogue",
       "text": "When the subject speaks, write `<Subject N> (Sx)`.",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "covered",
+      "coveredBy": "vocabulary.speakerIds"
     },
     {
       "id": "493fa06f7a81",
@@ -1352,7 +1413,8 @@
       "section": "### 5.4 Speakers, Audio Sources, and Dialogue",
       "text": "When the speaker does not correspond to a defined subject, use a stable voice description followed by `(Sx)`.",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "covered",
+      "coveredBy": "vocabulary.speakerIds"
     },
     {
       "id": "c787f50b8739",
@@ -1376,7 +1438,8 @@
       "section": "### 5.4 Speakers, Audio Sources, and Dialogue",
       "text": "When dialogue, narration, or lyrics from reference audio are directly reused, or when the input prompt explicitly requests their reperformance, preserve the exact source words and original language inside `<d>`.",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "covered",
+      "coveredBy": "vocabulary.dialogueAllowedPunctuation"
     },
     {
       "id": "1f4daa4f537e",
@@ -1408,7 +1471,8 @@
       "section": "### 5.4 Speakers, Audio Sources, and Dialogue",
       "text": "When only timbre, rhythm, emotion, or delivery is referenced, do not carry the original dialogue from the reference audio into the target video.",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "covered",
+      "coveredBy": "vocabulary.audioRoles"
     },
     {
       "id": "e574b33fa3c9",
@@ -1424,7 +1488,8 @@
       "section": "### 5.4 Speakers, Audio Sources, and Dialogue",
       "text": "Reuse the corresponding ID at every actual vocal event in `detailed_description`; an `<Audio N>` definition bound to a target speaker in `subject_definitions` also reuses the same `(Sx)` but never assigns a new one independently.",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "covered",
+      "coveredBy": "vocabulary.speakerIds"
     },
     {
       "id": "3da7e7c793a6",
@@ -1432,7 +1497,8 @@
       "section": "### 5.4 Speakers, Audio Sources, and Dialogue",
       "text": "Do not write `(Sx)` in `retention_analysis`.",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "covered",
+      "coveredBy": "diagnostics.codes.REF_SPEAKER_IN_RETENTION"
     },
     {
       "id": "fff79ca13d6a",
@@ -1472,7 +1538,8 @@
       "section": "## 6. `overall_soundscape` and `non_diegetic_music`",
       "text": "`non_diegetic_music` describes background music that the characters cannot hear and that is audible only to the audience.",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "covered",
+      "coveredBy": "output.Ref2VA.sections"
     },
     {
       "id": "7556d9e2da62",
@@ -1480,7 +1547,8 @@
       "section": "## 6. `overall_soundscape` and `non_diegetic_music`",
       "text": "When music is present, state its instrumentation, tempo, and dynamic development:",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "covered",
+      "coveredBy": "vocabulary.budgets.musicSentences"
     },
     {
       "id": "464e766bfcde",
@@ -1488,7 +1556,8 @@
       "section": "## 6. `overall_soundscape` and `non_diegetic_music`",
       "text": "When reference audio is used, state its copy or reference relationship only in the section that matches the audible layer: ambience and sound effects belong in `overall_soundscape`, while audience-only score belongs in `non_diegetic_music`.",
       "normative": true,
-      "disposition": "unverified"
+      "disposition": "covered",
+      "coveredBy": "vocabulary.referenceAudioRelationship"
     },
     {
       "id": "5e4eb416a740",

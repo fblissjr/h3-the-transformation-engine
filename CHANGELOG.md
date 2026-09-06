@@ -4,6 +4,29 @@ All notable changes to this project are documented here. Semantic versioning.
 
 ## [Unreleased]
 
+### Changed
+
+- **Guide-coverage ledger: the ref guide dispositioned, and `coveredBy` takes a
+  list.** 69 of 183 sentences now claim coverage against a resolving path, 4 are
+  declined with reasons, 110 remain unverified -- 28 of those normative-looking,
+  down from 73. A guide sentence often states two things the spec accounts for
+  separately ("preserve the original language inside `<d>` and for visible
+  text"), so a single path meant dropping half a claim or leaving the sentence
+  unverified; `coveredBy` now takes one path or several and resolves each.
+
+  Coverage is claimed only where a path pins the rule. Where the planner prompt
+  merely discusses one, the entry stays unverified -- most of the remaining
+  normative backlog is exactly that, and the distinction is the subject.
+
+  **The ledger produced its first finding.** Ref 5.4 states that a defined
+  subject speaking off-screen keeps its `<Subject N> (Sx)` form and is marked
+  `off-screen`. That rule exists in neither the spec nor the prompts: the only
+  `off-screen` in the rendered Ref2VA prompt is base 4.4's voiceover phrase,
+  which is a different case -- narration over a closed mouth rather than a
+  labelled subject speaking from outside the frame. Same class as the two rules
+  found by hand, and invisible for the same reason. Recorded for a ruling, not
+  fixed.
+
 ### Fixed
 
 - **The export could not be read back in, failing with the error the lineage

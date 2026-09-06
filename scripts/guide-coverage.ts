@@ -94,8 +94,18 @@ interface Entry {
   text: string;
   normative: boolean;
   disposition: Disposition;
-  /** Required when covered: a dotted path into contract.json that must resolve. */
-  coveredBy?: string;
+  /**
+   * Required when covered: one or more dotted paths into contract.json, each of
+   * which must resolve.
+   *
+   * A list rather than a single path because a guide sentence often states two
+   * things the spec accounts for in different places -- "preserve the original
+   * language inside `<d>` and for visible text" is the dialogue tag and the
+   * on-screen-text rule. Forcing one path would mean either dropping half the
+   * claim or leaving the sentence unverified, and both lose information the
+   * reader wants.
+   */
+  coveredBy?: string | string[];
   /** Required when declined. */
   reason?: string;
 }
@@ -259,8 +269,11 @@ function report(todo: number | null): number {
 
   for (const e of pin.entries) {
     if (e.disposition === 'covered') {
-      if (!e.coveredBy) problems.push(`${e.id} is covered but names no path`);
-      else if (!resolves(e.coveredBy)) problems.push(`${e.id} claims coverage at "${e.coveredBy}", which does not resolve`);
+      const paths = e.coveredBy === undefined ? [] : [e.coveredBy].flat();
+      if (paths.length === 0) problems.push(`${e.id} is covered but names no path`);
+      for (const path of paths) {
+        if (!resolves(path)) problems.push(`${e.id} claims coverage at "${path}", which does not resolve`);
+      }
     }
     if (e.disposition === 'declined' && !(e.reason ?? '').trim()) {
       problems.push(`${e.id} is declined with no reason`);
