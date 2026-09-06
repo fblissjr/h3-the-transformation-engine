@@ -172,6 +172,8 @@ Landed since 2026-09-01:
       spec-first was caught mid-flight with no implementation.
 - [x] **Local-model conformance harness**, `scripts/conformance-heylook.mjs`,
       run once on 2026-09-01; results in the archive below.
+- [x] **F1 ruled: both prompt preambles are claimed and neither is asserted.**
+      Owner ruling 2026-09-06, at `73c98c1`. See Decisions made.
 
 Open:
 
@@ -206,46 +208,29 @@ Open:
 - [ ] **F9: ref 5.4's off-screen marking for a defined subject.** A stated guide
       rule present in neither the spec nor the prompts. Spec-first if it is
       wanted, and an owner ruling either way.
-- [ ] **F1: whether the planner preamble gets a spec shape.** Measured rather
-      than argued. Two deletion arms — the invariant-1 paragraph alone, and the
-      whole preamble — each left the suite at 943/943 green, against a positive
-      control that went red on exactly one assertion. The control is what makes
-      those greens mean anything: nothing-noticed is a fact about coverage, not
-      about the harness. So the preamble is genuinely unprotected, and whether
-      that matters is the decision.
+- [ ] **The three structural things `SHOT_HEADER_IN_PROSE` does not cover.** The
+      planner preamble names four things the model must not write, because code
+      adds them: shot numbers, cut timestamps, section headers and the alignment
+      line. The diagnostic covers the first. The other three were measured on
+      2026-09-06 and are all uncaught — a beat carrying `At 00:04.000,`, one
+      carrying `overall_soundscape:`, and an FL2VA beat carrying an alignment
+      line each validate at **zero diagnostics**.
 
-      **A per-prompt ruling is a legitimate outcome and the entry must be able
-      to express it.** The two preambles are not the same kind of text. The patch
-      preamble's allowlist paragraph is backed by code whatever the model is told
-      — `PATCHABLE_LEAVES` in `src/core/ir/paths.ts:115`, enforced by
-      `isPatchable`. The planner's may have nothing behind it: the prose rules in
-      `src/core/validate/` check cited `<Subject N>` tags and that an attributed
-      speaker id appears in the prose, and nothing there greps a beat for
-      `[Shot 1]` or a timestamp. If that holds through `assemble` and the
-      serializer too, it is the sentence the case turns on; if something does
-      reject it, the gap is cosmetic and "no" is a real answer for the planner as
-      well.
+      **Deferred deliberately, and not as a batch.** They are not automatically
+      rules just because the first one was. The shot header earned its diagnostic
+      by being provably a contradiction — the serializer emits that exact header,
+      so a beat containing one renders doubled — and by surviving a refutation
+      grep across the fixtures and a false-positive test. Of the remaining three,
+      only the snake_case section header looks as unambiguous. A bare timestamp
+      is the risky one: a beat may legitimately describe a clock face or a
+      countdown, and the `visibleText` exclusion does not help, because a
+      timestamp need not be on-screen text. `First frame -- last frame` is close
+      enough to ordinary prose that it needs falsifying before it is believed.
 
-      **The strongest argument for "no" comes from inside the contract.** The
-      adjacent `# How to write` block carries `asserts: []` with a `noAnchor`
-      saying an anchor there would make the spec a change detector for wording.
-      The preamble is prose of the same kind, directly above it. The case has to
-      beat that, and the way it does is that a *presence* assertion is not a
-      wording assertion: red on deletion, green on a rewrite. That is a two-arm
-      control nobody has run, because until now there was no candidate assertion
-      to run it against.
-
-      A structural consequence to settle with it, not after: `contract.json`
-      declares blocks by heading and `test/contract.test.ts` locates each one
-      with `text.indexOf(heading)`. A preamble has no heading, so speccing it
-      means giving it one, changing how blocks are located, or declaring it as
-      something other than a block. The third looks right — the preamble is what
-      precedes the block list rather than a member of it — but it is part of what
-      F1 decides. And whichever mechanism wins, the key must be **bound by an
-      assertion**: `test/contract.test.ts` records that `source` was once "read
-      by nothing", a spec field that could have claimed anything with the suite
-      green. An unread `prompts.planner.preamble` key is that defect in a new
-      place, and bookkeeping rather than protection.
+      Each needs its own evidence before it is written, and the instrument is
+      cheap: mutate a fixture beat, run `validate`, then run the same pattern
+      against a legitimate document. The mistake available here is adding all
+      three because the first one worked.
 - [ ] **The residual placement instruction in the glitch block.** "Give each mark
       a different kind of surface" is still placement guidance in a preservation
       context. Milder than the two already fixed, and removing it means first
@@ -296,6 +281,28 @@ Open:
       three weeks from now would otherwise conclude it was dropped.
 
 ## Decisions made
+
+- **2026-09-06, F1: the preambles are claimed and neither is asserted.** Both
+  system prompts open with text before their first heading, which no spec entry
+  described and no test could reach — `test/contract.test.ts` slices each block
+  from its heading forward, and a preamble has none. It is now
+  `prompts.planner.preamble` and `prompts.patch.preamble`, with `asserts: []` and
+  the reason in `noAnchor`.
+
+  **The ruling went against protecting it, and the arms are the reason.** A
+  wording anchor is refuted by the same argument that gives `# How to write` its
+  own `noAnchor`: a reworded preamble that says the same thing better turns it
+  red, which is a change detector rather than a test. A presence floor survives
+  that rewrite but stays **green** through a preamble gutted of its meaning and
+  refilled to length, so it is a tripwire against outright deletion and not
+  protection of the invariant. A green check beside the planner's most
+  load-bearing paragraph would have read as more than it was.
+
+  What made "no" defensible rather than resigned is that the gap has a control
+  now, from the other direction: nothing in `assemble`, `validate` or `serialize`
+  inspected beat prose for the structure the serializer owns, so the preamble was
+  the only thing standing there. `SHOT_HEADER_IN_PROSE` closes one quarter of
+  that, and the rest is an open item above.
 
 - **2026-09-06, per-role bindings: yes.** The one structural decision. A global
   provider setting cannot express Gemini analysing an image while a heylook
