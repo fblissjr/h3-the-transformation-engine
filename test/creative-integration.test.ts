@@ -145,12 +145,16 @@ describe('buildPatchSystemPrompt', () => {
    * different callers, which is how they would have drifted. Same record, same
    * function, so the directive text is identical on both sides.
    */
-  it('derives the same directive text as the planner prompt', () => {
-    const directive = styleDirective(CLAY.selection);
-    expect(directive).not.toBeNull();
-    expect(buildPatchSystemPrompt(CLAY)).toContain(directive as string);
+  it('derives the same pack text as the planner prompt', () => {
+    // The framing sentence is now the caller's -- the planner applies a style,
+    // the patch prompt preserves one -- so the parity is over the resolved pack
+    // text beneath it, which is the actual derivation. Dropping the first line
+    // drops the preamble; everything after it must be identical on both sides.
+    const packText = (styleDirective(CLAY.selection) as string).split('\n').slice(1).join('\n');
+    expect(packText.trim().length).toBeGreaterThan(0);
+    expect(buildPatchSystemPrompt(CLAY)).toContain(packText);
     expect(buildPlannerSystemPrompt(normalize(input), { ...input, creativeMode: CLAY })).toContain(
-      directive as string,
+      packText,
     );
   });
 });
@@ -365,7 +369,9 @@ describe('glitch marks in the planner prompt', () => {
     const directive = styleDirective(CLAY.selection);
     expect(directive).not.toBeNull();
     expect(bare).toContain('\n\n# Supplied facts');
-    expect(styled).toBe(bare.replace('\n\n# Supplied facts', `\n\n${directive}\n\n# Supplied facts`));
+    expect(styled).toBe(
+      bare.replace('\n\n# Supplied facts', `\n\n# Style direction\n\n${directive}\n\n# Supplied facts`),
+    );
   });
 });
 
@@ -393,25 +399,38 @@ describe('glitch marks in the patch prompt', () => {
    * so the marks an edit is told to preserve are the marks the planner was told
    * to place, character for character.
    */
-  it('derives the same marks block as the planner prompt', () => {
-    const directive = glitchDirective(MARKED.glitch);
-    expect(directive).not.toBeNull();
-    expect(buildPatchSystemPrompt(MARKED)).toContain(directive as string);
+  it('derives the same marks and rules as the planner prompt', () => {
+    // As with the style: the placement lead differs by caller, everything below
+    // it is the derivation and must match character for character on both sides.
+    const full = glitchDirective(MARKED.glitch) as string;
+    const rules = full.slice(full.indexOf('  "SolidGoldMagikarp"'));
+    expect(rules.trim().length).toBeGreaterThan(0);
+    expect(buildPatchSystemPrompt(MARKED)).toContain(rules);
     expect(
       buildPlannerSystemPrompt(normalize(input), { ...input, creativeMode: MARKED }),
-    ).toContain(directive as string);
+    ).toContain(rules);
   });
 
   /**
-   * The block reads as an instruction to place marks, because that is what it
-   * is for. An edit is not placing anything, so the wrapper has to say which
-   * reading applies -- the same shape of contradiction that once had `subtle`
-   * strength and the core prompt disagreeing inside one prompt.
+   * This used to assert the opposite thing, and the change is the point.
+   *
+   * The block arrived framed for a planner -- "Place exactly these" -- and the
+   * patch prompt wrapped it in a paragraph telling the model to read it as a
+   * description and not as an instruction. A prompt arguing with itself is not
+   * a framing problem to assert, it is a sign the text underneath is wrong for
+   * the caller, so the derivation now takes a preservation lead and the wrapper
+   * is gone. What is asserted is that the planner's lead cannot reach an edit.
+   *
+   * The forbidden string is derived rather than typed: the default lead is line
+   * 2 of the un-led directive, so rewording it in `glitch.ts` keeps this test
+   * honest instead of making it pass vacuously.
    */
-  /** Wording proxy: the framing has no structural anchor, so a rewording fails here. */
-  it('frames the block as a description of what is there, not as a placement', () => {
+  it('asks for the marks to be preserved, and never carries the placement lead', () => {
     const prompt = buildPatchSystemPrompt(MARKED);
-    expect(prompt).toContain('not as an instruction to place anything');
+    const plannerLead = (glitchDirective(MARKED.glitch) as string).split('\n')[2];
+    expect(plannerLead).toContain('Place exactly these');
+    expect(prompt).not.toContain(plannerLead);
+    expect(prompt).toContain('already placed in the document');
     expect(prompt).toContain('Do not introduce a mark into a beat that has none');
   });
 
@@ -419,15 +438,12 @@ describe('glitch marks in the patch prompt', () => {
   it('carries no mode note, having no mode to carry one for', () => {
     const styled = buildPatchSystemPrompt(CLAY);
     const marked = buildPatchSystemPrompt(MARKED);
-    // By composition where the shape allows it: the marked prompt is the
-    // styled prompt, then one glitch block that ends on the derived directive.
-    // Anything appended after the directive -- a mode note, reworded or not --
-    // fails here without being named.
+    // The composition half still holds at the front: a marked prompt is a styled
+    // prompt plus one glitch block. It no longer ends on the derived directive,
+    // because the preservation rules follow it, so the `endsWith` companion to
+    // this has been dropped rather than adjusted -- the loop below asserts the
+    // property directly and the composition trick was only ever a proxy for it.
     expect(marked.startsWith(`${styled}\n\n# Active glitch marks\n`)).toBe(true);
-    expect(marked.endsWith(glitchDirective(MARKED.glitch) as string)).toBe(true);
-    // The block's own introduction sits between the heading and the directive
-    // and is prose, so a note spliced in there is reachable only by this
-    // table read, which is a proxy: a reworded note passes it.
     for (const [mode, note] of Object.entries(GLITCH_MODE_NOTES)) {
       expect(marked, mode).not.toContain(note);
     }

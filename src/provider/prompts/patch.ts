@@ -78,36 +78,41 @@ function editableSection(doc: H3Document, paths: string[]): string {
  * marks -- it is keeping the ones already in the prose intact.
  */
 export function buildPatchSystemPrompt(creativeMode?: CreativeModeRecord): string {
-  const directive = creativeMode ? styleDirective(creativeMode.selection) : null;
-  const glitch = creativeMode ? glitchDirective(creativeMode.glitch) : null;
+  // Both derivations are asked for a preservation framing rather than the
+  // planner's default. They previously came back framed for a planner -- "apply
+  // it consistently", "place exactly these" -- under a wrapper telling the model
+  // to do the opposite, so this prompt contained two top-level headings per
+  // section and a pair of contradicting instructions in each. The pack text
+  // itself is unchanged and is still the same derivation the planner gets.
+  const directive = creativeMode
+    ? styleDirective(
+        creativeMode.selection,
+        'The style direction below is what this document was written under. Preserve it in any prose ' +
+          'you rewrite, and do not extend it to anything the prose does not already carry.',
+      )
+    : null;
+  const glitch = creativeMode
+    ? glitchDirective(
+        creativeMode.glitch,
+        'These marks are already placed in the document, spelled exactly as written:',
+      )
+    : null;
   if (!directive && !glitch) return CORE;
 
   const blocks = [CORE];
 
-  if (directive) {
-    blocks.push(
-      [
-        '# Active style',
-        '',
-        'The document was written under the style direction below. Preserve it in any prose you rewrite.',
-        '',
-        directive,
-      ].join('\n'),
-    );
-  }
+  if (directive) blocks.push(['# Active style', '', directive].join('\n'));
 
   if (glitch) {
     blocks.push(
       [
         '# Active glitch marks',
         '',
-        'The marks below are already placed in this document. What follows is the direction they were ' +
-          'placed under; read it as a description of what is there, not as an instruction to place ' +
-          'anything. Keep every mark that appears in a beat you rewrite exactly as it is spelled and ' +
-          "keep it in that beat's visibleText. Do not introduce a mark into a beat that has none, and " +
-          'do not remove one unless the instruction asks for it.',
-        '',
         glitch,
+        '',
+        'Keep every mark that appears in a beat you rewrite exactly as it is spelled, and keep it in ' +
+          "that beat's visibleText. Do not introduce a mark into a beat that has none, and do not " +
+          'remove one unless the instruction asks for it.',
       ].join('\n'),
     );
   }

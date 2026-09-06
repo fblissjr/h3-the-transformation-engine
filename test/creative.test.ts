@@ -51,7 +51,8 @@ import type { StoredGlitch } from '../src/core/creative';
 describe('styleDirective', () => {
   it('names the selected pack and carries its traits', () => {
     const text = styleDirective({ visual: 'V04', strength: 'subtle' });
-    expect(text).toContain('# Style direction');
+    // No heading: the derivation returns a body and each prompt heads it itself.
+    expect(text).not.toContain('# Style direction');
     expect(text).toContain('For the visual medium, use silhouette cutout:');
     expect(text).toContain('cutout animation');
   });
@@ -331,7 +332,8 @@ const ONE: StoredGlitch = { tokens: ['SolidGoldMagikarp'], register: 'motif' };
 describe('glitchDirective', () => {
   it('places the marks it was given, spelled exactly and quoted', () => {
     const text = glitchDirective(ONE);
-    expect(text).toContain('# Glitch marks');
+    // No heading, for the same reason styleDirective carries none.
+    expect(text).not.toContain('# Glitch marks');
     expect(text).toContain('"SolidGoldMagikarp"');
     expect(text).toContain('once each');
   });

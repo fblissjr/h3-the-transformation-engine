@@ -382,11 +382,14 @@ function suppliedFacts(ctx: NormalizedContext, input: CompileInput): string {
 export function buildPlannerSystemPrompt(ctx: NormalizedContext, input: CompileInput): string {
   const blocks = [CORE, MODE_BLOCKS[ctx.mode], workedExample(ctx.mode)];
 
+  // The headings live here rather than inside the derivations: both prompts
+  // splice the same pack text under a heading of their own, and a derivation
+  // that supplied one put two of them in the patch prompt.
   const directive = input.creativeMode ? styleDirective(input.creativeMode.selection) : null;
-  if (directive) blocks.push(directive);
+  if (directive) blocks.push(['# Style direction', '', directive].join('\n'));
 
   const glitch = input.creativeMode ? glitchDirective(input.creativeMode.glitch) : null;
-  if (glitch) blocks.push([glitch, GLITCH_MODE_NOTES[ctx.mode]].join('\n\n'));
+  if (glitch) blocks.push(['# Glitch marks', '', glitch, '', GLITCH_MODE_NOTES[ctx.mode]].join('\n'));
 
   blocks.push(suppliedFacts(ctx, input));
   return blocks.join('\n\n');

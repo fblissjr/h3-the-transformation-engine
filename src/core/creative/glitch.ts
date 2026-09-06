@@ -322,8 +322,21 @@ const REGISTER_CLAUSE: Record<GlitchRegister, string> = {
  * active H3 mode and the patch prompt does not, so everything mode-specific
  * lives with the mode blocks in `planner.ts`. Keeping this total on the record
  * alone is what lets both prompts derive identical text from it.
+ *
+ * Returns a BODY and no heading, for the reason `styleDirective` does: the
+ * planner heads it `# Glitch marks` and the patch prompt `# Active glitch
+ * marks`, and while this supplied its own the patch prompt carried both.
+ *
+ * `placementLead` exists for the sharper half of the same problem. The default
+ * line is "Place exactly these", which is an instruction to place marks --
+ * correct for the planner and wrong for an edit, where they are already placed.
+ * The patch prompt previously wrapped this text in a paragraph telling the
+ * model to read it as a description and not as an instruction, which is a
+ * prompt arguing with itself and a reliable sign the text underneath is wrong
+ * for the caller. Everything below the lead is rules about how a mark behaves
+ * and reads correctly for both.
  */
-export function glitchDirective(glitch: StoredGlitch | undefined): string | null {
+export function glitchDirective(glitch: StoredGlitch | undefined, placementLead?: string): string | null {
   const tokens = resolvedTokens(glitch);
   if (tokens.length === 0) return null;
 
@@ -346,13 +359,11 @@ export function glitchDirective(glitch: StoredGlitch | undefined): string | null
         ];
 
   return [
-    '# Glitch marks',
-    '',
     'The scene contains the marks below. Each is a string that means nothing, was placed by nobody, ' +
       'and is noticed by no one in the frame. That is the entire effect: something legible and ' +
       'deliberate, with no author and no explanation.',
     '',
-    'Place exactly these, spelled exactly as written, once each:',
+    placementLead ?? 'Place exactly these, spelled exactly as written, once each:',
     ...tokens.map((t) => `  "${t.id}"`),
     '',
     ...placement,

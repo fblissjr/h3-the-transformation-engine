@@ -95,18 +95,34 @@ function entries(selection: StoredSelection): { lead: string; name: string; dire
 }
 
 /**
- * The text block spliced into a system prompt, or null when the selection
+ * The pack text spliced into a system prompt, or null when the selection
  * resolves to nothing at all -- an empty selection, or one whose ids are all
  * unknown because they were written by an older build.
+ *
+ * Returns a BODY and no heading. The heading belongs to the call site, because
+ * the two prompts frame this differently: the planner heads it
+ * `# Style direction` and the patch prompt `# Active style`. While this
+ * function supplied its own, the patch prompt wrapped it and the result carried
+ * two top-level headings for one section, the second of them the planner's.
+ * The rule underneath is the one that already governs the record: a creative
+ * selection travels and its presentation does not.
+ *
+ * `preamble` is the same split applied to the framing sentence. The default is
+ * the strength preamble, which is written for a planner about to apply a style;
+ * a caller preserving prose that was already written under one passes its own,
+ * because "apply it consistently across subjects, environment, lighting and
+ * transitions" is the wrong instruction for a surgical edit. What neither
+ * caller may vary is the resolved pack text below it -- that is the derivation,
+ * and both prompts get the same one from the same record.
  */
-export function styleDirective(selection: StoredSelection): string | null {
+export function styleDirective(selection: StoredSelection, preamble?: string): string | null {
   const resolved = entries(selection);
   if (resolved.length === 0) return null;
 
-  const preamble = STRENGTH_PREAMBLE[selection.strength] ?? STRENGTH_PREAMBLE.full;
+  const lead = preamble ?? STRENGTH_PREAMBLE[selection.strength] ?? STRENGTH_PREAMBLE.full;
   const body = resolved.map((e) => `${e.lead} ${e.name.toLowerCase()}: ${e.directive}`);
 
-  return ['# Style direction', '', preamble, ...body.flatMap((b) => ['', b])].join('\n');
+  return [lead, ...body.flatMap((b) => ['', b])].join('\n');
 }
 
 /** Whether the selection resolves to anything at all. */

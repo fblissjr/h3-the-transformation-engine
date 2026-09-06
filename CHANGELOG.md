@@ -6,6 +6,33 @@ All notable changes to this project are documented here. Semantic versioning.
 
 ### Fixed
 
+- **The patch prompt stated each derived section twice, under two headings, with
+  the halves contradicting each other.** `styleDirective` and `glitchDirective`
+  each returned a block carrying its own heading, so the patch prompt's
+  `# Active style` and `# Active glitch marks` wrappers sat on top of the
+  planner's `# Style direction` and `# Glitch marks`. Worse than the duplication,
+  the bodies were framed for a planner: the style wrapper said preserve this and
+  the body said "apply it consistently across subjects, environment, lighting,
+  and transitions", and the glitch wrapper told the model to read the block as a
+  description "not as an instruction to place anything" while the body said
+  "Place exactly these".
+
+  Both derivations now return a body with no heading, and the framing sentence
+  is a caller's choice: the planner keeps its defaults, the patch prompt passes
+  a preservation lead. The resolved pack text underneath is untouched and is
+  still one derivation shared by both prompts, so the invariant holds -- the
+  parity tests now compare that text rather than whole blocks, which is what
+  they were always about.
+
+  A prompt that has to tell a model to disregard its own next paragraph is not a
+  framing problem to be asserted, which is what a test here previously did. That
+  test now asserts the planner's placement lead cannot reach an edit at all, and
+  derives the forbidden string from the directive rather than typing it, so
+  rewording the lead cannot make it pass vacuously.
+
+  Effect on output is unmeasured and no quality claim is made. The prose was
+  self-contradicting on its face, which is legible without a render.
+
 - **The duration picker offered seven durations below the engine's floor.** It
   was built as `gridFramesUpTo(24 * 15)`, and that function counted from
   `k = 0` -- whose first value is 5 frames, on-grid and 0.208 seconds long.
