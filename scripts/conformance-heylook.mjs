@@ -72,8 +72,16 @@ const PROBE = process.argv.includes('--probe');
  * prose instead of the placeholder. Harness-only; the app has no such switch.
  */
 const STRIP_EXAMPLE = process.argv.includes('--strip-example');
-/** `--thinking=on|off` and `--effort=<per-model value>`; see ThinkingPreference in the client. */
-const THINKING = { on: arg('thinking', 'off') === 'on', ...(arg('effort', '') ? { effort: arg('effort', '') } : {}) };
+/**
+ * `--thinking=auto|on|off` and `--effort=<per-model value>`; see
+ * ThinkingPreference in the client. `auto` sends no switch and lets the
+ * server's cascade decide, which is a third arm of the comparison rather than a
+ * synonym for off.
+ */
+const THINKING = {
+  mode: arg('thinking', 'off'),
+  ...(arg('effort', '') ? { effort: arg('effort', '') } : {}),
+};
 
 if (MODELS.length === 0) {
   console.error('usage: bun scripts/conformance-heylook.mjs --model=<id>[,<id>...] [--set=t2va|ref2va|all] [--n=N] [--out=path] [--probe]');

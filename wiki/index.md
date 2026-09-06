@@ -65,6 +65,8 @@ The knowledge base is structured into dedicated topic guides:
   React component layout, `useEngine` state hook, single-flight serial operation queue (`createSerialQueue`), document editor, and live preview.
 - **[Operational Policy Engine](policy.md)**
   Hierarchical policy cascade (`global` $\rightarrow$ `provider_type` $\rightarrow$ `instance` $\rightarrow$ `model`), concurrency budgets, and UI policy panel.
+- **[Roles, Instances & Bindings](roles_and_bindings.md)**
+  How a model call is addressed: provider type, instance, policy and binding; the three call sites that exist and the two that do not; which parts are implemented, partial or conceptual, and what each would take to build.
 
 ### Audits, Verification & Postmortems
 - **[Code-Documentation Discrepancy Ledger](code_doc_discrepancies.md)**

@@ -123,21 +123,38 @@ const MIN_RETRY_MS = 1000;
 /**
  * Whether to ask a thinking model to think, and how hard.
  *
- * Off by default, which is what shipped: the reasoning arrives as a separate
- * block the client discards, and it spends the output ceiling the document
- * needs. But that was one measurement on one 27B gguf, and the owner's view is
- * that thinking may account for a good part of the prose quality -- so it is a
- * per-client choice rather than a constant, and the conformance harness runs
- * the comparison. `effort` is heylook's `reasoning_effort`, whose vocabulary is
- * per model; it is sent only where the model's row advertises the capability,
- * since a value the chat template does not know returns a 500.
+ * Three states, not two, and the third is the one that needs explaining.
+ * `auto` sends no `thinking` field at all, which is not the same as sending
+ * false: since heylook 1.79.62 an absent switch resolves to the model's own
+ * `models.toml` flag, and failing that to whether the model can think at all.
+ * Sending false overrides that decision from here. We were doing exactly that
+ * on every capable model -- an override, not a default -- which is the shape
+ * this repo keeps finding: a value invented by the client where absence was
+ * the server's way of saying "you have no opinion".
+ *
+ * `off` remains distinct and is still the shipped default, because turning
+ * thinking on across the board is a change to generation cost and output that
+ * belongs to the owner rather than to a refactor. The reasoning arrives as a
+ * separate block the client discards and it spends the output ceiling the
+ * document needs; but that was one measurement on one 27B gguf, and the
+ * owner's view is that thinking may account for a good part of the prose
+ * quality. The conformance harness runs the comparison.
+ *
+ * `effort` is heylook's `reasoning_effort`, whose vocabulary is per model. It
+ * is sent only with `on` and only where the model's row advertises the
+ * capability, since a value the chat template does not know returns a 500.
+ * There is deliberately no `auto` effort value: absence already means the
+ * template's own default, so an extra spelling for it would be a second way to
+ * say the same thing.
  */
+export type ThinkingMode = 'auto' | 'on' | 'off';
+
 export interface ThinkingPreference {
-  on: boolean;
+  mode: ThinkingMode;
   effort?: string;
 }
 
-export const THINKING_DEFAULT: ThinkingPreference = { on: false };
+export const THINKING_DEFAULT: ThinkingPreference = { mode: 'off' };
 
 export interface HeylookClientConfig {
   /** See `ThinkingPreference`. Absent means off. */
@@ -225,11 +242,17 @@ export function buildRequest(
   };
 
   // Thinking is a per-client preference (see `ThinkingPreference`), sent only
-  // to a model whose row has the switch. Depth goes only where the row also
-  // advertises `reasoning_effort`, and only when thinking is on -- an effort
-  // with thinking off is a contradiction the template would have to resolve.
-  if (canServe(model, 'thinking')) request.thinking = thinking.on;
-  if (thinking.on && thinking.effort != null && canServe(model, 'reasoning_effort')) {
+  // to a model whose row has the switch. `auto` sends nothing at all, which is
+  // the whole point of it: the field's absence is what lets the server's own
+  // cascade decide. Depth goes only where the row also advertises
+  // `reasoning_effort`, and only when thinking is explicitly on -- an effort
+  // with thinking off is a contradiction the template would have to resolve,
+  // and an effort with thinking auto would half-override the thing auto exists
+  // to leave alone.
+  if (thinking.mode !== 'auto' && canServe(model, 'thinking')) {
+    request.thinking = thinking.mode === 'on';
+  }
+  if (thinking.mode === 'on' && thinking.effort != null && canServe(model, 'reasoning_effort')) {
     request.reasoning_effort = thinking.effort;
   }
 

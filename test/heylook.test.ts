@@ -190,19 +190,41 @@ describe('the Messages wire', () => {
     // unchecked, so it is gated on the `reasoning_effort` capability and on
     // thinking being on -- an effort with thinking off is a contradiction.
     const EFFORT_MODEL: HeylookModel = { ...TEXT_MODEL, capabilities: ['chat', 'thinking', 'reasoning_effort'] };
-    const on = buildRequest(base, [], EFFORT_MODEL, { on: true, effort: 'xhigh' });
+    const on = buildRequest(base, [], EFFORT_MODEL, { mode: 'on', effort: 'xhigh' });
     expect(on.thinking).toBe(true);
     expect(on.reasoning_effort).toBe('xhigh');
 
-    const noEffortCapability = buildRequest(base, [], TEXT_MODEL, { on: true, effort: 'xhigh' });
+    const noEffortCapability = buildRequest(base, [], TEXT_MODEL, { mode: 'on', effort: 'xhigh' });
     expect(noEffortCapability.thinking).toBe(true);
     expect(noEffortCapability).not.toHaveProperty('reasoning_effort');
 
-    const offWithEffort = buildRequest(base, [], EFFORT_MODEL, { on: false, effort: 'xhigh' });
+    const offWithEffort = buildRequest(base, [], EFFORT_MODEL, { mode: 'off', effort: 'xhigh' });
     expect(offWithEffort.thinking).toBe(false);
     expect(offWithEffort).not.toHaveProperty('reasoning_effort');
 
-    expect(buildRequest(base, [], null, { on: true, effort: 'xhigh' })).not.toHaveProperty('thinking');
+    expect(buildRequest(base, [], null, { mode: 'on', effort: 'xhigh' })).not.toHaveProperty('thinking');
+  });
+
+  it('sends no switch at all on auto, even to a model that has one', () => {
+    // The distinction the three-state exists for, and the one a boolean cannot
+    // express: `false` is an instruction, absence is a deferral. Since heylook
+    // 1.79.62 an absent switch resolves to the model's own models.toml flag and
+    // then to whether it can think at all, so sending false to a capable model
+    // overrides that from here. Asserting on TEXT_MODEL specifically -- the row
+    // that HAS the capability -- because on a model without it every mode omits
+    // the field and the test would pass while proving nothing.
+    const EFFORT_MODEL: HeylookModel = {
+      ...TEXT_MODEL,
+      capabilities: ['chat', 'thinking', 'reasoning_effort'],
+    };
+    expect(buildRequest(base, [], TEXT_MODEL, { mode: 'auto' })).not.toHaveProperty('thinking');
+    expect(buildRequest(base, [], TEXT_MODEL, { mode: 'off' }).thinking).toBe(false);
+
+    // An effort alongside auto is dropped rather than sent: a depth without a
+    // switch half-overrides the thing auto exists to leave alone.
+    const autoWithEffort = buildRequest(base, [], EFFORT_MODEL, { mode: 'auto', effort: 'xhigh' });
+    expect(autoWithEffort).not.toHaveProperty('thinking');
+    expect(autoWithEffort).not.toHaveProperty('reasoning_effort');
   });
 
   it('omits the model id entirely when none was resolved', () => {
@@ -449,7 +471,7 @@ describe('the retry loop itself, not just the header arithmetic', () => {
       origin: 'http://x',
       model: EFFORT_MODEL,
       fetchImpl: capture,
-      thinking: { on: true, effort: 'medium' },
+      thinking: { mode: 'on', effort: 'medium' },
     });
     await client.call({ ...base, maxOutputTokens: 8 });
     expect(body).not.toBeNull();
