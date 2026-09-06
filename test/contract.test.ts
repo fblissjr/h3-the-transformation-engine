@@ -871,6 +871,14 @@ describe('prompt blocks match the spec', () => {
    * the shot-header pattern, and open/close/join. An unread `preamble` would be the
    * fourth, and worse, because it would have been added to look like protection.
    * Requiring the reason to exist is what stops the entry being decorative.
+   *
+   * SCOPE, stated because it is wider than the two prompts it was written for: this
+   * iterates whatever `prompts` holds, not a pinned planner/patch pair. Adding a third
+   * -- the video analysis prompt is open work and has no contract entry yet -- makes
+   * this go red until that prompt declares a preamble too. That is intended and not a
+   * false red: unclaimed preamble text was the whole of the F1 finding, and a new
+   * prompt has it for the same reason the first two did. Left broad deliberately, so
+   * the answer is to write the entry rather than to narrow this.
    */
   it('claims each preamble and makes it say why it carries no anchor', () => {
     for (const [side, prompt] of Object.entries(contract.prompts)) {
