@@ -240,11 +240,24 @@ function init(): number {
   return 0;
 }
 
-function report(todo: number | null): number {
-  if (!existsSync(PIN_PATH)) {
-    console.error('no pin yet -- run with --init');
-    return 2;
-  }
+/**
+ * Everything wrong with the ledger, as a list of sentences. Empty is healthy.
+ *
+ * Exported and separated from the reporting so a test can assert it, which is
+ * the half of this file that belongs in the suite. The BACKLOG deliberately
+ * does not live here: unverified entries are work not yet done and a suite that
+ * went red on them would be red permanently, which is the state people learn to
+ * scroll past. What is below is different in kind -- a guide that moved under
+ * the dispositions, a coverage claim pointing at a path that does not exist, a
+ * sentence with no entry at all. Those are faults and a fault should fail.
+ *
+ * This existed as a CLI with no caller until the dogman session pointed out
+ * that nothing ran it: no package.json script, no test, no hook. It exited
+ * nonzero correctly and nothing ever asked it to, which is a guarantee held by
+ * remembering to run something.
+ */
+export function consistencyProblems(): string[] {
+  if (!existsSync(PIN_PATH)) return ['no pin yet -- run with --init'];
   const pin: Pin = JSON.parse(readFileSync(PIN_PATH, 'utf8'));
   const sentences = allSentences();
   const problems: string[] = [];
@@ -310,6 +323,17 @@ function report(todo: number | null): number {
     }
   }
 
+  return problems;
+}
+
+function report(todo: number | null): number {
+  if (!existsSync(PIN_PATH)) {
+    console.error('no pin yet -- run with --init');
+    return 2;
+  }
+  const pin: Pin = JSON.parse(readFileSync(PIN_PATH, 'utf8'));
+  const problems = consistencyProblems();
+
   const counts = { unverified: 0, covered: 0, declined: 0 } as Record<Disposition, number>;
   for (const e of pin.entries) counts[e.disposition] += 1;
   const openNormative = pin.entries.filter((e) => e.disposition === 'unverified' && e.normative);
@@ -341,7 +365,11 @@ function report(todo: number | null): number {
   return 0;
 }
 
-const argv = process.argv.slice(2);
-if (argv.includes('--init')) process.exit(init());
-const t = argv.indexOf('--todo');
-process.exit(report(t >= 0 ? Number(argv[t + 1] ?? 10) : null));
+// Guarded so `consistencyProblems` can be imported. Without this, importing the
+// module ran the CLI and exited the importing process.
+if (import.meta.main) {
+  const argv = process.argv.slice(2);
+  if (argv.includes('--init')) process.exit(init());
+  const t = argv.indexOf('--todo');
+  process.exit(report(t >= 0 ? Number(argv[t + 1] ?? 10) : null));
+}
