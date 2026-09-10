@@ -40,13 +40,20 @@ interface Props {
   slots: ReferenceSlot[];
   onChange: (slots: ReferenceSlot[]) => void;
   canAnalyzeVideo?: boolean;
+  videoAnalysisDisabledReason?: string;
   onAnalyzeVideo?: (
     file: File,
     onProgress?: (msg: string) => void,
   ) => Promise<{ description: string; uri: string }>;
 }
 
-export function SlotManager({ slots, onChange, canAnalyzeVideo, onAnalyzeVideo }: Props) {
+export function SlotManager({
+  slots,
+  onChange,
+  canAnalyzeVideo,
+  videoAnalysisDisabledReason,
+  onAnalyzeVideo,
+}: Props) {
   const labels = assignLabels(slots);
   const counts = countByKind(slots);
   const fileMapRef = useRef<Map<string, File>>(new Map());
@@ -253,58 +260,66 @@ export function SlotManager({ slots, onChange, canAnalyzeVideo, onAnalyzeVideo }
                 placeholder={
                   slot.kind === 'image'
                     ? 'What this contributes. Optional -- the planner can see the image.'
-                    : 'Describe this clip, or click Analyze with Gemini (agentic) below.'
+                    : canAnalyzeVideo
+                      ? 'Describe this clip, or click Analyze with Gemini (agentic) below.'
+                      : 'Describe this clip.'
                 }
                 rows={2}
                 className="mt-2 w-full resize-y rounded border border-[var(--color-edge)] bg-black/30 p-1.5 text-xs"
               />
 
-              {slot.kind === 'video' && canAnalyzeVideo && (
-                <div className="mt-2 flex flex-col gap-1 border-t border-[var(--color-edge)]/40 pt-1.5 text-[10px]">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[var(--color-muted)]">Gemini Agentic Video:</span>
-                    {analyzingStatus[slot.id] ? (
-                      <span className="animate-pulse font-medium text-[var(--color-accent)]">
-                        {analyzingStatus[slot.id]}
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const file = fileMapRef.current.get(slot.id);
-                          if (file) {
-                            void runAnalysis(slot.id, file);
-                          } else {
-                            pendingSlotIdRef.current = slot.id;
-                            filePickerRef.current?.click();
+              {slot.kind === 'video' && (
+                canAnalyzeVideo ? (
+                  <div className="mt-2 flex flex-col gap-1 border-t border-[var(--color-edge)]/40 pt-1.5 text-[10px]">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[var(--color-muted)]">Gemini Agentic Video:</span>
+                      {analyzingStatus[slot.id] ? (
+                        <span className="animate-pulse font-medium text-[var(--color-accent)]">
+                          {analyzingStatus[slot.id]}
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const file = fileMapRef.current.get(slot.id);
+                            if (file) {
+                              void runAnalysis(slot.id, file);
+                            } else {
+                              pendingSlotIdRef.current = slot.id;
+                              filePickerRef.current?.click();
+                            }
+                          }}
+                          className="rounded border border-[var(--color-edge)] bg-[var(--color-edge)]/20 px-2 py-0.5 text-[var(--color-accent)] hover:border-[var(--color-accent)] hover:bg-[var(--color-accent)]/10"
+                          title="Uploads clip to Files API and runs dynamic agentic video understanding"
+                        >
+                          Analyze with Gemini (agentic)
+                        </button>
+                      )}
+                    </div>
+                    {analyzeError[slot.id] && (
+                      <div className="flex items-center justify-between text-[9px] text-[var(--color-danger)]">
+                        <span>{analyzeError[slot.id]}</span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setAnalyzeError((prev: Record<string, string>) => {
+                              const next = { ...prev };
+                              delete next[slot.id];
+                              return next;
+                            })
                           }
-                        }}
-                        className="rounded border border-[var(--color-edge)] bg-[var(--color-edge)]/20 px-2 py-0.5 text-[var(--color-accent)] hover:border-[var(--color-accent)] hover:bg-[var(--color-accent)]/10"
-                        title="Uploads clip to Files API and runs dynamic agentic video understanding"
-                      >
-                        Analyze with Gemini (agentic)
-                      </button>
+                          className="ml-1 underline"
+                        >
+                          dismiss
+                        </button>
+                      </div>
                     )}
                   </div>
-                  {analyzeError[slot.id] && (
-                    <div className="flex items-center justify-between text-[9px] text-[var(--color-danger)]">
-                      <span>{analyzeError[slot.id]}</span>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setAnalyzeError((prev: Record<string, string>) => {
-                            const next = { ...prev };
-                            delete next[slot.id];
-                            return next;
-                          })
-                        }
-                        className="ml-1 underline"
-                      >
-                        dismiss
-                      </button>
-                    </div>
-                  )}
-                </div>
+                ) : (
+                  <div className="mt-1.5 border-t border-[var(--color-edge)]/40 pt-1.5 text-[10px] text-[var(--color-muted)]">
+                    {videoAnalysisDisabledReason ?? 'Video analysis is not supported with the active provider.'}
+                  </div>
+                )
               )}
             </li>
           );

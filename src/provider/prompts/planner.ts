@@ -391,6 +391,10 @@ export function buildPlannerSystemPrompt(ctx: NormalizedContext, input: CompileI
   const glitch = input.creativeMode ? glitchDirective(input.creativeMode.glitch) : null;
   if (glitch) blocks.push(['# Glitch marks', '', glitch, '', GLITCH_MODE_NOTES[ctx.mode]].join('\n'));
 
+  if (input.direction && input.direction.trim()) {
+    blocks.push(['# Creative direction', '', input.direction.trim()].join('\n'));
+  }
+
   blocks.push(suppliedFacts(ctx, input));
   return blocks.join('\n\n');
 }

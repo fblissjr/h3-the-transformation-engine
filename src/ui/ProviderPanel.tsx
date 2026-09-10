@@ -23,10 +23,11 @@ import {
   type VideoResolution,
 } from '../provider/gemini';
 import { useState } from 'react';
-import type { HeylookModel } from '../provider/heylook';
+import type { HeylookModel, HeylookPreset } from '../provider/heylook';
 import type { ThinkingPreference } from '../provider/heylook/client';
 import type { Instance } from '../provider/registry';
 import type { ProviderId } from '../provider/types';
+import type { PresetProvenance } from '../core/ir/types';
 
 interface Props {
   provider: ProviderId;
@@ -44,6 +45,17 @@ interface Props {
   models: HeylookModel[] | null;
   modelId: string | null;
   onModelChange: (id: string) => void;
+  presets?: HeylookPreset[] | null;
+  onImportPreset?: (preset: HeylookPreset) => void;
+  appliedPreset?: PresetProvenance | null;
+  temperature?: number | null;
+  onTemperatureChange?: (val: number | null) => void;
+  topP?: number | null;
+  onTopPChange?: (val: number | null) => void;
+  maxOutputTokens?: number | null;
+  onMaxOutputTokensChange?: (val: number | null) => void;
+  contextSize?: number;
+  onContextSizeChange?: (size: number) => void;
   discovering: boolean;
   /** Non-null while a model is being made resident, naming which. */
   loadingModel: string | null;
@@ -76,6 +88,17 @@ export function ProviderPanel({
   models,
   modelId,
   onModelChange,
+  presets,
+  onImportPreset,
+  appliedPreset,
+  temperature,
+  onTemperatureChange,
+  topP,
+  onTopPChange,
+  maxOutputTokens,
+  onMaxOutputTokensChange,
+  contextSize,
+  onContextSizeChange,
   discovering,
   loadingModel,
   error,
@@ -234,6 +257,146 @@ export function ProviderPanel({
                 </option>
               ))}
             </select>
+          )}
+
+          {onContextSizeChange && (
+            <select
+              value={
+                contextSize === 0
+                  ? '0'
+                  : contextSize === 32768
+                    ? '32768'
+                    : contextSize === 65536
+                      ? '65536'
+                      : contextSize === 128000
+                        ? '128000'
+                        : contextSize === 131072
+                          ? '131072'
+                          : contextSize === 262144
+                            ? '262144'
+                            : contextSize === 1048576
+                              ? '1048576'
+                              : contextSize !== undefined
+                                ? String(contextSize)
+                                : '128000'
+              }
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === 'custom') {
+                  const typed = window.prompt(
+                    'Custom context size in tokens (e.g. 128000, 0 for auto):',
+                    String(contextSize ?? 128000),
+                  );
+                  if (typed !== null) {
+                    const n = parseInt(typed.replace(/[,_]/g, ''), 10);
+                    if (Number.isFinite(n) && n >= 0) onContextSizeChange(n);
+                  }
+                } else {
+                  onContextSizeChange(Number(val));
+                }
+              }}
+              disabled={isDisabled}
+              className="rounded border border-[var(--color-edge)] bg-transparent px-1 py-0.5 disabled:opacity-40"
+              title="Model load context size: sent with load/reload (defaults to 128,000; 0 is Auto)."
+            >
+              <option value="128000">ctx: 128k (default)</option>
+              <option value="0">ctx: auto</option>
+              <option value="32768">ctx: 32k</option>
+              <option value="65536">ctx: 64k</option>
+              <option value="131072">ctx: 131k (2¹⁷)</option>
+              <option value="262144">ctx: 256k</option>
+              <option value="1048576">ctx: 1M</option>
+              {contextSize !== undefined &&
+                contextSize !== 0 &&
+                contextSize !== 32768 &&
+                contextSize !== 65536 &&
+                contextSize !== 128000 &&
+                contextSize !== 131072 &&
+                contextSize !== 262144 &&
+                contextSize !== 1048576 && (
+                  <option value={String(contextSize)}>ctx: {contextSize.toLocaleString()}</option>
+                )}
+              <option value="custom">ctx: custom…</option>
+            </select>
+          )}
+
+          {presets != null && presets.length > 0 && onImportPreset && (
+            <div className="flex items-center gap-1">
+              <select
+                id="heylook-preset-select"
+                defaultValue=""
+                onChange={(e) => {
+                  const selected = presets.find((p) => p.id === e.target.value);
+                  if (selected) {
+                    onImportPreset(selected);
+                    e.target.value = '';
+                  }
+                }}
+                disabled={isDisabled}
+                className="max-w-[130px] rounded border border-[var(--color-edge)] bg-transparent px-1 py-0.5 disabled:opacity-40"
+                title="Select a server preset to import its samplers and creative direction."
+              >
+                <option value="">import preset…</option>
+                {presets.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+              {appliedPreset && (
+                <span
+                  className="rounded bg-[var(--color-edge)]/50 px-1 py-0.5 text-[9px] text-[var(--color-muted)]"
+                  title={`Applied preset: ${appliedPreset.name} (id: ${appliedPreset.id})`}
+                >
+                  preset: {appliedPreset.name}
+                </span>
+              )}
+            </div>
+          )}
+
+          {onTemperatureChange && (
+            <input
+              type="number"
+              step={0.05}
+              min={0}
+              max={2}
+              value={temperature ?? ''}
+              onChange={(e) => onTemperatureChange(e.target.value ? Number(e.target.value) : null)}
+              disabled={isDisabled}
+              placeholder="temp"
+              className="w-[50px] rounded border border-[var(--color-edge)] bg-transparent px-1 py-0.5 text-[10px] disabled:opacity-40"
+              title="Sampling temperature (e.g. 1.0). Leave empty to use model default."
+            />
+          )}
+
+          {onTopPChange && (
+            <input
+              type="number"
+              step={0.05}
+              min={0}
+              max={1}
+              value={topP ?? ''}
+              onChange={(e) => onTopPChange(e.target.value ? Number(e.target.value) : null)}
+              disabled={isDisabled}
+              placeholder="top_p"
+              className="w-[50px] rounded border border-[var(--color-edge)] bg-transparent px-1 py-0.5 text-[10px] disabled:opacity-40"
+              title="Nucleus sampling top_p (e.g. 0.9). Leave empty to use model default."
+            />
+          )}
+
+          {onMaxOutputTokensChange && (
+            <input
+              type="number"
+              step={1024}
+              min={512}
+              max={65536}
+              value={maxOutputTokens ?? ''}
+              onChange={(e) => onMaxOutputTokensChange(e.target.value ? Number(e.target.value) : null)}
+              disabled={isDisabled}
+              placeholder="max_tok"
+              className="w-[60px] rounded border border-[var(--color-edge)] bg-transparent px-1 py-0.5 text-[10px] disabled:opacity-40"
+              title="Max output tokens override. Leave empty to use task ceiling."
+            />
           )}
 
           {!discovering && error && (

@@ -1,7 +1,7 @@
 import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
-import { parseInstances, allOrigins } from './src/provider/registry.ts';
+import { parseInstances, allOrigins, parseDefaultContextSize } from './src/provider/registry.ts';
 // The `.ts` extension is required here for the same reason as the line above:
 // this file is loaded by Node, whose TypeScript loader does no extension search.
 import { configFromEnv } from './server/config.ts';
@@ -90,6 +90,9 @@ export default defineConfig(({ mode }) => {
       // computation with two consumers instead of two readers who agree by
       // luck.
       __HEYLOOK_INSTANCES__: JSON.stringify(instances),
+      __HEYLOOK_DEFAULT_CONTEXT_SIZE__: JSON.stringify(
+        parseDefaultContextSize(env.VITE_HEYLOOK_CONTEXT_SIZE),
+      ),
     },
     resolve: {
       alias: {

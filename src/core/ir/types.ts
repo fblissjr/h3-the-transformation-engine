@@ -320,6 +320,17 @@ export interface H3Document {
   creativeMode?: CreativeModeRecord;
 
   /**
+   * Freeform creative direction (e.g. from an imported preset or custom prompt).
+   * Injected into the planner and patch prompt builders as a named direction block.
+   */
+  direction?: string;
+
+  /**
+   * Provenance of an imported preset, if one was used to seed this document.
+   */
+  preset?: PresetProvenance;
+
+  /**
    * The wildcard roll that produced the idea, if one did.
    *
    * Both halves or neither. A seed on its own is not a record of anything --
@@ -333,6 +344,13 @@ export interface H3Document {
 // ---------------------------------------------------------------------------
 // Compiler inputs and outputs
 // ---------------------------------------------------------------------------
+
+/** Provenance of an imported server-side preset. */
+export interface PresetProvenance {
+  id: string;
+  name: string;
+  updatedAt?: string | number;
+}
 
 /** A wildcard roll, as the pair that makes it reproducible. */
 export interface WildcardRoll {
@@ -355,6 +373,14 @@ export interface CompileInput {
    * directive from this; the serialized output never sees it.
    */
   creativeMode?: CreativeModeRecord;
+  /**
+   * Freeform creative direction (e.g. from an imported preset).
+   */
+  direction?: string;
+  /**
+   * Preset provenance when imported.
+   */
+  preset?: PresetProvenance;
 
   /**
    * The roll that produced `idea`, when one did. `idea` is already expanded by

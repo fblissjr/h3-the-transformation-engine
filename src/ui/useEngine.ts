@@ -11,7 +11,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { CompileInput, H3Document, ReferenceSlot } from '../core/ir/types';
+import type { CompileInput, H3Document, ReferenceSlot, PresetProvenance } from '../core/ir/types';
 import type { H3Mode } from '../core/ir/vocab';
 import type { CreativeModeRecord } from '../core/creative';
 import { describeRecord, hasDirection, pruneRecord, sameRecord } from '../core/creative';
@@ -37,6 +37,13 @@ import {
   shouldDiscover,
   INITIAL_ROSTER,
   type RosterState,
+  listPresets,
+  reducePresetRoster,
+  shouldDiscoverPresets,
+  presetRosterPresets,
+  INITIAL_PRESET_ROSTER,
+  type PresetRosterState,
+  type HeylookPreset,
 } from '../provider/heylook';
 import {
   explainFor,
@@ -45,6 +52,7 @@ import {
   instancePolicyFor,
   policyFor,
   HEYLOOK_INSTANCES,
+  HEYLOOK_DEFAULT_CONTEXT_SIZE,
 } from '../provider/registry';
 import type { Policy } from '../core/policy';
 import { loadInstancePolicies, setInstanceAttribute } from '../db/policy';
@@ -92,6 +100,10 @@ const GEMINI_CONFIG_SETTING = 'gemini-config';
  * want the same backpressure budget and may want different thinking.
  */
 const HEYLOOK_THINKING_SETTING = 'heylook-thinking';
+const HEYLOOK_TEMPERATURE_SETTING = 'heylook-temperature';
+const HEYLOOK_TOP_P_SETTING = 'heylook-top-p';
+const HEYLOOK_MAX_TOKENS_SETTING = 'heylook-max-tokens';
+const HEYLOOK_CONTEXT_SIZE_SETTING = 'heylook-context-size';
 
 export interface EngineState {
   apiKey: string | null;
@@ -151,6 +163,16 @@ export function useEngine() {
    */
   const [roster, setRoster] = useState<RosterState>(INITIAL_ROSTER);
   const [heylookModelId, setHeylookModelId] = useState<string | null>(null);
+  const [presetRoster, setPresetRoster] = useState<PresetRosterState>(INITIAL_PRESET_ROSTER);
+  const [heylookTemperature, setHeylookTemperatureState] = useState<number | null>(null);
+  const [heylookTopP, setHeylookTopPState] = useState<number | null>(null);
+  const [heylookMaxOutputTokens, setHeylookMaxOutputTokensState] = useState<number | null>(null);
+  const [heylookContextSize, setHeylookContextSizeState] = useState<number>(() => HEYLOOK_DEFAULT_CONTEXT_SIZE);
+  const heylookContextSizeRef = useRef<number>(HEYLOOK_DEFAULT_CONTEXT_SIZE);
+  const rosterRef = useRef<RosterState>(INITIAL_ROSTER);
+  useEffect(() => {
+    rosterRef.current = roster;
+  }, [roster]);
   /**
    * The same id, readable without becoming a dependency.
    *
@@ -259,6 +281,8 @@ export function useEngine() {
    * picker holding its own copy agrees with this one exactly once, at mount.
    */
   const [creative, setCreativeState] = useState<CreativeModeRecord | null>(null);
+  const [direction, setDirectionState] = useState<string>('');
+  const [appliedPreset, setAppliedPresetState] = useState<PresetProvenance | null>(null);
   /**
    * The wildcard seed, or null when nothing has been rolled.
    *
@@ -319,6 +343,17 @@ export function useEngine() {
         const effort = (storedThinking as ThinkingPreference).effort;
         setHeylookThinkingState({ mode: thinkingMode, ...(effort ? { effort } : {}) });
       }
+      const storedTemp = await getSetting<number | null>(HEYLOOK_TEMPERATURE_SETTING, null);
+      if (typeof storedTemp === 'number') setHeylookTemperatureState(storedTemp);
+      const storedTopP = await getSetting<number | null>(HEYLOOK_TOP_P_SETTING, null);
+      if (typeof storedTopP === 'number') setHeylookTopPState(storedTopP);
+      const storedMaxTokens = await getSetting<number | null>(HEYLOOK_MAX_TOKENS_SETTING, null);
+      if (typeof storedMaxTokens === 'number') setHeylookMaxOutputTokensState(storedMaxTokens);
+      const storedCtx = await getSetting<number | null>(HEYLOOK_CONTEXT_SIZE_SETTING, null);
+      if (typeof storedCtx === 'number') {
+        heylookContextSizeRef.current = storedCtx;
+        setHeylookContextSizeState(storedCtx);
+      }
       const storedInstance = await getSetting<string | null>(HEYLOOK_INSTANCE_SETTING, null);
       // Honoured only if this build still configures it: instance origins are
       // build-time, so a stored id can name a machine that is no longer in the
@@ -360,6 +395,8 @@ export function useEngine() {
         setDurationSeconds(record.doc.durationSeconds);
         setModeOverride(record.doc.modeLocked ? record.doc.mode : null);
         setCreativeState(restoreCreative(record.doc.creativeMode));
+        setDirectionState(record.doc.direction ?? '');
+        setAppliedPresetState(record.doc.preset ?? null);
         if (record.doc.roll) {
           setIdea(record.doc.roll.template);
           setSeed(record.doc.roll.seed);
@@ -444,6 +481,8 @@ export function useEngine() {
     setSlots([]);
     setModeOverride(null);
     setCreativeState(null);
+    setDirectionState('');
+    setAppliedPresetState(null);
     setSeed(null);
     // The provider choice and the model id live in the `settings` store, which
     // the erase deletes on both scopes. Leaving them on screen would be the
@@ -457,6 +496,7 @@ export function useEngine() {
     // for a value storage no longer had.
     setInstancePolicies({});
     setRoster((state) => reduceRoster(state, { type: 'reset' }));
+    setPresetRoster((state) => reducePresetRoster(state, { type: 'reset' }));
     heylookModelIdRef.current = null;
     setHeylookModelId(null);
     setGeminiConfigState({});
@@ -525,9 +565,11 @@ export function useEngine() {
       // complete direction, and gating on the style alone would silently drop
       // it on the way to the planner.
       ...(creative && hasDirection(creative) ? { creativeMode: creative } : {}),
+      ...(direction && direction.trim() ? { direction: direction.trim() } : {}),
+      ...(appliedPreset ? { preset: appliedPreset } : {}),
       ...(record ? { roll: record } : {}),
     };
-  }, [effectiveIdea, idea, seed, mode, durationFrames, durationSeconds, slots, creative]);
+  }, [effectiveIdea, idea, seed, mode, durationFrames, durationSeconds, slots, creative, direction, appliedPreset]);
 
   /**
    * Ask the server what it is serving.
@@ -658,6 +700,38 @@ export function useEngine() {
     void refreshHeylookModels();
   }, [provider, roster, refreshHeylookModels]);
 
+  const refreshHeylookPresets = useCallback(async () => {
+    const asked = instance.id;
+    const origin = instance.origin;
+    setPresetRoster((state) => reducePresetRoster(state, { type: 'ask', instanceId: asked }));
+    try {
+      const presets = await listPresets(origin, { signal: AbortSignal.timeout(20_000) });
+      setPresetRoster((state) => reducePresetRoster(state, { type: 'resolved', instanceId: asked, presets }));
+    } catch (cause) {
+      const timedOut = cause instanceof DOMException && cause.name === 'TimeoutError';
+      trace(
+        'provider',
+        'provider.presets.error',
+        `heylook preset discovery failed at ${origin}: ${
+          cause instanceof Error ? cause.message : String(cause)
+        }`,
+        { origin, instance: asked, timedOut, cause },
+        { level: 'warn' },
+      );
+      const error = timedOut
+        ? `heylook at ${origin} accepted the connection but timed out returning presets.`
+        : cause instanceof Error
+          ? cause.message
+          : String(cause);
+      setPresetRoster((state) => reducePresetRoster(state, { type: 'failed', instanceId: asked, error }));
+    }
+  }, [instance]);
+
+  useEffect(() => {
+    if (provider !== 'heylook' || !shouldDiscoverPresets(presetRoster)) return;
+    void refreshHeylookPresets();
+  }, [provider, presetRoster, refreshHeylookPresets]);
+
   const setProvider = useCallback((next: ProviderId) => {
     trace('state', 'state.provider', `provider is now ${next}`, {
       provider: next,
@@ -670,7 +744,10 @@ export function useEngine() {
     // the failure is being reported in. `reconsider` clears a failure and
     // nothing else, so firing it on a healthy or in-flight roster is a no-op
     // and cannot restart a discovery that is already running.
-    if (next === 'heylook') setRoster((state) => reduceRoster(state, { type: 'reconsider' }));
+    if (next === 'heylook') {
+      setRoster((state) => reduceRoster(state, { type: 'reconsider' }));
+      setPresetRoster((state) => reducePresetRoster(state, { type: 'reconsider' }));
+    }
     void setSetting(PROVIDER_SETTING, next);
   }, []);
 
@@ -682,6 +759,7 @@ export function useEngine() {
     setInstanceIdState(next);
     // A different machine serves a different roster, so nothing is known again.
     setRoster((state) => reduceRoster(state, { type: 'reset' }));
+    setPresetRoster((state) => reducePresetRoster(state, { type: 'reset' }));
     void setSetting(HEYLOOK_INSTANCE_SETTING, next);
   }, []);
 
@@ -702,6 +780,53 @@ export function useEngine() {
     setHeylookThinkingState(next);
     void setSetting(HEYLOOK_THINKING_SETTING, next);
   }, []);
+
+  const setHeylookTemperature = useCallback((val: number | null) => {
+    trace('state', 'state.heylookTemperature', `heylook temperature ${val}`, { temperature: val });
+    setHeylookTemperatureState(val);
+    void setSetting(HEYLOOK_TEMPERATURE_SETTING, val);
+  }, []);
+
+  const setHeylookTopP = useCallback((val: number | null) => {
+    trace('state', 'state.heylookTopP', `heylook topP ${val}`, { topP: val });
+    setHeylookTopPState(val);
+    void setSetting(HEYLOOK_TOP_P_SETTING, val);
+  }, []);
+
+  const setHeylookMaxOutputTokens = useCallback((val: number | null) => {
+    trace('state', 'state.heylookMaxOutputTokens', `heylook maxTokens ${val}`, { maxTokens: val });
+    setHeylookMaxOutputTokensState(val);
+    void setSetting(HEYLOOK_MAX_TOKENS_SETTING, val);
+  }, []);
+
+  const setDirection = useCallback((text: string) => {
+    setDirectionState(text);
+  }, []);
+
+  const importHeylookPreset = useCallback((preset: HeylookPreset) => {
+    if (preset.temperature !== undefined) {
+      setHeylookTemperature(preset.temperature);
+    }
+    if (preset.topP !== undefined) {
+      setHeylookTopP(preset.topP);
+    }
+    if (preset.maxOutputTokens !== undefined) {
+      setHeylookMaxOutputTokens(preset.maxOutputTokens);
+    }
+    if (preset.thinking !== undefined) {
+      setHeylookThinking(preset.thinking);
+    }
+    if (preset.systemPrompt !== undefined) {
+      setDirectionState(preset.systemPrompt);
+    }
+    setAppliedPresetState({
+      id: preset.id,
+      name: preset.name,
+      updatedAt: preset.updatedAt,
+    });
+    note(`Imported preset "${preset.name}". Samplers updated and creative direction applied.`);
+  }, [setHeylookTemperature, setHeylookTopP, setHeylookMaxOutputTokens, setHeylookThinking, note]);
+
 
   const setGeminiConfig = useCallback((patch: Partial<GeminiConfig>) => {
     setGeminiConfigState((current) => {
@@ -733,7 +858,12 @@ export function useEngine() {
       void (async () => {
         setLoadingModel(id);
         try {
-          const outcome = await loadModel(instance.origin, id);
+          const modelsList = rosterModels(rosterRef.current);
+          const modelRow = modelsList?.find((m) => m.id === id);
+          const outcome = await loadModel(instance.origin, id, {
+            contextSize: heylookContextSizeRef.current,
+            provider: modelRow?.provider,
+          });
           // A slow load for a model the user has since moved off must not speak.
           // Without this, picking A then B cleared "loading B" when A finished
           // and posted a notice naming A -- a report about a selection that no
@@ -768,6 +898,42 @@ export function useEngine() {
           if (heylookModelIdRef.current === id) setLoadingModel(null);
         }
       })();
+    },
+    [instance],
+  );
+
+  const setHeylookContextSize = useCallback(
+    (size: number) => {
+      trace('state', 'state.contextSize', `heylook context size is now ${size}`, { contextSize: size });
+      heylookContextSizeRef.current = size;
+      setHeylookContextSizeState(size);
+      void setSetting(HEYLOOK_CONTEXT_SIZE_SETTING, size);
+
+      const currentId = heylookModelIdRef.current;
+      if (!currentId) return;
+      const modelsList = rosterModels(rosterRef.current);
+      const modelRow = modelsList?.find((m) => m.id === currentId);
+      if (modelRow?.provider === 'gguf') {
+        void (async () => {
+          setLoadingModel(currentId);
+          try {
+            const outcome = await loadModel(instance.origin, currentId, {
+              contextSize: size,
+              provider: 'gguf',
+            });
+            if (heylookModelIdRef.current !== currentId) return;
+            if (outcome.kind === 'busy') {
+              setNotice(`${currentId} could not be reloaded yet -- ${outcome.detail}`);
+            } else if (outcome.kind === 'rejected') {
+              setNotice(`heylook would not reload ${currentId}: ${outcome.detail}`);
+            }
+          } catch {
+            // non-fatal
+          } finally {
+            if (heylookModelIdRef.current === currentId) setLoadingModel(null);
+          }
+        })();
+      }
     },
     [instance],
   );
@@ -865,13 +1031,31 @@ export function useEngine() {
         // join between policy and client is reachable by a test.
         thinking: heylookThinking,
         heylookApiKey: heylookToken,
+        temperature: heylookTemperature ?? undefined,
+        topP: heylookTopP ?? undefined,
+        maxOutputTokens: heylookMaxOutputTokens ?? undefined,
         ...heylookPolicyConfig(policy),
       }),
-    [provider, apiKey, geminiConfig, heylookModel, policy, instance, heylookThinking, heylookToken],
+    [
+      provider,
+      apiKey,
+      geminiConfig,
+      heylookModel,
+      policy,
+      instance,
+      heylookThinking,
+      heylookToken,
+      heylookTemperature,
+      heylookTopP,
+      heylookMaxOutputTokens,
+    ],
   );
 
   const analyzeVideo = useCallback(
     async (file: File, onProgress?: (msg: string) => void) => {
+      if (provider !== 'gemini') {
+        throw new Error('Video analysis is not supported when using Heylook.');
+      }
       if (!apiKey) throw new Error('Add a Gemini API key first to analyze video.');
       return analyzeVideoWithGemini({
         apiKey,
@@ -880,7 +1064,7 @@ export function useEngine() {
         onProgress,
       });
     },
-    [apiKey, geminiConfig],
+    [provider, apiKey, geminiConfig],
   );
 
   /** Why the generate button cannot fire, in this provider's terms. */
@@ -1184,6 +1368,8 @@ export function useEngine() {
     setHeadVersionId(version.id);
     setSlots(version.doc.slots);
     setCreativeState(restoreCreative(version.doc.creativeMode));
+    setDirectionState(version.doc.direction ?? '');
+    setAppliedPresetState(version.doc.preset ?? null);
     // A version records the template as well as the seed, so checking one out
     // puts the idea box back in the state that produced it.
     if (version.doc.roll) {
@@ -1245,6 +1431,19 @@ export function useEngine() {
     setHeylookThinking,
     heylookToken,
     setHeylookToken,
+    heylookPresets: presetRosterPresets(presetRoster),
+    presetRoster,
+    refreshHeylookPresets,
+    heylookTemperature,
+    setHeylookTemperature,
+    heylookTopP,
+    setHeylookTopP,
+    heylookMaxOutputTokens,
+    setHeylookMaxOutputTokens,
+    direction,
+    setDirection,
+    appliedPreset,
+    importHeylookPreset,
     apiKey,
     storedKeyMode,
     provider,
@@ -1256,6 +1455,8 @@ export function useEngine() {
     heylookModels,
     heylookModelId,
     setHeylookModel,
+    heylookContextSize,
+    setHeylookContextSize,
     heylookError,
     discovering,
     /** Non-null while a model is being made resident, naming which. */

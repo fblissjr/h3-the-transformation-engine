@@ -21,3 +21,12 @@ export {
 } from './discovery';
 export type { RosterState, RosterEvent } from './discovery';
 export { canResize, resizeAll, resizeAttachment, MAX_EDGE } from './images';
+export {
+  listPresets,
+  normalizePreset,
+  reducePresetRoster,
+  shouldDiscoverPresets,
+  presetRosterPresets,
+  INITIAL_PRESET_ROSTER,
+} from './presets';
+export type { HeylookPreset, PresetRosterState, PresetRosterEvent } from './presets';

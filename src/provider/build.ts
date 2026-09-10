@@ -53,6 +53,12 @@ export interface ClientParams {
    * until this existed, which is a stronger reason to have it than the setting.
    */
   thinking?: ThinkingPreference;
+  /** heylook: sampling temperature (overrides model default if specified) */
+  temperature?: number;
+  /** heylook: nucleus sampling top_p (overrides model default if specified) */
+  topP?: number;
+  /** heylook: output token ceiling */
+  maxOutputTokens?: number;
   /**
    * heylook: the transport.
    *
@@ -78,6 +84,9 @@ export function buildClient(params: ClientParams): InferenceClient | null {
         // the empty string" two states at this layer for no gain.
         ...(params.heylookApiKey ? { apiKey: params.heylookApiKey } : {}),
         ...(params.thinking ? { thinking: params.thinking } : {}),
+        ...(params.temperature != null ? { temperature: params.temperature } : {}),
+        ...(params.topP != null ? { topP: params.topP } : {}),
+        ...(params.maxOutputTokens != null ? { maxOutputTokens: params.maxOutputTokens } : {}),
         ...(params.fetchImpl ? { fetchImpl: params.fetchImpl } : {}),
       }),
     );

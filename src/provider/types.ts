@@ -62,6 +62,8 @@ export interface CallOptions {
   images?: ImageAttachment[];
   videos?: VideoAttachment[];
   model?: string;
+  temperature?: number;
+  topP?: number;
   signal?: AbortSignal;
 }
 

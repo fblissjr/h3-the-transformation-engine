@@ -124,6 +124,38 @@ export const HEYLOOK_INSTANCES: Instance[] =
     ? __HEYLOOK_INSTANCES__
     : parseInstances(undefined, undefined);
 
+/**
+ * Parse context size default for heylook models.
+ * Accepts numeric token counts (e.g. 128000, "128000", "128,000", "128k"),
+ * or "auto" / "0" (representing Auto, where llama-server sizes automatically).
+ * Defaults to 128,000.
+ */
+export function parseDefaultContextSize(raw?: string | number): number {
+  if (typeof raw === 'number') {
+    return Number.isFinite(raw) && raw >= 0 ? Math.floor(raw) : 128000;
+  }
+  if (!raw) return 128000;
+  const trimmed = String(raw).trim().toLowerCase();
+  if (trimmed === 'auto' || trimmed === '0') return 0;
+  if (trimmed.endsWith('k')) {
+    const kVal = parseFloat(trimmed.slice(0, -1));
+    if (Number.isFinite(kVal) && kVal > 0) return Math.floor(kVal * 1024);
+  }
+  const parsed = parseInt(trimmed.replace(/[,_]/g, ''), 10);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 128000;
+}
+
+declare const __HEYLOOK_DEFAULT_CONTEXT_SIZE__: number | undefined;
+
+export const HEYLOOK_DEFAULT_CONTEXT_SIZE: number =
+  typeof __HEYLOOK_DEFAULT_CONTEXT_SIZE__ !== 'undefined'
+    ? __HEYLOOK_DEFAULT_CONTEXT_SIZE__
+    : parseDefaultContextSize(
+        typeof import.meta !== 'undefined' && (import.meta as unknown as { env?: Record<string, string> }).env
+          ? (import.meta as unknown as { env: Record<string, string> }).env.VITE_HEYLOOK_CONTEXT_SIZE
+          : undefined,
+      );
+
 /** Every origin any client may contact, which is what `connect-src` must name. */
 export function allOrigins(instances: Instance[] = HEYLOOK_INSTANCES): string[] {
   return [...new Set(instances.map((i) => i.origin))];

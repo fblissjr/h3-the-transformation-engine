@@ -20,9 +20,11 @@
 
 import { describe, expect, it } from 'vitest';
 import { loadModel } from '../src/provider/heylook/models';
+import { parseDefaultContextSize } from '../src/provider/registry';
 
 const ORIGIN = 'http://heylook.test';
 const MODEL = 'Qwen3.5-0.8B-MLX-8bit-textonly';
+const GGUF_MODEL = 'unsloth_gemma-4-12B-it-qat-GGUF';
 
 /** A fetch that answers once with a given status and body. */
 function answers(status: number, body: string, headers: Record<string, string> = {}) {
@@ -157,5 +159,72 @@ describe('every outcome is reportable and none is fatal', () => {
       throw new DOMException('Aborted', 'AbortError');
     }) as unknown as typeof fetch;
     await expect(loadModel(ORIGIN, MODEL, { fetchImpl: impl })).rejects.toThrow('Aborted');
+  });
+});
+
+describe('context size routing and defaults', () => {
+  it('parses default context size from environment format or fallback', () => {
+    expect(parseDefaultContextSize(undefined)).toBe(128000);
+    expect(parseDefaultContextSize('')).toBe(128000);
+    expect(parseDefaultContextSize('auto')).toBe(0);
+    expect(parseDefaultContextSize('0')).toBe(0);
+    expect(parseDefaultContextSize('128000')).toBe(128000);
+    expect(parseDefaultContextSize('128,000')).toBe(128000);
+    expect(parseDefaultContextSize('64k')).toBe(65536);
+    expect(parseDefaultContextSize('32k')).toBe(32768);
+    expect(parseDefaultContextSize('invalid')).toBe(128000);
+  });
+
+  it('routes GGUF models through admin reload with ctx_size query parameter', async () => {
+    const { impl, calls } = answers(200, '{"status":"loaded","model_id":"x"}');
+    await loadModel(ORIGIN, GGUF_MODEL, {
+      fetchImpl: impl,
+      provider: 'gguf',
+      contextSize: 128000,
+    });
+    expect(calls).toEqual([`POST ${ORIGIN}/v1/admin/models/${GGUF_MODEL}/reload?ctx_size=128000`]);
+  });
+
+  it('sends ctx_size=0 for GGUF models when contextSize is 0 (Auto)', async () => {
+    const { impl, calls } = answers(200, '{"status":"loaded","model_id":"x"}');
+    await loadModel(ORIGIN, GGUF_MODEL, {
+      fetchImpl: impl,
+      provider: 'gguf',
+      contextSize: 0,
+    });
+    expect(calls).toEqual([`POST ${ORIGIN}/v1/admin/models/${GGUF_MODEL}/reload?ctx_size=0`]);
+  });
+
+  it('keeps the standard un-gated /load path for non-GGUF (MLX) models even if contextSize is given', async () => {
+    const { impl, calls } = answers(200, '{"status":"loaded","model_id":"x"}');
+    await loadModel(ORIGIN, MODEL, {
+      fetchImpl: impl,
+      provider: 'mlx',
+      contextSize: 128000,
+    });
+    expect(calls).toEqual([`POST ${ORIGIN}/v1/models/${MODEL}/load`]);
+  });
+
+  it('falls back to standard /load if admin reload route returns 404', async () => {
+    const calls: string[] = [];
+    const impl = (async (url: string | URL | Request, init?: RequestInit) => {
+      const call = `${init?.method ?? 'GET'} ${String(url)}`;
+      calls.push(call);
+      if (String(url).includes('/admin/models')) {
+        return new Response('Not Found', { status: 404 });
+      }
+      return new Response('{"status":"loaded"}', { status: 200 });
+    }) as unknown as typeof fetch;
+
+    const outcome = await loadModel(ORIGIN, GGUF_MODEL, {
+      fetchImpl: impl,
+      provider: 'gguf',
+      contextSize: 128000,
+    });
+    expect(outcome.kind).toBe('loaded');
+    expect(calls).toEqual([
+      `POST ${ORIGIN}/v1/admin/models/${GGUF_MODEL}/reload?ctx_size=128000`,
+      `POST ${ORIGIN}/v1/models/${GGUF_MODEL}/load`,
+    ]);
   });
 });

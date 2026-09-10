@@ -144,6 +144,8 @@ export async function compile(
     id: string;
     seed?: number;
     signal?: AbortSignal;
+    temperature?: number;
+    topP?: number;
     /**
      * Called exactly once per call, on every path including the failing ones.
      *
@@ -202,6 +204,8 @@ export async function compile(
       schema: plannerJsonSchema(),
       images: imagesFor(input),
       ...(options.seed != null ? { seed: options.seed } : {}),
+      ...(options.temperature != null ? { temperature: options.temperature } : {}),
+      ...(options.topP != null ? { topP: options.topP } : {}),
       ...(options.signal ? { signal: options.signal } : {}),
     });
   } catch (error) {
@@ -309,7 +313,12 @@ export async function edit(
   doc: H3Document,
   paths: string[],
   instruction: string,
-  options: { seed?: number; signal?: AbortSignal } = {},
+  options: {
+    seed?: number;
+    signal?: AbortSignal;
+    temperature?: number;
+    topP?: number;
+  } = {},
 ): Promise<EditResult> {
   if (paths.length === 0) throw new PlanError('An edit needs at least one target path.');
   const started = Date.now();
@@ -320,16 +329,19 @@ export async function edit(
     // built from -- deliberately not the picker's current selection. See the
     // note on `creative` in `src/ui/useEngine.ts`.
     creativeMode: doc.creativeMode ?? null,
+    direction: doc.direction ?? null,
     seed: options.seed ?? null,
   });
 
   const result = await client.call({
-    systemInstruction: buildPatchSystemPrompt(doc.creativeMode),
+    systemInstruction: buildPatchSystemPrompt(doc.creativeMode, doc.direction),
     prompt: buildPatchUserPrompt(doc, paths, instruction),
     task: 'patch',
     maxOutputTokens: PATCH_MAX_OUTPUT_TOKENS,
     schema: patchJsonSchema(),
     ...(options.seed != null ? { seed: options.seed } : {}),
+    ...(options.temperature != null ? { temperature: options.temperature } : {}),
+    ...(options.topP != null ? { topP: options.topP } : {}),
     ...(options.signal ? { signal: options.signal } : {}),
   });
 

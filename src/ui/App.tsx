@@ -64,10 +64,24 @@ export function App() {
           models={e.heylookModels}
           modelId={e.heylookModelId}
           onModelChange={e.setHeylookModel}
+          presets={e.heylookPresets}
+          onImportPreset={e.importHeylookPreset}
+          appliedPreset={e.appliedPreset}
+          temperature={e.heylookTemperature}
+          onTemperatureChange={e.setHeylookTemperature}
+          topP={e.heylookTopP}
+          onTopPChange={e.setHeylookTopP}
+          maxOutputTokens={e.heylookMaxOutputTokens}
+          onMaxOutputTokensChange={e.setHeylookMaxOutputTokens}
+          contextSize={e.heylookContextSize}
+          onContextSizeChange={e.setHeylookContextSize}
           discovering={e.discovering}
           loadingModel={e.loadingModel}
           error={e.heylookError}
-          onRefresh={() => void e.refreshHeylookModels()}
+          onRefresh={() => {
+            void e.refreshHeylookModels();
+            void e.refreshHeylookPresets();
+          }}
           heylookToken={e.heylookToken}
           onHeylookTokenChange={(v) => void e.setHeylookToken(v)}
           thinking={e.heylookThinking}
@@ -209,6 +223,13 @@ export function App() {
             slots={e.slots}
             onChange={e.setSlots}
             canAnalyzeVideo={Boolean(e.apiKey && e.provider === 'gemini')}
+            videoAnalysisDisabledReason={
+              e.provider === 'heylook'
+                ? 'Video analysis is not supported with Heylook.'
+                : !e.apiKey
+                  ? 'Add a Gemini API key to analyze video.'
+                  : undefined
+            }
             onAnalyzeVideo={e.analyzeVideo}
           />
 
@@ -217,6 +238,26 @@ export function App() {
             onChange={e.setCreative}
             appliesToNextGeneration={e.creativeAppliesToNextGeneration}
           />
+
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--color-muted)]">
+                Creative Direction
+              </label>
+              {e.appliedPreset && (
+                <span className="text-[10px] text-[var(--color-accent)]" title={`Imported from preset ${e.appliedPreset.name}`}>
+                  from {e.appliedPreset.name}
+                </span>
+              )}
+            </div>
+            <textarea
+              value={e.direction}
+              onChange={(ev) => e.setDirection(ev.target.value)}
+              rows={3}
+              placeholder="Supplemental creative direction, tone, or style (e.g. from preset)..."
+              className="w-full resize-y rounded border border-[var(--color-edge)] bg-black/30 p-2 text-xs"
+            />
+          </div>
 
           {/*
             One control, two states. A separate always-present stop button would

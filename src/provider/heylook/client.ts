@@ -219,6 +219,18 @@ export interface HeylookClientConfig {
    * a guess.
    */
   model?: HeylookModel | null;
+  /** Default temperature for this client when not specified on CallOptions. */
+  temperature?: number;
+  /** Default top_p for this client when not specified on CallOptions. */
+  topP?: number;
+  /** Default max output tokens for this client when not specified on CallOptions. */
+  maxOutputTokens?: number;
+}
+
+export interface HeylookSamplers {
+  temperature?: number;
+  topP?: number;
+  maxOutputTokens?: number;
 }
 
 /**
@@ -233,6 +245,7 @@ export function buildRequest(
   images: ImageAttachment[],
   model: HeylookModel | null,
   thinking: ThinkingPreference = THINKING_DEFAULT,
+  samplers?: HeylookSamplers,
 ): Record<string, unknown> {
   // Media first, then the question: the prompt then reads as instructions
   // about material already presented. Same ordering as the Gemini client, for
@@ -249,6 +262,10 @@ export function buildRequest(
   }
   content.push({ type: 'text', text: options.prompt });
 
+  const effectiveMaxTokens = options.maxOutputTokens ?? samplers?.maxOutputTokens;
+  const effectiveTemp = options.temperature ?? samplers?.temperature;
+  const effectiveTopP = options.topP ?? samplers?.topP;
+
   const request: Record<string, unknown> = {
     ...(model?.id ? { model: model.id } : {}),
     // Top-level, not a system role in `messages`. Chat templates disagree about
@@ -258,7 +275,9 @@ export function buildRequest(
     messages: [{ role: 'user', content }],
     // Sent because these are real opinions about output length. Everything else
     // sampling-related is omitted so the model's own configuration decides.
-    ...(options.maxOutputTokens != null ? { max_tokens: options.maxOutputTokens } : {}),
+    ...(effectiveMaxTokens != null ? { max_tokens: effectiveMaxTokens } : {}),
+    ...(effectiveTemp != null ? { temperature: effectiveTemp } : {}),
+    ...(effectiveTopP != null ? { top_p: effectiveTopP } : {}),
     ...(options.seed != null ? { seed: options.seed } : {}),
     stream: false,
   };
@@ -291,6 +310,9 @@ export class HeylookClient implements InferenceClient {
   private readonly backpressureBudgetMs: number;
   private readonly thinking: ThinkingPreference;
   private readonly apiKey: string | null;
+  private readonly temperature?: number;
+  private readonly topP?: number;
+  private readonly maxOutputTokens?: number;
 
   constructor(config: HeylookClientConfig = {}) {
     this.thinking = config.thinking ?? THINKING_DEFAULT;
@@ -299,6 +321,9 @@ export class HeylookClient implements InferenceClient {
     this.modelId = this.model?.id ?? 'unknown';
     this.fetchImpl = config.fetchImpl ?? ((...args) => fetch(...args));
     this.backpressureBudgetMs = config.backpressureBudgetMs ?? BACKPRESSURE_BUDGET_MS;
+    this.temperature = config.temperature;
+    this.topP = config.topP;
+    this.maxOutputTokens = config.maxOutputTokens;
     // Trimmed, and an empty string is the same as absent: `Authorization:
     // Bearer ` with nothing after it is a 401 that reads like a wrong key
     // rather than like a missing one.
@@ -389,7 +414,11 @@ export class HeylookClient implements InferenceClient {
       });
     }
 
-    const request = buildRequest(options, images, this.model, this.thinking);
+    const request = buildRequest(options, images, this.model, this.thinking, {
+      temperature: this.temperature,
+      topP: this.topP,
+      maxOutputTokens: this.maxOutputTokens,
+    });
 
     // The body as posted, not a re-derivation from `options`: the images above
     // have already been resized by this point, so anything rebuilt from the raw

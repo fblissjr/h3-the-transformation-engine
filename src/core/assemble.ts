@@ -201,6 +201,8 @@ export function assemble(
     // document that silently loses the record -- and the callers are the two
     // that had already forgotten something once.
     ...(input.creativeMode ? { creativeMode: input.creativeMode } : {}),
+    ...(input.direction ? { direction: input.direction } : {}),
+    ...(input.preset ? { preset: input.preset } : {}),
     ...(input.roll ? { roll: input.roll } : {}),
   };
 }

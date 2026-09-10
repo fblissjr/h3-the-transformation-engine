@@ -507,6 +507,11 @@ describe('GeminiClient runtime behavior and error classification', () => {
     expect(src).toMatch(/model:\s*client\.modelId/);
     expect(src).not.toMatch(/model:\s*\(provider === 'heylook'\s*\?\s*heylookModel\s*:/);
   });
+
+  it('useEngine guards analyzeVideo against falling back to Gemini when using Heylook', () => {
+    const src = readFileSync(join(import.meta.dirname, '..', 'src/ui/useEngine.ts'), 'utf8');
+    expect(src).toMatch(/if\s*\(provider !== 'gemini'\)\s*\{\s*throw new Error\([^)]*Heylook/);
+  });
 });
 
 describe('analyzeVideoWithGemini pipeline and zero-retention lifecycle', () => {

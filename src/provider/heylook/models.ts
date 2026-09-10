@@ -28,6 +28,10 @@ export interface HeylookModel {
   modalities?: string[];
   /** What the server will actually serve. This is what gating reads. */
   capabilities?: string[];
+  /** The model's context window in tokens, if reported by the server. */
+  context_length?: number;
+  /** Default thinking preference reported by the server. */
+  thinking_default?: boolean;
 }
 
 export class DiscoveryError extends Error {
@@ -222,16 +226,38 @@ export async function loadModel(
      * branches nothing can reach. The app never passes one.
      */
     fetchImpl?: typeof fetch;
+    /**
+     * Context size in tokens. Passed to GGUF reload route when provided.
+     * 0 means Auto (server sizes context).
+     */
+    contextSize?: number | null;
+    /**
+     * Provider type ('gguf', 'mlx', etc.). When 'gguf' and contextSize is given,
+     * routes through /v1/admin/models/{id}/reload?ctx_size=...
+     */
+    provider?: string;
   } = {},
 ): Promise<LoadOutcome> {
-  const { signal, fetchImpl = fetch } = options;
+  const { signal, fetchImpl = fetch, contextSize, provider } = options;
   const started = Date.now();
-  const url = `${origin}/v1/models/${encodeURIComponent(modelId)}/load`;
-  trace('provider', 'provider.load.request', `heylook POST ${url}`, { origin, model: modelId });
+  const isGgufWithContext = provider === 'gguf' && contextSize !== null && contextSize !== undefined;
+  let url = isGgufWithContext
+    ? `${origin}/v1/admin/models/${encodeURIComponent(modelId)}/reload?ctx_size=${encodeURIComponent(contextSize)}`
+    : `${origin}/v1/models/${encodeURIComponent(modelId)}/load`;
+  trace('provider', 'provider.load.request', `heylook POST ${url}`, {
+    origin,
+    model: modelId,
+    ...(contextSize !== undefined ? { contextSize } : {}),
+    ...(provider ? { provider } : {}),
+  });
 
   let response: Response;
   try {
     response = await fetchImpl(url, { method: 'POST', ...(signal ? { signal } : {}) });
+    if (isGgufWithContext && (response.status === 404 || response.status === 405)) {
+      url = `${origin}/v1/models/${encodeURIComponent(modelId)}/load`;
+      response = await fetchImpl(url, { method: 'POST', ...(signal ? { signal } : {}) });
+    }
   } catch (cause) {
     if (cause instanceof DOMException && (cause.name === 'AbortError' || cause.name === 'TimeoutError')) {
       throw cause;

@@ -77,7 +77,10 @@ function editableSection(doc: H3Document, paths: string[]): string {
  * mode-specific about a glitch mark is an affordance, and an edit is not adding
  * marks -- it is keeping the ones already in the prose intact.
  */
-export function buildPatchSystemPrompt(creativeMode?: CreativeModeRecord): string {
+export function buildPatchSystemPrompt(
+  creativeMode?: CreativeModeRecord,
+  direction?: string,
+): string {
   // Both derivations are asked for a preservation framing rather than the
   // planner's default. They previously came back framed for a planner -- "apply
   // it consistently", "place exactly these" -- under a wrapper telling the model
@@ -97,7 +100,8 @@ export function buildPatchSystemPrompt(creativeMode?: CreativeModeRecord): strin
         'These marks are already placed in the document, spelled exactly as written:',
       )
     : null;
-  if (!directive && !glitch) return CORE;
+  const trimmedDirection = direction?.trim();
+  if (!directive && !glitch && !trimmedDirection) return CORE;
 
   const blocks = [CORE];
 
@@ -113,6 +117,19 @@ export function buildPatchSystemPrompt(creativeMode?: CreativeModeRecord): strin
         'Keep every mark that appears in a beat you rewrite exactly as it is spelled, and keep it in ' +
           "that beat's visibleText. Do not introduce a mark into a beat that has none, and do not " +
           'remove one unless the instruction asks for it.',
+      ].join('\n'),
+    );
+  }
+
+  if (trimmedDirection) {
+    blocks.push(
+      [
+        '# Active creative direction',
+        '',
+        'The creative direction below is what this document was written under. Preserve it in any prose ' +
+          'you rewrite, and do not introduce elements contrary to it:',
+        '',
+        trimmedDirection,
       ].join('\n'),
     );
   }
