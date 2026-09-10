@@ -116,6 +116,24 @@ describe('documents over the API', () => {
     expect(body.record, 'it still came back').toBeDefined();
     expect(body.schemaError, 'and the failure was reported').not.toBeNull();
   });
+
+  it('creates an initial document when recording a version on an unknown document', async () => {
+    const ctx = fresh();
+    const res = await send(ctx, 'POST', '/api/documents/workspace/versions', {
+      label: 'Generated',
+      doc: t2vaBaker,
+      parentId: null,
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { id: string; documentId: string; rootId: string };
+    expect(body.id).toBe('workspace:v0001');
+    expect(body.documentId).toBe('workspace');
+    expect(body.rootId).toBe('workspace:v0001');
+
+    // Document row was created to satisfy referential integrity
+    const docRes = await get(ctx, '/api/documents/workspace');
+    expect(docRes.status).toBe(200);
+  });
 });
 
 describe('a mismatched database over the API', () => {
@@ -210,6 +228,7 @@ describe('every route is reached by a test', () => {
     ['PUT', '/api/documents/d1'],
     ['DELETE', '/api/documents/d1'],
     ['GET', '/api/documents/d1/versions'],
+    ['POST', '/api/documents/d1/versions'],
     ['PUT', '/api/versions/v1'],
     ['GET', '/api/settings/k'],
     ['PUT', '/api/settings/k'],
@@ -220,6 +239,9 @@ describe('every route is reached by a test', () => {
 
   /** A body each route will actually accept, so a 400 cannot mask a 404. */
   const bodyFor = (path: string): unknown => {
+    if (path.endsWith('/versions')) {
+      return { parentId: null, label: 'first', doc: t2vaBaker };
+    }
     if (path.startsWith('/api/versions/')) {
       return {
         id: 'v1',
@@ -295,6 +317,7 @@ describe('a malformed write body', () => {
     const ctx = fresh();
     for (const [method, path] of [
       ['PUT', '/api/documents/d1'],
+      ['POST', '/api/documents/d1/versions'],
       ['PUT', '/api/versions/v1'],
       ['PUT', '/api/settings/k'],
       ['POST', '/api/runs'],

@@ -435,6 +435,21 @@ export function recordVersion(
         )?.root_id
       : undefined;
 
+    // Ensure the parent document exists to satisfy foreign key constraint on versions.document_id.
+    // When a document is first generated, the client allocates a version id before saving
+    // the document row with headVersionId.
+    const docExists = db.prepare('SELECT 1 FROM documents WHERE id = ?').get(params.documentId);
+    if (!docExists) {
+      saveDocument(db, {
+        id: params.documentId,
+        title: params.label,
+        idea: '',
+        updatedAt: Date.now(),
+        doc: params.doc,
+        headVersionId: id,
+      });
+    }
+
     const version: StoredVersion = {
       id,
       documentId: params.documentId,
