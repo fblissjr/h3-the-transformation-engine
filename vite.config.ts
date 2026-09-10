@@ -1,6 +1,8 @@
 import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
+import { spawn } from 'node:child_process';
+import { Socket } from 'node:net';
 import { parseInstances, allOrigins, parseDefaultContextSize } from './src/provider/registry.ts';
 // The `.ts` extension is required here for the same reason as the line above:
 // this file is loaded by Node, whose TypeScript loader does no extension search.
@@ -44,6 +46,42 @@ function heylookCsp(origins: string[]): Plugin {
   };
 }
 
+function backendServerPlugin(port: number): Plugin {
+  return {
+    name: 'h3-backend-server',
+    apply: 'serve',
+    configureServer(server) {
+      if (process.env.VITEST) return;
+      const socket = new Socket();
+      socket.setTimeout(200);
+      socket.on('connect', () => {
+        socket.destroy();
+      });
+      const start = () => {
+        const child = spawn('bun', ['--watch', 'server/index.ts'], {
+          stdio: 'inherit',
+          env: process.env,
+        });
+        server.httpServer?.on('close', () => {
+          child.kill();
+        });
+        process.on('exit', () => {
+          child.kill();
+        });
+      };
+      socket.on('error', () => {
+        socket.destroy();
+        start();
+      });
+      socket.on('timeout', () => {
+        socket.destroy();
+        start();
+      });
+      socket.connect(port, '127.0.0.1');
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => {
   // Third argument '' loads every variable, not only the VITE_ prefixed ones,
   // so this reads the same .env the app does. Only the origin is used here, and
@@ -78,7 +116,7 @@ export default defineConfig(({ mode }) => {
         '/api': { target: `http://localhost:${server.port}`, changeOrigin: false },
       },
     },
-    plugins: [react(), heylookCsp(origins)],
+    plugins: [react(), heylookCsp(origins), backendServerPlugin(server.port)],
     define: {
       // Injected rather than read from `import.meta.env` by the app.
       //

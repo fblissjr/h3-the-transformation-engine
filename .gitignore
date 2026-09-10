@@ -1,3 +1,6 @@
+h3.db
+h3.db-shm
+h3.db-wal
 node_modules
 dist
 coverage
