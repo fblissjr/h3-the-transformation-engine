@@ -253,6 +253,94 @@ export const shotHeaderInProse: Rule = (doc) => {
   return out;
 };
 
+export const cutTimestampInProse: Rule = (doc) => {
+  const out: Diagnostic[] = [];
+  doc.shots.forEach((shot, i) => {
+    shot.beats.forEach((beat, j) => {
+      const matches = [...beat.prose.matchAll(/(?:\bAt\s+\d{2}:\d{2}\.\d{3}\b|\[\d{2}:\d{2}\.\d{3}\]|\b\d{2}:\d{2}\.\d{3}:)/g)];
+      if (matches.length === 0) return;
+      const spans: [number, number][] = [];
+      for (const entry of beat.visibleText ?? []) {
+        const needle = `"${entry}"`;
+        for (let at = beat.prose.indexOf(needle); at !== -1; at = beat.prose.indexOf(needle, at + 1)) {
+          spans.push([at, at + needle.length]);
+        }
+      }
+      const offending = matches
+        .filter((m) => !spans.some(([from, to]) => m.index >= from && m.index + m[0].length <= to))
+        .map((m) => m[0]);
+      if (offending.length === 0) return;
+      out.push(
+        error(
+          'CUT_TIMESTAMP_IN_PROSE',
+          `shots[${i}].beats[${j}].prose`,
+          `Beat prose writes cut timestamp "${offending[0]}". The serializer formats cut times deterministically; ` +
+            'timestamps must not appear in beat prose.',
+        ),
+      );
+    });
+  });
+  return out;
+};
+
+export const sectionHeaderInProse: Rule = (doc) => {
+  const out: Diagnostic[] = [];
+  doc.shots.forEach((shot, i) => {
+    shot.beats.forEach((beat, j) => {
+      const matches = [...beat.prose.matchAll(/\b(?:overall_soundscape|soundscape|camera_movement|camera_direction|action_description|beat_prose|dialogue_text):\s*/gi)];
+      if (matches.length === 0) return;
+      const spans: [number, number][] = [];
+      for (const entry of beat.visibleText ?? []) {
+        const needle = `"${entry}"`;
+        for (let at = beat.prose.indexOf(needle); at !== -1; at = beat.prose.indexOf(needle, at + 1)) {
+          spans.push([at, at + needle.length]);
+        }
+      }
+      const offending = matches
+        .filter((m) => !spans.some(([from, to]) => m.index >= from && m.index + m[0].length <= to))
+        .map((m) => m[0]);
+      if (offending.length === 0) return;
+      out.push(
+        error(
+          'SECTION_HEADER_IN_PROSE',
+          `shots[${i}].beats[${j}].prose`,
+          `Beat prose writes leaked section header "${offending[0]}". Section headers are structural and must not appear in beat prose.`,
+        ),
+      );
+    });
+  });
+  return out;
+};
+
+export const alignmentLineInProse: Rule = (doc) => {
+  const out: Diagnostic[] = [];
+  doc.shots.forEach((shot, i) => {
+    shot.beats.forEach((beat, j) => {
+      const matches = [...beat.prose.matchAll(/\bHow the reference (?:pictures|images|videos|audio) align\b/gi)];
+      if (matches.length === 0) return;
+      const spans: [number, number][] = [];
+      for (const entry of beat.visibleText ?? []) {
+        const needle = `"${entry}"`;
+        for (let at = beat.prose.indexOf(needle); at !== -1; at = beat.prose.indexOf(needle, at + 1)) {
+          spans.push([at, at + needle.length]);
+        }
+      }
+      const offending = matches
+        .filter((m) => !spans.some(([from, to]) => m.index >= from && m.index + m[0].length <= to))
+        .map((m) => m[0]);
+      if (offending.length === 0) return;
+      out.push(
+        error(
+          'ALIGNMENT_LINE_IN_PROSE',
+          `shots[${i}].beats[${j}].prose`,
+          `Beat prose writes reference alignment preamble "${offending[0]}". Alignment lines are synthesized by the serializer and must not appear in beat prose.`,
+        ),
+      );
+    });
+  });
+  return out;
+};
+
 export const timelineRules: Rule[] = [
   shotsPresent,
   durationPositive,
@@ -264,4 +352,7 @@ export const timelineRules: Rule[] = [
   cameraTypeValid,
   frameRolesOnImages,
   shotHeaderInProse,
+  cutTimestampInProse,
+  sectionHeaderInProse,
+  alignmentLineInProse,
 ];

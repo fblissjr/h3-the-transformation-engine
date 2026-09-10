@@ -32,14 +32,10 @@ interface Props {
   provider: ProviderId;
   geminiConfig?: GeminiConfig;
   onGeminiConfigChange?: (patch: Partial<GeminiConfig>) => void;
-  enforceSchema: boolean;
   thinking: ThinkingPreference;
   onThinkingChange: (next: ThinkingPreference) => void;
   heylookToken: string | null;
   onHeylookTokenChange: (next: string) => void;
-  onEnforceSchemaChange: (next: boolean) => void;
-  /** False when the active backend has no way to constrain decoding. */
-  canEnforceSchema: boolean;
   instances: Instance[];
   instanceId: string;
   onInstanceChange: (id: string) => void;
@@ -53,6 +49,9 @@ interface Props {
   loadingModel: string | null;
   error: string | null;
   onRefresh: () => void;
+  /** Disable controls when generation is busy */
+  disabled?: boolean;
+  busy?: boolean;
 }
 
 /** Named for where the prompt goes, which is the difference that matters. */
@@ -65,13 +64,10 @@ export function ProviderPanel({
   provider,
   geminiConfig,
   onGeminiConfigChange,
-  enforceSchema,
   thinking,
   onThinkingChange,
   heylookToken,
   onHeylookTokenChange,
-  onEnforceSchemaChange,
-  canEnforceSchema,
   instances,
   instanceId,
   onInstanceChange,
@@ -84,7 +80,10 @@ export function ProviderPanel({
   loadingModel,
   error,
   onRefresh,
+  disabled,
+  busy,
 }: Props) {
+  const isDisabled = Boolean(disabled ?? busy);
   // See the token input below. The field is a draft only; it never renders
   // the stored secret.
   const [tokenDraft, setTokenDraft] = useState('');
@@ -93,7 +92,8 @@ export function ProviderPanel({
       <select
         value={provider}
         onChange={(event) => onProviderChange(event.target.value as ProviderId)}
-        className="rounded border border-[var(--color-edge)] bg-transparent px-1 py-0.5"
+        disabled={isDisabled}
+        className="rounded border border-[var(--color-edge)] bg-transparent px-1 py-0.5 disabled:opacity-40"
         title={
           provider === 'heylook'
             ? `Prompts go to ${origin} and nowhere else.`
@@ -119,7 +119,8 @@ export function ProviderPanel({
             <select
               value={instanceId}
               onChange={(event) => onInstanceChange(event.target.value)}
-              className="rounded border border-[var(--color-edge)] bg-transparent px-1 py-0.5"
+              disabled={isDisabled}
+              className="rounded border border-[var(--color-edge)] bg-transparent px-1 py-0.5 disabled:opacity-40"
               title="Which configured machine to talk to. Each has its own model roster."
             >
               {instances.map((instance) => (
@@ -142,7 +143,8 @@ export function ProviderPanel({
             onChange={(event) =>
               onThinkingChange({ mode: event.target.value as ThinkingPreference['mode'] })
             }
-            className="rounded border border-[var(--color-edge)] bg-transparent px-1 py-0.5"
+            disabled={isDisabled}
+            className="rounded border border-[var(--color-edge)] bg-transparent px-1 py-0.5 disabled:opacity-40"
             title="Thinking: auto sends no switch and lets the server decide; on and off state an opinion. Only reaches a model whose row advertises the capability."
           >
             <option value="off">thinking: off</option>
@@ -184,8 +186,9 @@ export function ProviderPanel({
             type="password"
             value={tokenDraft}
             onChange={(event) => setTokenDraft(event.target.value)}
+            disabled={isDisabled}
             placeholder={heylookToken ? 'token saved' : 'token (only if the server asks)'}
-            className="w-[150px] rounded border border-[var(--color-edge)] bg-transparent px-1.5 py-0.5"
+            className="w-[150px] rounded border border-[var(--color-edge)] bg-transparent px-1.5 py-0.5 disabled:opacity-40"
             title="Sent as a bearer token on generation and cancel. Type it and press Save. heylook exempts loopback by default, so leave this empty for a server on this machine."
           />
           <button
@@ -194,7 +197,8 @@ export function ProviderPanel({
               onHeylookTokenChange(tokenDraft);
               setTokenDraft('');
             }}
-            className="rounded border border-[var(--color-edge)] px-1.5 py-0.5"
+            disabled={isDisabled}
+            className="rounded border border-[var(--color-edge)] px-1.5 py-0.5 disabled:opacity-40"
             title={heylookToken ? 'Replace the saved token, or save an empty field to clear it' : 'Save this token'}
           >
             {heylookToken && !tokenDraft ? 'Clear' : 'Save'}
@@ -214,7 +218,8 @@ export function ProviderPanel({
             <select
               value={modelId ?? ''}
               onChange={(event) => onModelChange(event.target.value)}
-              className="max-w-[220px] rounded border border-[var(--color-edge)] bg-transparent px-1 py-0.5"
+              disabled={isDisabled}
+              className="max-w-[220px] rounded border border-[var(--color-edge)] bg-transparent px-1 py-0.5 disabled:opacity-40"
             >
               {modelId == null && <option value="">choose a model</option>}
               {models.map((model) => (
@@ -237,7 +242,12 @@ export function ProviderPanel({
             </span>
           )}
 
-          <button type="button" onClick={onRefresh} className="underline" disabled={discovering}>
+          <button
+            type="button"
+            onClick={onRefresh}
+            className="underline disabled:opacity-40"
+            disabled={discovering || isDisabled}
+          >
             refresh
           </button>
         </>
@@ -258,7 +268,8 @@ export function ProviderPanel({
                 onGeminiConfigChange?.({ model: '' });
               }
             }}
-            className="rounded border border-[var(--color-edge)] bg-transparent px-1 py-0.5"
+            disabled={isDisabled}
+            className="rounded border border-[var(--color-edge)] bg-transparent px-1 py-0.5 disabled:opacity-40"
             title="Which Gemini model to use."
           >
             {GEMINI_PRESET_MODELS.map((m) => (
@@ -277,7 +288,8 @@ export function ProviderPanel({
               placeholder="model id"
               value={geminiConfig?.model ?? ''}
               onChange={(event) => onGeminiConfigChange?.({ model: event.target.value })}
-              className="w-[140px] rounded border border-[var(--color-edge)] bg-transparent px-1 py-0.5"
+              disabled={isDisabled}
+              className="w-[140px] rounded border border-[var(--color-edge)] bg-transparent px-1 py-0.5 disabled:opacity-40"
               title="Enter custom Gemini model identifier"
             />
           )}
@@ -420,42 +432,6 @@ export function ProviderPanel({
         </>
       )}
 
-      {/*
-        Shown for every provider, never only for the one that supports it. The
-        setting describes how you want the document produced, not who produces
-        it, so hiding it on a local backend would teach that it is a Gemini
-        feature -- and it is the same flag for a third backend that can.
-
-        Not heylook, though: that project has said it will not add constrained
-        decoding, so `canEnforceSchema: false` there is a settled answer rather
-        than a gap waiting to close. Recorded as a decision reported to us, not
-        as something measured -- but it does mean the shape trailer and the
-        defensive parse in `src/provider/shape.ts` are heylook's permanent path
-        rather than an interim one.
-
-        A backend that cannot honour it says so here instead of the control
-        vanishing, because a disappearing checkbox reads as a bug and a silently
-        ignored one is worse.
-      */}
-      <label
-        className={`flex items-center gap-1 ${canEnforceSchema ? '' : 'opacity-40'}`}
-        title={
-          canEnforceSchema
-            ? 'Constrain decoding to the schema. Off asks for the shape in the prompt instead, ' +
-              'which leaves the prose unconstrained -- the trade this project cares about.'
-            : `${provider} cannot constrain decoding, so the shape is always requested in the ` +
-              'prompt. The setting is kept because it travels with you to a backend that can.'
-        }
-      >
-        <input
-          type="checkbox"
-          checked={enforceSchema}
-          disabled={!canEnforceSchema}
-          onChange={(event) => onEnforceSchemaChange(event.target.checked)}
-        />
-        enforce schema
-        {!canEnforceSchema && <span className="ml-0.5">(n/a)</span>}
-      </label>
     </div>
   );
 }

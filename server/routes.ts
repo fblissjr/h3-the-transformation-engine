@@ -196,6 +196,10 @@ export async function handle(req: Request, ctx: ServerContext): Promise<Response
     const body = await req.json();
     const bad = missing(body, ['id', 'createdAt', 'role', 'provider', 'model', 'stage']);
     if (bad) return bad;
+    const model = (body as Record<string, unknown>).model;
+    if (typeof model !== 'string' || model.trim().length === 0) {
+      return json({ error: 'bad-request', message: "Field 'model' must be a non-empty string." }, 400);
+    }
     recordRun(db, body as RunRecord);
     return json({ ok: true });
   }

@@ -283,15 +283,10 @@ export function buildRequest(
 
 export class HeylookClient implements InferenceClient {
   readonly providerId: ProviderId = 'heylook';
-  /**
-   * Neither wire has a `responseSchema` equivalent, so `enforceSchema` is
-   * accepted and has no effect here: the shape is always asked for in the
-   * prompt. Declared false so the UI can say so rather than offer a control
-   * that silently does nothing.
-   */
-  readonly canEnforceSchema = false;
+
   readonly origin: string;
   readonly model: HeylookModel | null;
+  readonly modelId: string;
   private readonly fetchImpl: typeof fetch;
   private readonly backpressureBudgetMs: number;
   private readonly thinking: ThinkingPreference;
@@ -301,6 +296,7 @@ export class HeylookClient implements InferenceClient {
     this.thinking = config.thinking ?? THINKING_DEFAULT;
     this.origin = config.origin ?? HEYLOOK_INSTANCES[0].origin;
     this.model = config.model ?? null;
+    this.modelId = this.model?.id ?? 'unknown';
     this.fetchImpl = config.fetchImpl ?? ((...args) => fetch(...args));
     this.backpressureBudgetMs = config.backpressureBudgetMs ?? BACKPRESSURE_BUDGET_MS;
     // Trimmed, and an empty string is the same as absent: `Authorization:
@@ -498,7 +494,7 @@ export class HeylookClient implements InferenceClient {
           : `heylook: JSON object extracted from ${text.length} chars of reply`,
         {
           // Always this branch here: heylook has no constrained decoding, so
-          // the shape was asked for in the prompt whatever `enforceSchema` said.
+          // the shape was asked for in the prompt.
           branch: 'asked',
           requiredKeys: requiredKeys(options.schema),
           chars: text.length,

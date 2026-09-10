@@ -170,8 +170,8 @@ This document consolidates all historical engineering lessons, traps, and false-
    - Never use `thinking_level: 'minimal'`: It returns a 400 error on `gemini-3.7-flash`. Valid levels are `'low'`, `'medium'`, and `'high'`.
 2. **Sampling Temperature Ruling:**
    - By explicit repository owner ruling, sampling temperature must be **1.0 or higher**. Low temperatures and deterministic modes flatten descriptive vocabulary, degrading prompt quality.
-3. **Constrained Decoding vs. Shape Trailers:**
+3. **Unconstrained Decoding & Shape Trailers:**
    - Grammar-constrained decoding forces JSON compliance at the expense of natural prose token distributions.
-   - `enforceSchema` defaults to `false` (`ENFORCE_SCHEMA_DEFAULT` in `src/provider/shape.ts`). When unconstrained, the engine appends `withShapeTrailer()` and parses defensively using `extractJsonObject()`.
+   - The engine does not enforce schemas at decoding time; instead, it appends `withShapeTrailer` and parses defensively using `extractJsonObject`.
 4. **Single Wire Origin for CSP and Client:**
    - `VITE_HEYLOOK_ORIGIN` is the single source of truth for both `connect-src` in `vite.config.ts` and client connections in `src/provider/heylook/config.ts`.

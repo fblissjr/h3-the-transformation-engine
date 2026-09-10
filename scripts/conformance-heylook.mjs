@@ -31,18 +31,31 @@
  * render.
  *
  * Usage:
+ *   bun scripts/conformance-heylook.mjs --list
+ *   bun scripts/conformance-heylook.mjs --probe [--model=<id>]
  *   bun scripts/conformance-heylook.mjs --model=<id>[,<id>...] [--set=t2va|ref2va|all]
  *        [--n=N] [--only=key,key] [--out=path.jsonl] [--probe] [--strip-example]
- *        [--thinking=on|off] [--effort=<value>]
+ *        [--thinking=auto|on|off] [--effort=<value>]
+ *
+ * `--list` queries the server and displays all served models with their
+ * capabilities, then exits.
  *
  * `--probe` makes one call on the first idea and stops, to see latency and
- * whether the shape survives at all before spending a run. Reads
+ * whether the shape survives at all before spending a run. If `--model` is
+ * omitted, it selects the default served model. Reads
  * VITE_HEYLOOK_ORIGIN, defaulting to the local server.
  *
  * Calls are sequential over one client, because heylook serves one generation
  * at a time. Do not run two of these at once, or one beside the app while it is
  * generating: the second caller queues on 503s and, past the backpressure
  * budget, lands in the `provider` column looking like a model failure.
+ *
+ * Direct Host Network Requirements:
+ * When running inside sandboxed or containerized agent environments, host network
+ * access (such as `BypassSandbox: true` or `--net=host`) is required to connect
+ * to the host-bound Heylook model endpoint at the configured origin (e.g.,
+ * `http://localhost:8000`). Without direct host networking, loopback
+ * connections will fail with `ECONNREFUSED` or unreachable host network errors.
  */
 
 import { appendFileSync } from 'node:fs';
@@ -50,11 +63,11 @@ import { appendFileSync } from 'node:fs';
 import { compile, PlanError } from '../src/pipeline.ts';
 import { AssembleError } from '../src/core/assemble.ts';
 import { HeylookClient } from '../src/provider/heylook/client.ts';
-import { listModels, loadModel } from '../src/provider/heylook/models.ts';
+import { listModels, loadModel, pickDefaultModel } from '../src/provider/heylook/models.ts';
 import { BackpressureError, ProviderError, TruncatedError } from '../src/provider/types.ts';
 import { snapshot } from '../src/debug/index.ts';
 
-const ORIGIN = process.env.VITE_HEYLOOK_ORIGIN ?? 'http://127.0.0.1:42193';
+const ORIGIN = process.env.VITE_HEYLOOK_ORIGIN ?? 'http://localhost:8000';
 const arg = (name, fallback) => {
   const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
   return hit ? hit.slice(name.length + 3) : fallback;
@@ -65,6 +78,7 @@ const N = Number(arg('n', '0')) || 0;
 const ONLY = arg('only', '').split(',').filter(Boolean);
 const OUT = arg('out', `internal/conformance-${new Date().toISOString().slice(0, 10)}.jsonl`);
 const PROBE = process.argv.includes('--probe');
+const LIST = process.argv.includes('--list');
 /**
  * Drop the "# What your plan becomes" block from the system prompt before it
  * is sent. An A/B on the worked example: it shows a finished prompt with the
@@ -83,9 +97,68 @@ const THINKING = {
   ...(arg('effort', '') ? { effort: arg('effort', '') } : {}),
 };
 
+function formatModel(model) {
+  const provider = model.provider ? ` [${model.provider}]` : '';
+  const caps = model.capabilities?.length ? `capabilities: ${model.capabilities.join(', ')}` : '';
+  const mods = model.modalities?.length ? `modalities: ${model.modalities.join(', ')}` : '';
+  const details = [caps, mods].filter(Boolean).join('; ');
+  return `  ${model.id}${provider}${details ? ` (${details})` : ''}`;
+}
+
+// ---------------------------------------------------------------------------
+// Model discovery & argument handling
+// ---------------------------------------------------------------------------
+
+let roster;
+try {
+  roster = await listModels(ORIGIN);
+} catch (error) {
+  console.error(`Could not reach heylook at ${ORIGIN}:\n  ${error?.message ?? error}`);
+  const errText = `${error?.message ?? ''} ${error?.code ?? ''} ${error?.cause?.code ?? ''} ${error?.cause?.message ?? ''} ${error?.cause ?? ''}`;
+  if (/ECONNREFUSED|fetch failed/i.test(errText)) {
+    console.error(
+      `\nHost Network Notice:\n` +
+      `  When running inside sandboxed or containerized agent environments, host network access\n` +
+      `  (such as BypassSandbox: true or --net=host) is required to reach ${ORIGIN}.\n` +
+      `  Without direct host networking, loopback connections will fail with ECONNREFUSED or unreachable host network errors.`
+    );
+  }
+  process.exit(1);
+}
+
+if (LIST) {
+  if (roster.length === 0) {
+    console.log(`heylook at ${ORIGIN} is serving no models.`);
+  } else {
+    console.log(`Served models at ${ORIGIN} (${roster.length}):`);
+    for (const model of roster) {
+      console.log(formatModel(model));
+    }
+  }
+  process.exit(0);
+}
+
 if (MODELS.length === 0) {
-  console.error('usage: bun scripts/conformance-heylook.mjs --model=<id>[,<id>...] [--set=t2va|ref2va|all] [--n=N] [--out=path] [--probe]');
-  process.exit(2);
+  if (PROBE) {
+    const defaultModel = pickDefaultModel(roster);
+    if (!defaultModel) {
+      console.error(`Cannot probe: heylook at ${ORIGIN} is serving no usable models.`);
+      process.exit(2);
+    }
+    console.log(`No --model specified; auto-probing default served model: ${defaultModel.id}`);
+    MODELS.push(defaultModel.id);
+  } else {
+    if (roster.length === 0) {
+      console.error(`heylook at ${ORIGIN} is serving no models.`);
+    } else {
+      console.log(`Served models at ${ORIGIN} (${roster.length}):`);
+      for (const model of roster) {
+        console.log(formatModel(model));
+      }
+    }
+    console.error('\nusage: bun scripts/conformance-heylook.mjs --model=<id>[,<id>...] [--set=t2va|ref2va|all] [--n=N] [--out=path] [--probe] [--list]');
+    process.exit(2);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -178,7 +251,6 @@ function capture() {
 function stripExample(inner) {
   return {
     providerId: inner.providerId,
-    canEnforceSchema: inner.canEnforceSchema,
     call(options) {
       const text = options.systemInstruction;
       const start = text.indexOf('# What your plan becomes');
@@ -238,9 +310,15 @@ async function runOne(client, job, modelId) {
 // Main
 // ---------------------------------------------------------------------------
 
-const roster = await listModels(ORIGIN);
 const jobs = jobsFor(SET);
-console.log(`origin ${ORIGIN}; ${jobs.length} idea(s) x ${MODELS.length} model(s); writing ${OUT}${STRIP_EXAMPLE ? '; worked example stripped' : ''}; thinking ${THINKING.on ? `on${THINKING.effort ? ' at ' + THINKING.effort : ''}` : 'off'}`);
+const thinkingLabel =
+  THINKING.mode === 'on'
+    ? `on${THINKING.effort ? ' at ' + THINKING.effort : ''}`
+    : THINKING.mode;
+
+console.log(
+  `origin ${ORIGIN}; ${jobs.length} idea(s) x ${MODELS.length} model(s); writing ${OUT}${STRIP_EXAMPLE ? '; worked example stripped' : ''}; thinking ${thinkingLabel}`,
+);
 
 const all = [];
 for (const modelId of MODELS) {
@@ -278,4 +356,12 @@ for (const modelId of MODELS) {
   const counts = STAGES.map((s) => String(rows.filter((r) => r.stage === s).length).padStart(11));
   const mean = Math.round(rows.reduce((n, r) => n + r.ms, 0) / rows.length);
   console.log(modelId.slice(0, 40).padEnd(40) + counts.join('') + String(mean).padStart(10));
+}
+
+if (PROBE && all.length > 0) {
+  const valid = all[0].stage === 'clean' || all[0].stage === 'diagnostics';
+  if (!valid) {
+    console.error(`\nProbe failed: reached stage '${all[0].stage}' instead of 'clean' or 'diagnostics'.`);
+    process.exit(1);
+  }
 }

@@ -51,7 +51,6 @@ const view = useMemo(() => inspect(doc), [doc]);
 - `notice`: Informational notification string.
 - `provider`: Active provider (`'gemini' | 'heylook'`).
 - `model`: Selected model string.
-- `enforceSchema`: Boolean controlling constrained decoding.
 
 ### 2.3 Generation & Assisted Edit Workflows
 

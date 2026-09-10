@@ -38,13 +38,12 @@ The interface contract defined in `src/provider/types.ts` exposes a minimal asyn
 ```typescript
 export interface InferenceClient {
   readonly providerId: ProviderId;
-  readonly canEnforceSchema: boolean;
+  readonly modelId?: string;
   call<T = unknown>(options: CallOptions): Promise<CallResult<T>>;
 }
 ```
 
 - `providerId`: Union `'gemini' | 'heylook'`.
-- `canEnforceSchema`: Boolean capability flag indicating whether the backend natively supports constrained decoding.
 - `call<T>(options)`: Dispatches prompt generation and returns structured and unparsed model text.
 
 ### 2.2 Core Types
@@ -63,7 +62,6 @@ export interface InferenceClient {
   - `task`: `Task` (`'planner' | 'patch'`).
   - `maxOutputTokens`: Optional ceiling on output tokens.
   - `schema`: Optional JSON Schema describing the desired output.
-  - `enforceSchema`: Optional boolean controlling whether constrained decoding is requested.
   - `seed`: Optional PRNG seed for deterministic sampling.
   - `images`: Optional array of `ImageAttachment` objects.
   - `model`: Optional string model identifier.
@@ -196,16 +194,15 @@ In `src/provider/heylook/models.ts`:
 
 The transformation engine balances strict JSON schema conformance against creative prose quality (`src/provider/shape.ts`).
 
-### 5.1 Constrained Decoding Trade-Off
+### 5.1 Universal Unconstrained Generation
 
 Grammar-based constrained decoding forces a model's output to conform to a context-free grammar or JSON Schema. However, restricting token choices alters the probability distribution during generation, which noticeably degrades descriptive nuance and rhythm. In accordance with Invariant 1 ("Beats carry prose; enums are validated annotations"), prose quality is the paramount objective of the engine.
 
-- `ENFORCE_SCHEMA_DEFAULT = false`: Sessions default to unconstrained generation with defensive parsing.
-- Schema enforcement remains a per-call toggle (`CallOptions.enforceSchema`).
+All providers (both cloud and local) uniformly execute unconstrained generation without constrained decoding, pairing prompt trailers with defensive extraction.
 
 ### 5.2 Prompt Trailer Formatting
 
-When schema enforcement is disabled (or when calling backends without constrained decoding like heylook), `withShapeTrailer` appends the JSON schema directly to the system prompt:
+Across all providers, `withShapeTrailer` appends the target JSON schema directly to the system prompt:
 
 ```markdown
 # Output format

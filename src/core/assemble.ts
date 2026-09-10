@@ -54,7 +54,7 @@ export function assemble(
   const slotsByOrder = new Map(input.slots.map((s) => [s.order, s]));
 
   // --- speakers ----------------------------------------------------------
-  const speakers: Speaker[] = plan.speakers.map((s, i) => ({
+  const speakers: Speaker[] = (plan.speakers ?? []).map((s, i) => ({
     id: `sp-${i + 1}`,
     ordinal: i + 1,
     descriptor: s.descriptor,
@@ -67,7 +67,7 @@ export function assemble(
   const speakerByOrdinal = new Map(speakers.map((s) => [s.ordinal, s]));
 
   // --- subjects ----------------------------------------------------------
-  const subjects: Subject[] = plan.subjects.map((s, i) => ({
+  const subjects: Subject[] = (plan.subjects ?? []).map((s, i) => ({
     id: `subj-${i + 1}`,
     ordinal: i + 1,
     sources: s.sources.map((src) => {
@@ -91,7 +91,7 @@ export function assemble(
     id: `shot-${i + 1}`,
     index: i + 1,
     // The first shot never carries a timestamp, whatever the planner returned.
-    cutAtMs: i === 0 ? null : shot.cutAtMs,
+    cutAtMs: i === 0 ? null : (shot.cutAtMs ?? null),
     ...(shot.cutStyle ? { cutStyle: shot.cutStyle } : {}),
     camera: cameraWithoutNulls(shot.camera),
     beats: shot.beats.map((beat, j) => {
@@ -120,11 +120,11 @@ export function assemble(
               },
             }
           : {}),
-        visibleText: beat.visibleText,
-        citesSlots: beat.citesSlots
+        visibleText: beat.visibleText ?? [],
+        citesSlots: (beat.citesSlots ?? [])
           .map((order) => slotsByOrder.get(order)?.id)
           .filter((id): id is string => id != null),
-        citesSubjects: beat.citesSubjects.map((o) => `subj-${o}`),
+        citesSubjects: (beat.citesSubjects ?? []).map((o) => `subj-${o}`),
       };
     }),
   }));
@@ -186,8 +186,8 @@ export function assemble(
     subjects: isRef ? subjects : [],
     speakers,
     shots,
-    soundscape: plan.soundscape,
-    music: plan.music,
+    soundscape: plan.soundscape && plan.soundscape.trim() ? plan.soundscape : 'N/A',
+    music: plan.music && plan.music.trim() ? plan.music : 'N/A',
     ...(isRef
       ? {
           summary: plan.summary ?? '',

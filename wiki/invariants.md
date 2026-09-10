@@ -141,9 +141,9 @@ The provider boundary (`src/provider/`) manages external model execution and adh
    - Capabilities and quirks are never generalized across backends.
    - **Google Gemini**: Ignores `temperature` parameters; owner ruling dictates sampling temperature must be 1.0 or higher (deterministic mode is prohibited); enforces `store: false`; rejects `thinking_level: 'minimal'` with HTTP 400 (narrowed in TypeScript to `'low' | 'medium' | 'high'`).
    - **heylook (Local Provider)**: Uses Anthropic Messages API format; requires client-side image resizing (max edge 2048px, JPEG 0.85); supports in-flight cancellation via `DELETE /v1/requests/{id}` using `X-Request-ID`.
-2. **Per-Call Constrained Decoding (`enforceSchema`)**:
-   - Constrained decoding is a per-call parameter (`enforceSchema`, defaulting to `false` via `ENFORCE_SCHEMA_DEFAULT`).
-   - When disabled, schemas are injected via shape trailers (`withShapeTrailer`) and responses are extracted using `extractJsonObject`.
+2. **Unconstrained Decoding & Shape Trailers**:
+   - Constrained decoding is not used; all backends run unconstrained to preserve creative prose quality.
+   - Schemas are injected via shape trailers (`withShapeTrailer`) and responses are extracted defensively using `extractJsonObject`.
 3. **Database Lifecycle Disciplines**:
    - When calling `openDB(DB_NAME)`, **never** supply a hardcoded version number.
    - Database schema lineage is a stamped `PRAGMA user_version`, pinned in the suite against a hash of `server/schema.sql`. A database this build cannot write opens read-only and reports itself rather than being migrated or refused; export and archive work on exactly those files.

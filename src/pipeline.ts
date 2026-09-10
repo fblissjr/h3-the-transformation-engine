@@ -20,6 +20,7 @@ import {
   type InferenceClient,
   type ProviderId,
   type Task,
+  TruncatedError,
 } from './provider/types';
 import {
   buildPlannerSystemPrompt,
@@ -124,7 +125,6 @@ export interface RunObservation {
   /** The reply before parsing. Not reconstructable afterwards. */
   rawOutput: string;
   usage: Record<string, unknown>;
-  enforceSchema?: boolean;
   seed?: number;
 }
 
@@ -144,7 +144,6 @@ export async function compile(
     id: string;
     seed?: number;
     signal?: AbortSignal;
-    enforceSchema?: boolean;
     /**
      * Called exactly once per call, on every path including the failing ones.
      *
@@ -168,7 +167,6 @@ export async function compile(
       durationMs: Date.now() - started,
       rawOutput: raw,
       usage: {},
-      ...(options.enforceSchema != null ? { enforceSchema: options.enforceSchema } : {}),
       ...(options.seed != null ? { seed: options.seed } : {}),
     });
   trace('pipeline', 'pipeline.compile.start', `compile: ${input.idea.length} char idea`, {
@@ -180,7 +178,6 @@ export async function compile(
     slots: input.slots.map((slot) => ({ kind: slot.kind, hasDataUrl: slot.dataUrl != null })),
     creativeMode: input.creativeMode ?? null,
     seed: options.seed ?? null,
-    enforceSchema: options.enforceSchema ?? null,
   });
 
   const ctx = normalize(input);
@@ -198,21 +195,25 @@ export async function compile(
   let result;
   try {
     result = await client.call({
-    systemInstruction: buildPlannerSystemPrompt(ctx, input),
-    prompt: buildPlannerUserPrompt(input),
-    task: 'planner',
-    maxOutputTokens: PLANNER_MAX_OUTPUT_TOKENS,
-    schema: plannerJsonSchema(),
-    // Passed through untouched. The pipeline has no opinion on enforcement and
-    // must not grow one: it is the caller's trade, and each client decides what
-    // its own wire calls it.
-    ...(options.enforceSchema != null ? { enforceSchema: options.enforceSchema } : {}),
-    images: imagesFor(input),
-    ...(options.seed != null ? { seed: options.seed } : {}),
-    ...(options.signal ? { signal: options.signal } : {}),
+      systemInstruction: buildPlannerSystemPrompt(ctx, input),
+      prompt: buildPlannerUserPrompt(input),
+      task: 'planner',
+      maxOutputTokens: PLANNER_MAX_OUTPUT_TOKENS,
+      schema: plannerJsonSchema(),
+      images: imagesFor(input),
+      ...(options.seed != null ? { seed: options.seed } : {}),
+      ...(options.signal ? { signal: options.signal } : {}),
     });
   } catch (error) {
-    record('provider', error instanceof Error ? error.message : String(error));
+    const message = error instanceof Error ? error.message : String(error);
+    if (error instanceof TruncatedError) {
+      raw = error.partialText;
+      record('truncated', message);
+    } else if (/No JSON object found/i.test(message)) {
+      record('no_json', message);
+    } else {
+      record('provider', message);
+    }
     throw error;
   }
   raw = result.text;
@@ -308,7 +309,7 @@ export async function edit(
   doc: H3Document,
   paths: string[],
   instruction: string,
-  options: { seed?: number; signal?: AbortSignal; enforceSchema?: boolean } = {},
+  options: { seed?: number; signal?: AbortSignal } = {},
 ): Promise<EditResult> {
   if (paths.length === 0) throw new PlanError('An edit needs at least one target path.');
   const started = Date.now();
@@ -328,7 +329,6 @@ export async function edit(
     task: 'patch',
     maxOutputTokens: PATCH_MAX_OUTPUT_TOKENS,
     schema: patchJsonSchema(),
-    ...(options.enforceSchema != null ? { enforceSchema: options.enforceSchema } : {}),
     ...(options.seed != null ? { seed: options.seed } : {}),
     ...(options.signal ? { signal: options.signal } : {}),
   });

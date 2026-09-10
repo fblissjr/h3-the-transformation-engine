@@ -3,7 +3,7 @@
 **Document:** `wiki/code_doc_discrepancies.md`  
 **Audit Author:** `teamwork_preview_worker_m1`  
 **Audit Timestamp:** 2026-09-03T14:20:00Z  
-**Target Repository:** `/Users/fredbliss/workspace/h3-transformation-engine`  
+**Target Repository:** `h3-transformation-engine`  
 **Baseline Test Execution:** 921 tests across 28 suites (915 passing, 6 failing due to prompt deletions)  
 **TypeScript Typecheck:** `bun run typecheck` (`tsc --noEmit`) passes with 0 errors  
 **Authoritative Rule:** Code and executed tests are the ground truth. Existing repository files outside of `wiki/` remain untouched.
@@ -204,11 +204,10 @@ In `postmortems/2026-08-30_session_heylook-provider.md` (lines 19, 56–57), the
 The module `src/provider/heylook/json.ts` no longer exists. It was relocated and generalized into `src/provider/shape.ts` (lines 1–294) to serve as a shared, provider-agnostic extraction layer.
 
 - **Load-Bearing Architectural Rationale (`src/provider/shape.ts:1–36`):**
-  Schema enforcement is a per-call option (`CallOptions.enforceSchema`), not a provider property. With `ENFORCE_SCHEMA_DEFAULT = false`, both Gemini and heylook run unconstrained to preserve creative prose quality. Therefore, unconstrained extraction logic must reside at the root of `src/provider/` rather than inside `heylook/`.
+  Schema enforcement via constrained decoding has been completely removed across all backends to preserve creative prose quality. Both Gemini and heylook run unconstrained with shape trailers and defensive extraction. Therefore, unconstrained extraction logic resides at the root of `src/provider/` rather than inside `heylook/`.
 - **Key Exported Symbols:**
-  - `ENFORCE_SCHEMA_DEFAULT`: `false` (lines 84–87).
-  - `withShapeTrailer(systemInstruction, schema)` (lines 90–96): Appends `# Output format` JSON Schema to system prompt.
-  - `extractJsonObject(text, expectedKeys)` (lines 141–187): Multi-pass resilient JSON parser using balanced brace scanning (`balancedObjectAt`) and key resemblance scoring (`resemblance`) to defeat preamble and schema-echo traps.
+  - `withShapeTrailer`: Appends `# Output format` JSON Schema to system prompt.
+  - `extractJsonObject`: Multi-pass resilient JSON parser using balanced brace scanning (`balancedObjectAt`) and key resemblance scoring (`resemblance`) to defeat preamble and schema-echo traps.
 
 ---
 

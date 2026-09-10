@@ -36,8 +36,6 @@ function describeCall(client: InferenceClient, options: CallOptions): Record<str
     provider: client.providerId,
     task: options.task,
     ...(options.model != null ? { model: options.model } : {}),
-    canEnforceSchema: client.canEnforceSchema,
-    enforceSchema: options.enforceSchema ?? true,
     schemaRequested: options.schema != null,
     ...(options.maxOutputTokens != null ? { maxOutputTokens: options.maxOutputTokens } : {}),
     ...(options.seed != null ? { seed: options.seed } : {}),
@@ -107,7 +105,7 @@ function isAbort(cause: unknown): boolean {
 export function instrument(client: InferenceClient): InferenceClient {
   return {
     providerId: client.providerId,
-    canEnforceSchema: client.canEnforceSchema,
+    modelId: client.modelId,
     async call<T>(options: CallOptions): Promise<CallResult<T>> {
       const started = Date.now();
       trace(

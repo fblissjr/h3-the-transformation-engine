@@ -102,6 +102,8 @@ export interface GeminiClientConfig {
   apiKey: string;
   model?: string;
   config?: GeminiConfig;
+  retryBaseMs?: number;
+  maxRetries?: number;
 }
 
 /**
@@ -110,8 +112,10 @@ export interface GeminiClientConfig {
  * Gemini 3.x models (3.7 Flash, 3.8 Flash) require and support this string enum.
  * Older models (like 2.0 Flash) reject thinking_level with a 400.
  */
-export function supportsThinkingLevel(model: string): boolean {
-  return model.includes('gemini-3.7') || model.includes('gemini-3.8');
+export function supportsThinkingLevel(model: string | null | undefined): boolean {
+  if (typeof model !== 'string') return false;
+  const lower = model.toLowerCase();
+  return lower.includes('gemini-3.7') || lower.includes('gemini-3.8');
 }
 
 /**
@@ -133,7 +137,10 @@ export function buildRequest(
   // about material already presented.
   const input: Record<string, unknown>[] = [];
   for (const image of options.images ?? []) {
-    input.push({ type: 'image', data: image.base64, mime_type: image.mimeType });
+    const raw = image.base64;
+    const comma = raw.indexOf(';base64,');
+    const base64 = comma !== -1 ? raw.slice(comma + 8) : raw;
+    input.push({ type: 'image', data: base64, mime_type: image.mimeType });
   }
   for (const video of options.videos ?? []) {
     input.push({
@@ -153,7 +160,10 @@ export function buildRequest(
       ? (config?.plannerThinkingLevel ?? THINKING.planner)
       : (config?.patchThinkingLevel ?? THINKING.patch);
 
-  const targetModel = options.model ?? config?.model ?? defaultModel;
+  const targetModel =
+    options.model?.trim() ||
+    config?.model?.trim() ||
+    defaultModel;
 
   const generationConfig: Record<string, unknown> = {
     // Only send thinking_level for model families that support categorical thinking.
@@ -175,49 +185,59 @@ export function buildRequest(
     // Not configurable. See above.
     store: false,
     // Interaction-scoped: omitting it on any call runs with no system prompt.
-    // When enforcement is off the shape has to be asked for in words instead,
-    // and it is the same trailer the local client uses -- see ./shape.ts.
-    system_instruction: enforcing(options)
-      ? options.systemInstruction
-      : withShapeTrailer(options.systemInstruction, options.schema),
+    // The shape is asked for in words via prompt trailer (see ./shape.ts).
+    system_instruction: withShapeTrailer(options.systemInstruction, options.schema),
     generation_config: generationConfig,
   };
-
-  if (enforcing(options)) {
-    // Constrained decoding, and now only when asked for. It makes the planner's
-    // large nested document parse by construction, at a cost this project cares
-    // about: it distorts the token distribution while the model is writing, and
-    // the prose is the product. `response_format` is where the interface's
-    // provider-neutral `enforceSchema` becomes this wire's own word for it, and
-    // that translation happens here and nowhere earlier.
-    request.response_format = {
-      type: 'text',
-      mime_type: 'application/json',
-      schema: options.schema,
-    };
-  }
 
   return request;
 }
 
-/** Enforcement needs both a shape to enforce and permission to enforce it. */
-function enforcing(options: CallOptions): boolean {
-  return options.schema != null && options.enforceSchema !== false;
+function delay(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) return reject(new DOMException('The operation was aborted.', 'AbortError'));
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(new DOMException('The operation was aborted.', 'AbortError'));
+    };
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+function isRateLimit(cause: unknown): boolean {
+  const status =
+    (cause as { status?: unknown })?.status ??
+    (cause as { code?: unknown })?.code;
+  if (status === 429 || status === '429' || status === 'RESOURCE_EXHAUSTED') return true;
+  if (cause instanceof Error) {
+    const msg = cause.message.toLowerCase();
+    return msg.includes('429') || msg.includes('resource_exhausted') || msg.includes('quota');
+  }
+  return false;
 }
 
 export class GeminiClient implements InferenceClient {
   readonly providerId: ProviderId = 'gemini';
-  /** `response_format` with a schema is genuinely enforced here, unlike heylook. */
-  readonly canEnforceSchema = true;
+  readonly modelId: string;
   private readonly ai: GoogleGenAI;
   private readonly defaultModel: string;
   private readonly config?: GeminiConfig;
+  private readonly retryBaseMs: number;
+  private readonly maxRetries: number;
 
   constructor(config: GeminiClientConfig) {
     if (!config.apiKey) throw new Error('GeminiClient requires an API key.');
     this.ai = new GoogleGenAI({ apiKey: config.apiKey });
-    this.defaultModel = config.model ?? config.config?.model ?? DEFAULT_MODEL;
+    const explicit = config.model?.trim() || config.config?.model?.trim();
+    this.defaultModel = explicit || DEFAULT_MODEL;
+    this.modelId = this.defaultModel;
     this.config = config.config;
+    this.retryBaseMs = config.retryBaseMs ?? 1000;
+    this.maxRetries = config.maxRetries ?? 3;
   }
 
   getAiClient(): GoogleGenAI {
@@ -226,35 +246,75 @@ export class GeminiClient implements InferenceClient {
 
   async call<T = unknown>(options: CallOptions): Promise<CallResult<T>> {
     const started = Date.now();
+    if (options.signal?.aborted) {
+      throw new DOMException('The operation was aborted.', 'AbortError');
+    }
+
     const request = buildRequest(options, this.defaultModel, this.config);
 
-    // The body itself, not a re-derivation of it. The decorator in
-    // `src/debug/instrument.ts` records what the pipeline asked for; this is
-    // what actually goes on the wire, which is where `store: false`, the
-    // thinking level and the presence or absence of `response_format` become
-    // visible. The API key is not in here -- it went to the SDK constructor.
     const activeThinking = (request.generation_config as Record<string, unknown>)?.thinking_level;
     trace(
       'provider',
       'provider.wire.request',
       `gemini POST interactions.create -- ${String(request.model)}, thinking ${activeThinking}` +
-        `, ${request.response_format ? 'schema enforced' : 'shape asked for in the prompt'}`,
+        ', shape asked for in the prompt',
       { origin: GEMINI_ORIGIN, body: request },
     );
 
-    const interaction = await this.ai.interactions.create(
-      request as never,
-      options.signal ? ({ signal: options.signal } as never) : undefined,
-    );
+    const maxAttempts = this.maxRetries;
+    let attempt = 0;
+    let interaction: unknown;
+
+    while (true) {
+      if (options.signal?.aborted) {
+        throw new DOMException('The operation was aborted.', 'AbortError');
+      }
+      try {
+        interaction = await this.ai.interactions.create(
+          request as never,
+          options.signal ? ({ signal: options.signal } as never) : undefined,
+        );
+        break;
+      } catch (cause) {
+        if (
+          (cause instanceof DOMException && cause.name === 'AbortError') ||
+          (cause instanceof Error && cause.name === 'AbortError') ||
+          options.signal?.aborted
+        ) {
+          throw new DOMException('The operation was aborted.', 'AbortError');
+        }
+
+        if (isRateLimit(cause) && attempt < maxAttempts) {
+          attempt++;
+          const waitMs = Math.min(this.retryBaseMs * Math.pow(2, attempt - 1), 8000);
+          trace(
+            'provider',
+            'provider.wire.retry',
+            `gemini rate-limited (429), retrying in ${waitMs}ms (attempt ${attempt}/${maxAttempts})`,
+            { attempt, maxAttempts, waitMs },
+            { level: 'warn' },
+          );
+          await delay(waitMs, options.signal);
+          continue;
+        }
+
+        const status =
+          (cause as { status?: unknown })?.status ??
+          (cause as { code?: unknown })?.code ??
+          'error';
+        const message = cause instanceof Error ? cause.message : String(cause);
+        throw new ProviderError(
+          `Gemini API error (${String(status)}): ${message}`,
+          String(status),
+        );
+      }
+    }
 
     const status = String((interaction as { status?: unknown }).status ?? 'unknown');
     const text = String((interaction as { output_text?: unknown }).output_text ?? '');
     const interactionId = (interaction as { id?: string }).id;
     const usage = extractUsage(interaction);
 
-    // Emitted before the status checks below, so a truncation or a failure is
-    // still reported with its usage and its id rather than only as a thrown
-    // error the decorator sees.
     trace(
       'provider',
       'provider.wire.response',
@@ -270,60 +330,34 @@ export class GeminiClient implements InferenceClient {
       throw new ProviderError(`Interaction ${status}. No output was produced.`, status, interactionId);
     }
     if (status !== TERMINAL_OK) {
-      // in_progress / queued / requires_action should be unreachable without
-      // background execution, which this client does not use. Surfacing it is
-      // better than treating an unlabelled state as success.
       throw new ProviderError(`Unexpected non-terminal status "${status}".`, status, interactionId);
     }
 
     let parsed: T | null = null;
     if (options.schema) {
-      if (enforcing(options)) {
-        // Decoding was constrained, so anything but clean JSON is the API
-        // breaking its own guarantee and deserves to be loud.
-        try {
-          parsed = JSON.parse(text) as T;
-          trace('provider', 'provider.parse', 'gemini: constrained decoding, parsed the reply whole', {
-            branch: 'enforced',
-            chars: text.length,
-          });
-        } catch (cause) {
-          throw new ProviderError(
-            `Reply was not valid JSON despite a response schema: ${
-              cause instanceof Error ? cause.message : String(cause)
-            }`,
-            status,
-            interactionId,
-          );
-        }
-      } else {
-        // Asked rather than enforced, so the same defensive read the local
-        // client uses. A model free to write prose will sometimes wrap it.
-        const slice = extractJsonObject(text, requiredKeys(options.schema));
-        trace(
-          'provider',
-          'provider.parse',
-          slice == null
-            ? 'gemini: enforcement off, and no JSON object could be found in the reply'
-            : `gemini: enforcement off, JSON object extracted from ${text.length} chars of reply`,
-          {
-            branch: 'asked',
-            requiredKeys: requiredKeys(options.schema),
-            chars: text.length,
-            extracted: slice == null ? null : slice.length,
-          },
-          { level: slice == null ? 'error' : 'info' },
+      const slice = extractJsonObject(text, requiredKeys(options.schema));
+      trace(
+        'provider',
+        'provider.parse',
+        slice == null
+          ? 'gemini: no JSON object could be found in the reply'
+          : `gemini: JSON object extracted from ${text.length} chars of reply`,
+        {
+          requiredKeys: requiredKeys(options.schema),
+          chars: text.length,
+          extracted: slice == null ? null : slice.length,
+        },
+        { level: slice == null ? 'error' : 'info' },
+      );
+      if (slice == null) {
+        throw new ProviderError(
+          'No JSON object found in the reply. ' +
+            `Reply began: ${text.slice(0, 200)}`,
+          status,
+          interactionId,
         );
-        if (slice == null) {
-          throw new ProviderError(
-            'No JSON object found in the reply. Schema enforcement is switched off for this ' +
-              `call, so the shape was requested in the prompt rather than imposed. Reply began: ${text.slice(0, 200)}`,
-            status,
-            interactionId,
-          );
-        }
-        parsed = JSON.parse(slice) as T;
       }
+      parsed = JSON.parse(slice) as T;
     }
 
     return { text, parsed, status, interactionId, usage, durationMs: Date.now() - started };

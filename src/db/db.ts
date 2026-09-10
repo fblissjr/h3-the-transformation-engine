@@ -173,7 +173,11 @@ export async function deleteDocument(id: string): Promise<void> {
  * already holds. A lost row is a gap in the data; a thrown one is a lost
  * document.
  */
-export async function recordRun(run: Record<string, unknown>): Promise<void> {
+export interface RunTelemetryPayload extends Record<string, unknown> {
+  model: string;
+}
+
+export async function recordRun(run: RunTelemetryPayload): Promise<void> {
   try {
     await call('/runs', { method: 'POST', body: JSON.stringify(run) });
   } catch (error) {

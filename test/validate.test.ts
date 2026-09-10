@@ -202,7 +202,28 @@ const CONTROLS: Control[] = [
     code: 'SHOT_HEADER_IN_PROSE',
     base: crossCutBaker,
     mutate: (d) =>
-      void (d.shots[1].beats[0].prose = `[Shot 2] At 00:04.000, ${d.shots[1].beats[0].prose}`),
+      void (d.shots[1].beats[0].prose = `[Shot 2] Cut to ${d.shots[1].beats[0].prose}`),
+    inspects: has.shots,
+  },
+  {
+    code: 'CUT_TIMESTAMP_IN_PROSE',
+    base: crossCutBaker,
+    mutate: (d) =>
+      void (d.shots[1].beats[0].prose = `At 00:04.000, ${d.shots[1].beats[0].prose}`),
+    inspects: has.shots,
+  },
+  {
+    code: 'SECTION_HEADER_IN_PROSE',
+    base: crossCutBaker,
+    mutate: (d) =>
+      void (d.shots[1].beats[0].prose = `overall_soundscape: ambient wind. ${d.shots[1].beats[0].prose}`),
+    inspects: has.shots,
+  },
+  {
+    code: 'ALIGNMENT_LINE_IN_PROSE',
+    base: crossCutBaker,
+    mutate: (d) =>
+      void (d.shots[1].beats[0].prose = `How the reference pictures align with the scene: ${d.shots[1].beats[0].prose}`),
     inspects: has.shots,
   },
 

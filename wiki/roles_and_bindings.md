@@ -48,7 +48,7 @@ provider or instance can be named by many bindings.
 
 `ProviderDescriptor` in `src/provider/registry.ts`, keyed by `ProviderId` in the
 `PROVIDERS` table. Carries only what is true of a backend on every machine:
-`label`, `canEnforceSchema`, and a `ProviderType` (`metered` or
+`label` and a `ProviderType` (`metered` or
 `self-operated`) that selects a bundle of policy defaults.
 
 The table's own comments record why it stays this thin. `maxConcurrentRequests:

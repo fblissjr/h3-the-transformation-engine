@@ -57,27 +57,6 @@ export interface CallOptions {
   maxOutputTokens?: number;
   /** JSON Schema. When present the reply must be JSON of this shape. */
   schema?: Record<string, unknown>;
-  /**
-   * Whether to make the backend ENFORCE that shape, where it can.
-   *
-   * One name, all the way down, and it stays this name until a client turns it
-   * into whatever its own wire calls the thing -- `response_format` on Gemini,
-   * nothing at all on heylook today. The UI, the engine state, the pipeline and
-   * this interface all say `enforceSchema`, so adding a third backend that
-   * calls it `grammar` or `json_schema` adds one mapping at that client rather
-   * than a fourth vocabulary for everyone upstream to learn.
-   *
-   * Independent of `schema`: the schema says what shape, this says how hard to
-   * insist. With it off, a client asks for the shape in the prompt and parses
-   * defensively -- see `../shape.ts`. A client whose `canEnforceSchema` is
-   * false ignores this and always takes that path.
-   *
-   * It is a per-call choice rather than a setting because the trade is real in
-   * both directions: constrained decoding distorts the token distribution while
-   * the model writes, which costs prose quality, and prose quality is what this
-   * project exists to produce.
-   */
-  enforceSchema?: boolean;
   /** Makes a rerun that differs a real difference rather than sampling noise. */
   seed?: number;
   images?: ImageAttachment[];
@@ -105,15 +84,13 @@ export interface InferenceClient {
   /** Names the backend for error messages and the UI. */
   readonly providerId: ProviderId;
   /**
-   * Whether this backend can constrain decoding to a schema at all.
+   * The model currently targeted by this client, for telemetry and logging.
    *
-   * Declared rather than inferred from `providerId`, so the UI can offer the
-   * toggle honestly instead of holding a list of which providers support what.
-   * A client that says false is not obliged to fail when `enforceSchema` is
-   * set -- it asks in the prompt instead, which is a weaker guarantee and a
-   * working call.
+   * Provider-agnostic on purpose: Gemini resolves to its configured model or
+   * DEFAULT_MODEL; heylook resolves to model.id. Upstream callers read this
+   * directly without branching on providerId.
    */
-  readonly canEnforceSchema: boolean;
+  readonly modelId?: string;
   call<T = unknown>(options: CallOptions): Promise<CallResult<T>>;
 }
 
@@ -185,9 +162,13 @@ export class BackpressureError extends ProviderError {
 
 /** Split a `data:image/png;base64,...` URL into the parts both wires want. */
 export function dataUrlToAttachment(dataUrl: string): ImageAttachment | null {
-  const m = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
+  if (typeof dataUrl !== 'string') return null;
+  const m = /^data:([^;]+);base64,([\s\S]+)$/.exec(dataUrl.trim());
   if (!m) return null;
-  return { mimeType: m[1], base64: m[2] };
+  const mimeType = m[1].trim();
+  const base64 = m[2].trim();
+  if (!mimeType || !base64) return null;
+  return { mimeType, base64 };
 }
 
 /**

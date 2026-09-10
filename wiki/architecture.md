@@ -83,7 +83,7 @@ The compilation pipeline transforms raw user inputs into validated, serializable
   - Synthesizes system instructions via `buildPlannerSystemPrompt(contract, creativeMode)`.
   - Constructs user prompt with pre-computed budgets via `buildPlannerUserPrompt(idea, ctx)`.
   - Invokes the configured `InferenceClient` (Gemini Interactions API or heylook Anthropic Messages API).
-  - When constrained decoding is disabled (`enforceSchema: false`), appends `withShapeTrailer(schema)` and defensively extracts JSON using `extractJsonObject(text, expectedKeys)`.
+  - Appends `withShapeTrailer(schema)` to instructions and defensively extracts JSON using `extractJsonObject(text, expectedKeys)`.
   - Parses raw JSON against `PlannerOutputSchema` (defined in `src/core/ir/schema.ts`). Crucially, `PlannerOutputSchema` omits derived fields (such as shot indices and subject ordinals) to prevent model sequencing hallucinations.
 - **Output**: `PlannerOutput`.
 - *Reference*: See [Provider Layer](provider.md) and [Intermediate Representation](core_ir.md).

@@ -32,7 +32,7 @@ import { normalize } from '../src/core/normalize/index.ts';
 import { plannerJsonSchema } from '../src/core/ir/schema.ts';
 import { jsonShapeTrailer } from '../src/provider/shape.ts';
 
-const ORIGIN = process.env.VITE_HEYLOOK_ORIGIN ?? 'http://127.0.0.1:42193';
+const ORIGIN = process.env.VITE_HEYLOOK_ORIGIN ?? 'http://localhost:8000';
 const MODEL = process.argv[2] ?? 'gemma-4-26B-A4B-it-qat-4bit-g32-mlx';
 const ONLY = (process.argv.find((a) => a.startsWith('--only=')) ?? '').slice(7) || null;
 const N = Number((process.argv.find((a) => a.startsWith('--n=')) ?? '--n=0').slice(4)) || 0;

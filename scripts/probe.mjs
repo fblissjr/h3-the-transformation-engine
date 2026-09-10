@@ -21,6 +21,12 @@
 
 import { GoogleGenAI } from '@google/genai';
 
+if (process.argv.includes('--help') || process.argv.includes('-h')) {
+  console.log('Usage: GEMINI_API_KEY=... bun run probe');
+  console.log('Probes Gemini Interactions API (@google/genai) for model availability, thinking_level, response_format, and temperature.');
+  process.exit(0);
+}
+
 const apiKey = process.env.GEMINI_API_KEY;
 if (!apiKey) {
   console.error('GEMINI_API_KEY is not set.');
@@ -50,7 +56,12 @@ function thoughtTokens(interaction) {
 
 // --- A: model id form ------------------------------------------------------
 let model = null;
-for (const candidate of ['models/gemini-3.7-flash', 'gemini-3.7-flash']) {
+for (const candidate of [
+  'models/gemini-3.8-flash',
+  'gemini-3.8-flash',
+  'models/gemini-3.7-flash',
+  'gemini-3.7-flash',
+]) {
   try {
     const r = await call(candidate, { thinking_level: 'low', max_output_tokens: 256 });
     console.log(`A. model "${candidate}" -> status ${r.status}, output ${JSON.stringify(r.output_text)}`);
@@ -66,12 +77,12 @@ if (!model) {
 console.log(`A. using "${model}"\n`);
 
 // --- B: is thinking_level actually read? -----------------------------------
-const minimal = await call(model, { thinking_level: 'low', max_output_tokens: 512 });
+const low = await call(model, { thinking_level: 'low', max_output_tokens: 512 });
 const high = await call(model, { thinking_level: 'high', max_output_tokens: 2048 });
-const lo = thoughtTokens(minimal);
+const lo = thoughtTokens(low);
 const hi = thoughtTokens(high);
 console.log(`B. thought tokens: low=${lo} high=${hi}`);
-console.log(`B. usage keys: ${Object.keys(minimal.usage ?? {}).join(', ')}`);
+console.log(`B. usage keys: ${Object.keys(low.usage ?? {}).join(', ')}`);
 console.log(
   lo != null && hi != null && hi > lo
     ? 'B. VERDICT: thinking_level is read (snake_case confirmed on the wire).\n'

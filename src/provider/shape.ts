@@ -6,13 +6,11 @@
  * `response_format` constrains decoding, heylook has no equivalent on either
  * wire, so the shape was asked for in prose and the reply parsed defensively.
  *
- * Enforcement is now a per-call choice rather than a property of the backend
- * (`CallOptions.enforceSchema`), so *any* client can end up on this path --
- * Gemini with enforcement switched off takes exactly the same trailer and the
- * same extractor. That is what moved it up a directory. Nothing here knows
+ * All clients take this unconstrained path uniformly -- Gemini and heylook
+ * both receive the same trailer and the same extractor. Nothing here knows
  * which provider is calling, and nothing should.
  *
- * The reason the choice exists at all: grammar-constrained generation buys
+ * The reason this universal path exists: grammar-constrained generation buys
  * shape conformance by distorting the token distribution while the model is
  * writing, which costs output quality -- and this project's first invariant is
  * that beats carry real prose, because H3 conditions on descriptive quality.
@@ -66,25 +64,7 @@ export function jsonShapeTrailer(schema: Record<string, unknown>): string {
   ].join('\n');
 }
 
-/**
- * Whether a fresh session starts with constrained decoding on.
- *
- * Off, on the owner's observation that enforcement costs prompt quality. The
- * standing they have is what matters here: this is a judgement from reading
- * real output, not a measurement, and no A/B in this repo has been run. It is
- * recorded as an owner call so a later reader does not mistake it for a finding
- * and does not silently revert it as an oversight -- the module comment above
- * already explains why the trade is real in both directions.
- *
- * A named constant rather than a literal in `useEngine`, for the reason
- * `buildClient` exists: a default living inside a `useState` call is a default
- * nothing can assert, and this one is the difference between the two code paths
- * this file's whole comment is about.
- *
- * It is only the starting value. The toggle is per-call and the panel still
- * offers it, so turning enforcement on for a single generation costs one click.
- */
-export const ENFORCE_SCHEMA_DEFAULT = false;
+
 
 /** The system prompt as it is actually sent, when a shape was asked for. */
 export function withShapeTrailer(
@@ -157,20 +137,28 @@ export function extractJsonObject(text: string, expectedKeys: string[] = []): st
     }
 
     let parsed: unknown;
+    let candidateSlice = slice;
     try {
-      parsed = JSON.parse(slice);
+      parsed = JSON.parse(candidateSlice);
     } catch {
-      // Balanced but not valid JSON -- a brace in prose that happened to close.
-      failed += 1;
-      continue;
+      // Defensive repair: trailing commas are common in local model outputs.
+      try {
+        const cleaned = stripTrailingCommas(candidateSlice);
+        parsed = JSON.parse(cleaned);
+        candidateSlice = cleaned;
+      } catch {
+        // Balanced but not valid JSON -- a brace in prose that happened to close.
+        failed += 1;
+        continue;
+      }
     }
 
     while (open.length > 0 && open[open.length - 1] <= i) open.pop();
     const depth = open.length;
     const score = resemblance(parsed, expectedKeys);
 
-    if (best == null || better({ score, depth, slice }, best)) {
-      best = { slice, score, depth };
+    if (best == null || better({ score, depth, slice: candidateSlice }, best)) {
+      best = { slice: candidateSlice, score, depth };
     }
 
     if (score > 0) {
@@ -233,15 +221,79 @@ function resemblance(value: unknown, expectedKeys: string[]): number {
 }
 
 /**
- * Remove a surrounding markdown fence.
+ * Remove trailing commas before closing braces and brackets.
  *
- * Only a fence that wraps the whole reply is removed. A fence in the middle of
- * a longer reply is left alone, because the brace scan handles that case and
- * cutting on an inner fence could remove the object itself.
+ * Walks characters while respecting string literals (and escapes) so that
+ * commas and braces inside beat prose, dialogues, or text values are untouched.
  */
-function stripFences(text: string): string {
-  const fenced = /^\s*```(?:json|JSON)?\s*\n([\s\S]*?)\n?\s*```\s*$/.exec(text);
-  return fenced ? fenced[1] : text;
+export function stripTrailingCommas(json: string): string {
+  let out = '';
+  let inString = false;
+  let escaped = false;
+
+  for (let i = 0; i < json.length; i += 1) {
+    const ch = json[i];
+
+    if (inString) {
+      out += ch;
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+
+    if (ch === '"') {
+      inString = true;
+      out += ch;
+      continue;
+    }
+
+    if (ch === ',') {
+      let j = i + 1;
+      while (
+        j < json.length &&
+        (json[j] === ' ' || json[j] === '\t' || json[j] === '\n' || json[j] === '\r')
+      ) {
+        j += 1;
+      }
+      if (j < json.length && (json[j] === '}' || json[j] === ']')) {
+        continue;
+      }
+    }
+
+    out += ch;
+  }
+
+  return out;
+}
+
+/**
+ * Remove markdown fences around JSON, including when wrapped in conversational prose.
+ *
+ * A fence that wraps the whole reply is unwrapped directly. If the reply is embedded
+ * in prose, an enclosed ```json ... ``` block containing a balanced object is safely
+ * unwrapped so that chatter or unclosed braces in preamble/postamble do not exhaust
+ * the candidate scan budget.
+ */
+export function stripFences(text: string): string {
+  const full = /^\s*```(?:[a-zA-Z0-9_-]+\s*)?\r?\n?([\s\S]*?)\r?\n?\s*```\s*$/.exec(text);
+  if (full) return full[1];
+
+  const matches = [...text.matchAll(/```(?:([a-zA-Z0-9_-]+)\s*)?\r?\n?([\s\S]*?)\r?\n?\s*```/g)];
+  const explicitJson = matches.filter(
+    (m) => m[1]?.toLowerCase() === 'json' && m[2].includes('{'),
+  );
+  const candidates = explicitJson.length > 0 ? explicitJson : matches.filter((m) => m[2].includes('{'));
+
+  if (candidates.length === 1) {
+    const content = candidates[0][2].trim();
+    const firstBrace = content.indexOf('{');
+    if (firstBrace !== -1 && balancedObjectAt(content, firstBrace) != null) {
+      return candidates[0][2];
+    }
+  }
+
+  return text;
 }
 
 /**

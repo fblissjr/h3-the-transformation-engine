@@ -24,7 +24,6 @@ import { THINKING_DEFAULT, type ThinkingPreference } from '../provider/heylook/c
 import { recordRun } from '../db/db';
 import type { GeminiConfig } from '../provider/gemini';
 import { analyzeVideoWithGemini } from '../provider/geminiVideo';
-import { ENFORCE_SCHEMA_DEFAULT } from '../provider/shape';
 import { createSerialQueue } from './queue';
 import type { InferenceClient, ProviderId } from '../provider/types';
 import {
@@ -46,7 +45,6 @@ import {
   instancePolicyFor,
   policyFor,
   HEYLOOK_INSTANCES,
-  PROVIDERS,
 } from '../provider/registry';
 import type { Policy } from '../core/policy';
 import { loadInstancePolicies, setInstanceAttribute } from '../db/policy';
@@ -82,15 +80,6 @@ const DOC_ID = 'workspace';
  */
 const PROVIDER_SETTING = 'provider';
 const HEYLOOK_MODEL_SETTING = 'heylook-model';
-/**
- * Whether to let the backend enforce the reply's shape.
- *
- * Stored provider-agnostically and deliberately NOT per provider: it is a
- * property of how you want the document produced, not of who produces it, and
- * a per-provider copy would be four settings to keep in step the moment a third
- * backend arrives. A client that cannot enforce ignores it.
- */
-const ENFORCE_SCHEMA_SETTING = 'enforce-schema';
 /** Which configured machine to talk to. Origins are build-time; the choice is not. */
 const HEYLOOK_INSTANCE_SETTING = 'heylook-instance';
 /** Configured parameters for Gemini (model, thinking levels, video processing, etc.) */
@@ -205,15 +194,7 @@ export function useEngine() {
    * during a thirty-second load.
    */
   const [loadingModel, setLoadingModel] = useState<string | null>(null);
-  /**
-   * On by default, which is what Gemini has always done.
-   *
-   * Off is the interesting setting and the reason this exists: constrained
-   * decoding distorts the token distribution while the model writes, so it may
-   * be costing the prose quality this project is built around. That is
-   * unmeasured, and a toggle is the instrument for measuring it.
-   */
-  const [enforceSchema, setEnforceSchemaState] = useState(ENFORCE_SCHEMA_DEFAULT);
+
   const [instanceId, setInstanceIdState] = useState<string>(HEYLOOK_INSTANCES[0].id);
   /**
    * Every machine's policy overrides, by instance id.
@@ -323,7 +304,6 @@ export function useEngine() {
       const storedModel = await getSetting<string | null>(HEYLOOK_MODEL_SETTING, null);
       heylookModelIdRef.current = storedModel;
       setHeylookModelId(storedModel);
-      setEnforceSchemaState(await getSetting<boolean>(ENFORCE_SCHEMA_SETTING, true));
       // Read defensively rather than trusted: this is a stored value that a
       // previous build may have written as a boolean, and the mode union is
       // three-valued now. An unreadable one falls back rather than throwing,
@@ -681,7 +661,6 @@ export function useEngine() {
   const setProvider = useCallback((next: ProviderId) => {
     trace('state', 'state.provider', `provider is now ${next}`, {
       provider: next,
-      canEnforceSchema: PROVIDERS[next].canEnforceSchema,
     });
     setProviderState(next);
     setError(null);
@@ -704,14 +683,6 @@ export function useEngine() {
     // A different machine serves a different roster, so nothing is known again.
     setRoster((state) => reduceRoster(state, { type: 'reset' }));
     void setSetting(HEYLOOK_INSTANCE_SETTING, next);
-  }, []);
-
-  const setEnforceSchema = useCallback((next: boolean) => {
-    trace('state', 'state.enforceSchema', `schema enforcement ${next ? 'on' : 'off'}`, {
-      enforceSchema: next,
-    });
-    setEnforceSchemaState(next);
-    void setSetting(ENFORCE_SCHEMA_SETTING, next);
   }, []);
 
   const setHeylookToken = useCallback(async (next: string) => {
@@ -941,6 +912,12 @@ export function useEngine() {
   }, [headVersionId]);
 
   /**
+   * Tracks active direct edits in flight across execution and commit.
+   * Closes the race window between direct AST edits and generation/checkout.
+   */
+  const isEditingRef = useRef(false);
+
+  /**
    * Direct edits run one at a time. Created once, since a queue that is
    * rebuilt on render serialises nothing.
    */
@@ -1017,18 +994,21 @@ export function useEngine() {
    * generation carries on to the end regardless -- see the note on `abortRef`.
    */
   const stop = useCallback(() => {
-    abortRef.current?.abort();
+    if (!abortRef.current) return;
+    setBusy('Stopping…');
+    abortRef.current.abort();
   }, []);
 
   // --- actions -----------------------------------------------------------
   const generate = useCallback(async () => {
-    if (busy) return;
+    if (busy || abortRef.current != null || isEditingRef.current) return;
     if (!client) return fail(notReady ?? 'No inference backend is ready.');
     if (effectiveIdea.trim() === '') return fail('Describe what you want before generating.');
+    const controller = new AbortController();
+    abortRef.current = controller;
     trace('state', 'state.generate', `generate on ${client.providerId}`, {
       provider: client.providerId,
       mode: input.mode,
-      enforceSchema,
       seed,
       rolled: rolled != null,
       creative: describeRecord(creative),
@@ -1037,13 +1017,10 @@ export function useEngine() {
     setBusy('Planning');
     setError(null);
     setNotice(null);
-    const controller = new AbortController();
-    abortRef.current = controller;
     try {
       const result = await compile(client, input, {
         id: DOC_ID,
         signal: controller.signal,
-        enforceSchema,
         // The pipeline knows the stage, the timing and the reply; this side
         // knows the model and the document. Fired on failing paths too --
         // "did thinking-on improve conformance" is a comparison of failure
@@ -1054,11 +1031,8 @@ export function useEngine() {
             id: `${DOC_ID}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
             createdAt: Date.now(),
             documentId: DOC_ID,
-            // Only what this side can actually source. `thinking` reaches the
-            // client through `heylookPolicyConfig` and is not held here, so it
-            // is left null rather than guessed -- a wrong value in a
-            // measurement table is worse than a missing one.
-            model: (provider === 'heylook' ? heylookModel : geminiConfig.model) ?? 'unknown',
+            // Sourced via client seam directly, eliminating provider branching
+            model: client.modelId ?? 'unknown',
           });
         },
       });
@@ -1075,7 +1049,7 @@ export function useEngine() {
       abortRef.current = null;
       setBusy(null);
     }
-  }, [busy, client, notReady, effectiveIdea, input, commit, creative, rolled, seed, reportOrStopped, enforceSchema]);
+  }, [busy, client, notReady, effectiveIdea, input, commit, creative, rolled, seed, reportOrStopped]);
 
   /**
    * A direct edit, answering whether the document took it.
@@ -1087,8 +1061,16 @@ export function useEngine() {
    * guessing from a banner that may be about some other field.
    */
   const applyDirect = useCallback(
-    (path: string, value: unknown): Promise<boolean> =>
-      editQueue.current(async () => {
+    (path: string, value: unknown): Promise<boolean> => {
+      if (busy || abortRef.current != null) {
+        if (busy) {
+          fail(`${busy} is running. The edit to ${path} was not applied.`);
+        } else {
+          fail(`Generation is running. The edit to ${path} was not applied.`);
+        }
+        return Promise.resolve(false);
+      }
+      return editQueue.current(async () => {
         // Read when the task runs rather than when it was queued, which is the
         // whole of the fix: the edit ahead of this one has already produced a new
         // document by now, and computing from the render's `doc` is what
@@ -1102,8 +1084,12 @@ export function useEngine() {
         // here sets `busy`, so this guard sees a generation or an assisted edit
         // and never a second direct edit. That case is the queue's, not this
         // guard's.
-        if (busy) {
-          fail(`${busy} is running. The edit to ${path} was not applied.`);
+        if (busy || abortRef.current != null) {
+          if (busy) {
+            fail(`${busy} is running. The edit to ${path} was not applied.`);
+          } else {
+            fail(`Generation is running. The edit to ${path} was not applied.`);
+          }
           return false;
         }
         // Cleared on the way in, the way `generate` and `applyAssisted` do. A
@@ -1112,6 +1098,7 @@ export function useEngine() {
         // not. The notice is left alone: it carries the schema report from load,
         // which an unrelated edit has no business dismissing.
         setError(null);
+        isEditingRef.current = true;
         try {
           const result = editDirect(current, path, value);
           if (result.patch.rejected.length > 0) {
@@ -1130,8 +1117,11 @@ export function useEngine() {
           // reaching the serializer; this stops the next one from being invisible.
           fail(cause instanceof Error ? cause.message : String(cause));
           return false;
+        } finally {
+          isEditingRef.current = false;
         }
-      }),
+      });
+    },
     [busy, commit, fail],
   );
 
@@ -1142,25 +1132,23 @@ export function useEngine() {
       // could start, overwrite the single `abortRef`, and leave the first
       // generation running with nothing able to stop it -- falsifying the
       // invariant `abortRef`'s own comment claims.
-      if (busy) return;
+      if (busy || abortRef.current != null || isEditingRef.current) return;
       if (!client) return fail(notReady ?? 'No inference backend is ready.');
       if (!doc) return;
       if (selectedPaths.length === 0) return fail('Select something to edit first.');
+      const controller = new AbortController();
+      abortRef.current = controller;
       trace('state', 'state.applyAssisted', `assisted edit of ${selectedPaths.length} path(s)`, {
         provider: client.providerId,
         paths: selectedPaths,
         instruction,
-        enforceSchema,
       });
       setBusy('Editing');
       setError(null);
       setNotice(null);
-      const controller = new AbortController();
-      abortRef.current = controller;
       try {
         const result = await edit(client, doc, selectedPaths, instruction, {
           signal: controller.signal,
-          enforceSchema,
         });
         if (result.patch.applied.length === 0) {
           fail(
@@ -1184,10 +1172,14 @@ export function useEngine() {
         setBusy(null);
       }
     },
-    [busy, client, notReady, doc, selectedPaths, commit, reportOrStopped, enforceSchema],
+    [busy, client, notReady, doc, selectedPaths, commit, reportOrStopped],
   );
 
   const checkout = useCallback(async (version: StoredVersion) => {
+    if (busy || abortRef.current != null || isEditingRef.current) {
+      fail('Cannot switch versions while generation or editing is active.');
+      return;
+    }
     setDoc(version.doc);
     setHeadVersionId(version.id);
     setSlots(version.doc.slots);
@@ -1227,7 +1219,7 @@ export function useEngine() {
       creativeMode: version.doc.creativeMode ?? null,
       seed: version.doc.roll?.seed ?? null,
     });
-  }, []);
+  }, [busy, fail, effectiveIdea]);
 
   const togglePath = useCallback((path: string, additive: boolean) => {
     // The path and the modifier, not the resulting set: the set is computed
@@ -1268,21 +1260,12 @@ export function useEngine() {
     discovering,
     /** Non-null while a model is being made resident, naming which. */
     loadingModel,
-    enforceSchema,
-    setEnforceSchema,
     /** The effective policy, and where each value came from. */
     policy,
     policyExplained: explainFor(provider, instancePolicy),
     /** What this machine states for itself, which is the only editable layer. */
     instancePolicy,
     setInstanceAttr,
-    /**
-     * Whether the active backend can honour it. Read from the provider rather
-     * than from a constructed client, which does not exist before a key is
-     * unlocked or a model chosen -- and reporting "cannot constrain decoding"
-     * in that state was both wrong and the most-seen state in the app.
-     */
-    canEnforceSchema: PROVIDERS[provider].canEnforceSchema,
     refreshHeylookModels,
     /** Null when a call can be made; otherwise why not, in this provider's terms. */
     notReady,

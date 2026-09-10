@@ -167,9 +167,9 @@ describe('instances are configured at build time, because the CSP names them', (
   });
 
   it('still honours a single bare origin, which is what shipped', () => {
-    const parsed = parseInstances(undefined, 'http://127.0.0.1:42193');
+    const parsed = parseInstances(undefined, 'http://localhost:8000');
     expect(parsed).toHaveLength(1);
-    expect(parsed[0].origin).toBe('http://127.0.0.1:42193');
+    expect(parsed[0].origin).toBe('http://localhost:8000');
   });
 
   it('names an unnamed entry after itself rather than dropping it', () => {
@@ -183,6 +183,8 @@ describe('instances are configured at build time, because the CSP names them', (
   it('falls back rather than producing an empty list', () => {
     expect(parseInstances('', undefined)).toHaveLength(1);
     expect(parseInstances('  ,  ', undefined)).toHaveLength(1);
+    expect(parseInstances(undefined, undefined)[0].origin).toBe('http://localhost:8000');
+    expect(HEYLOOK_INSTANCES[0].origin).toBe('http://localhost:8000');
   });
 
   it('resolves an origin only from the list connect-src is generated from', () => {

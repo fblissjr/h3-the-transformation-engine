@@ -302,7 +302,6 @@ const input: CompileInput = {
 
 class StubClient implements InferenceClient {
   readonly providerId = 'gemini' as const;
-  readonly canEnforceSchema = true;
   constructor(private readonly reply: unknown) {}
   async call<T>(_options: CallOptions): Promise<CallResult<T>> {
     return {
@@ -357,7 +356,6 @@ describe('a compile is traced from the idea to the rendered prompt', () => {
   it('reports a failing call as an error and rethrows it', async () => {
     const failing: InferenceClient = {
       providerId: 'heylook',
-      canEnforceSchema: false,
       call: async () => {
         throw new Error('the server fell over');
       },
@@ -371,7 +369,6 @@ describe('a compile is traced from the idea to the rendered prompt', () => {
   it('reports a stop as a warning, not a failure', async () => {
     const stopped: InferenceClient = {
       providerId: 'heylook',
-      canEnforceSchema: false,
       call: async () => {
         throw new DOMException('Aborted', 'AbortError');
       },
@@ -637,9 +634,8 @@ describe('the client the app runs on is the instrumented one', () => {
     expect(names()).toContain('provider.request');
     expect(names()).toContain('provider.response');
     // And the decorator did not eat the client's identity on the way past --
-    // `notReady`, the schema toggle and the error messages all read these.
+    // `notReady` and the error messages all read these.
     expect(client!.providerId).toBe('heylook');
-    expect(client!.canEnforceSchema).toBe(false);
   });
 
   it('reports not-ready as null rather than an untraced client', () => {
@@ -647,10 +643,9 @@ describe('the client the app runs on is the instrumented one', () => {
     expect(buildClient({ provider: 'gemini', apiKey: null })).toBeNull();
   });
 
-  it('instruments the hosted backend too, and keeps its capability', () => {
+  it('instruments the hosted backend too, and keeps its identity', () => {
     const client = buildClient({ provider: 'gemini', apiKey: 'AIza-not-a-real-key' });
     expect(client!.providerId).toBe('gemini');
-    expect(client!.canEnforceSchema).toBe(true);
     // A proxy, and named as one: the decorator returns a plain object, so an
     // unwrapped client would still be a GeminiClient. The functional assertion
     // above is the real check; Gemini has no injectable transport to repeat it

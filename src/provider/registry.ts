@@ -40,17 +40,6 @@ import type { ProviderId } from './types.ts';
 
 export interface ProviderDescriptor {
   id: ProviderId;
-  /**
-   * Whether this backend can constrain decoding to a schema.
-   *
-   * Stated here rather than read off a live client, because a client only
-   * exists once there is a key or a chosen model -- and reading
-   * `client?.canEnforceSchema ?? false` made the answer false on first load,
-   * where the UI then told the user that Gemini cannot constrain decoding.
-   * The capability is a fact about the provider and is available before any
-   * client is built.
-   */
-  canEnforceSchema: boolean;
   /** Its bundle of defaults. Nothing branches on this; see core/policy/types.ts. */
   type: ProviderType;
   label: string;
@@ -63,7 +52,6 @@ export const PROVIDERS: Record<ProviderId, ProviderDescriptor> = {
     id: 'gemini',
     type: 'metered',
     label: 'Gemini',
-    canEnforceSchema: true,
     // Nothing: everything true of Gemini is true of the `metered` type, and
     // repeating it here would be a second copy to keep in step.
   },
@@ -71,7 +59,6 @@ export const PROVIDERS: Record<ProviderId, ProviderDescriptor> = {
     id: 'heylook',
     type: 'self-operated',
     label: 'heylook (local)',
-    canEnforceSchema: false,
     // Also nothing, and deliberately. It is tempting to put
     // maxConcurrentRequests: 1 here because the machine it runs on today
     // serialises generation -- but that is a fact about that machine, not about

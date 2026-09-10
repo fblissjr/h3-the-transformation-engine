@@ -72,12 +72,11 @@ export function App() {
           onHeylookTokenChange={(v) => void e.setHeylookToken(v)}
           thinking={e.heylookThinking}
           onThinkingChange={e.setHeylookThinking}
-          enforceSchema={e.enforceSchema}
-          onEnforceSchemaChange={e.setEnforceSchema}
-          canEnforceSchema={e.canEnforceSchema}
           instances={e.instances}
           instanceId={e.instanceId}
           onInstanceChange={e.setInstanceId}
+          disabled={e.busy != null}
+          busy={e.busy != null}
         />
         {/*
           Beside the provider controls rather than inside them: what a machine
@@ -236,7 +235,8 @@ export function App() {
               <button
                 type="button"
                 onClick={e.stop}
-                className="rounded border border-[var(--color-danger)] px-3 py-2 text-xs font-semibold text-[var(--color-danger)]"
+                disabled={e.busy === 'Stopping…'}
+                className="rounded border border-[var(--color-danger)] px-3 py-2 text-xs font-semibold text-[var(--color-danger)] disabled:opacity-40"
               >
                 stop
               </button>

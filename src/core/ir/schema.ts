@@ -213,21 +213,21 @@ export const H3DocumentSchema = z.object({
  * ordinal referring to a speaker that was never declared becomes an error
  * rather than a dangling reference.
  */
-const PlannedBeatSchema = z.object({
+export const PlannedBeatSchema = z.object({
   prose: z.string().min(1).describe('The actual sentences for this beat. This is what conditions the model.'),
   speaker: z
     .number()
     .int()
     .min(1)
-    .nullable()
+    .nullish()
     .describe('1-based speaker ordinal for a vocal event in this beat, or null.'),
   dialogue: z
     .object({
       language: z.string().min(1).describe('Language tag written inside <d>, e.g. "English".'),
       text: z.string().min(1).describe('Exact spoken words. Never translated or paraphrased.'),
       voiceover: z.boolean(),
-      crossesCut: z.enum(['starts', 'continues']).nullable(),
-      cutoff: z.boolean(),
+      crossesCut: z.enum(['starts', 'continues']).nullish(),
+      cutoff: z.boolean().nullish(),
       // Optional, unlike its neighbours, and the asymmetry is deliberate for
       // two independent reasons.
       //
@@ -246,21 +246,21 @@ const PlannedBeatSchema = z.object({
         .optional()
         .describe('True when the words are a fragment rather than a complete statement.'),
     })
-    .nullable(),
-  visibleText: z.array(z.string()).describe('Text visible on screen, verbatim, without quote marks.'),
-  citesSlots: z.array(z.number().int().min(0)).describe('0-based slot orders cited in this beat.'),
-  citesSubjects: z.array(z.number().int().min(1)).describe('1-based subject ordinals cited in this beat.'),
+    .nullish(),
+  visibleText: z.array(z.string()).nullish().describe('Text visible on screen, verbatim, without quote marks.'),
+  citesSlots: z.array(z.number().int().min(0)).nullish().describe('0-based slot orders cited in this beat.'),
+  citesSubjects: z.array(z.number().int().min(1)).nullish().describe('1-based subject ordinals cited in this beat.'),
 });
 
-const PlannedShotSchema = z.object({
+export const PlannedShotSchema = z.object({
   cutAtMs: z
     .number()
     .int()
     .min(0)
     .nullable()
     .describe('Cut time in milliseconds. Must be null for the first shot.'),
-  cutStyle: cutStyleSchema.nullable(),
-  camera: cameraSchema.nullable().describe('Annotation describing the camera work the prose expresses.'),
+  cutStyle: cutStyleSchema.nullish(),
+  camera: cameraSchema.nullish().describe('Annotation describing the camera work the prose expresses.'),
   beats: z.array(PlannedBeatSchema).min(1),
 });
 
@@ -302,17 +302,17 @@ const PlannedSpeakerSchema = z.object({
 export const PlannerOutputSchema = z.object({
   style: z.string().min(1).describe('Medium and finish, written as an opening clause. e.g. "Stop-motion felt puppetry, shallow depth of field".'),
   shots: z.array(PlannedShotSchema).min(1),
-  speakers: z.array(PlannedSpeakerSchema),
-  subjects: z.array(PlannedSubjectSchema).describe('Ref2VA only. Empty array for the base contract.'),
-  soundscape: z.string().min(1).describe('overall_soundscape: 1-4 sentences, or "N/A" for requested silence.'),
-  music: z.string().min(1).describe('non_diegetic_music: 1-3 sentences, or "N/A" when absent.'),
+  speakers: z.array(PlannedSpeakerSchema).nullish(),
+  subjects: z.array(PlannedSubjectSchema).nullish().describe('Ref2VA only. Empty array for the base contract.'),
+  soundscape: z.string().min(1).nullish().describe('overall_soundscape: 1-4 sentences, or "N/A" for requested silence.'),
+  music: z.string().min(1).nullish().describe('non_diegetic_music: 1-3 sentences, or "N/A" when absent.'),
   summary: z
     .string()
-    .nullable()
+    .nullish()
     .describe(
       'Ref2VA only. One or two sentences, physical verbs only, no speech acts. The task-type prefix is added for you.',
     ),
-  taskTypes: z.array(z.enum(TASK_TYPES)).nullable().describe('Ref2VA only.'),
+  taskTypes: z.array(z.enum(TASK_TYPES)).nullish().describe('Ref2VA only.'),
   audioRetention: z
     .array(
       z.object({
@@ -321,7 +321,7 @@ export const PlannerOutputSchema = z.object({
         note: z.string(),
       }),
     )
-    .nullable()
+    .nullish()
     .describe('Ref2VA only. One entry per audio slot.'),
   pictureRetention: z
     .array(
@@ -332,7 +332,7 @@ export const PlannerOutputSchema = z.object({
         note: z.string(),
       }),
     )
-    .nullable()
+    .nullish()
     .describe('Ref2VA only. One entry per standalone Picture or Video slot.'),
 });
 
