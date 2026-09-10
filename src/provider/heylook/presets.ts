@@ -52,7 +52,18 @@ export function normalizePreset(row: unknown): HeylookPreset | null {
     (r.params as Record<string, unknown> | undefined)?.system_prompt;
   const systemPrompt = typeof promptRaw === 'string' ? promptRaw : undefined;
 
-  const params = (r.params != null && typeof r.params === 'object' ? r.params : {}) as Record<string, unknown>;
+  const rawParams = r.params;
+  let params: Record<string, unknown> = {};
+  if (rawParams != null && typeof rawParams === 'object') {
+    params = rawParams as Record<string, unknown>;
+  } else if (typeof rawParams === 'string') {
+    try {
+      const parsed = JSON.parse(rawParams);
+      if (parsed && typeof parsed === 'object') params = parsed;
+    } catch {
+      // Keep empty if invalid JSON
+    }
+  }
 
   const tempRaw = r.temperature ?? params.temperature;
   const temperature = typeof tempRaw === 'number' ? tempRaw : undefined;
@@ -150,13 +161,17 @@ export async function listPresets(
 
   const rows = Array.isArray(body)
     ? body
-    : Array.isArray((body as { data?: unknown })?.data)
-      ? (body as { data: unknown[] }).data
-      : null;
+    : Array.isArray((body as { presets?: unknown })?.presets)
+      ? (body as { presets: unknown[] }).presets
+      : Array.isArray((body as { data?: unknown })?.data)
+        ? (body as { data: unknown[] }).data
+        : Array.isArray((body as { items?: unknown })?.items)
+          ? (body as { items: unknown[] }).items
+          : null;
 
   if (!rows) {
     throw new DiscoveryError(
-      `Reply from ${origin}/v1/presets is not heylook's shape -- neither an array nor { data: [...] }.`,
+      `Reply from ${origin}/v1/presets is not heylook's shape -- expected { presets: [...] }, { data: [...] }, or an array.`,
     );
   }
 

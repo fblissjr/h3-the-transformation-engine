@@ -64,6 +64,27 @@ describe('normalizePreset', () => {
     });
   });
 
+  it('normalizes live server preset format', () => {
+    const liveSample = {
+      id: '2618d6f51eb2497aa77f4241e2d87656',
+      name: 'test_preset',
+      system_prompt: 'talk like a pirate',
+      params: { temperature: 1.1, top_p: 0.95 },
+      created_at: '2026-09-10T15:11:52.121218+00:00',
+      updated_at: '2026-09-10T15:11:52.121218+00:00',
+    };
+    const normalized = normalizePreset(liveSample);
+    expect(normalized).toEqual({
+      id: '2618d6f51eb2497aa77f4241e2d87656',
+      name: 'test_preset',
+      systemPrompt: 'talk like a pirate',
+      temperature: 1.1,
+      topP: 0.95,
+      updatedAt: '2026-09-10T15:11:52.121218+00:00',
+      raw: liveSample,
+    });
+  });
+
   it('normalizes params-wrapped preset structures', () => {
     const raw = {
       id: 'preset-2',
@@ -113,9 +134,45 @@ describe('normalizePreset', () => {
     expect(normalized?.temperature).toBeUndefined();
     expect(normalized?.topP).toBeUndefined();
   });
+
+  it('tolerates stringified JSON in params field', () => {
+    const raw = {
+      id: 'p-str',
+      name: 'Stringified Params',
+      params: JSON.stringify({
+        temperature: 0.6,
+        top_p: 0.85,
+        max_tokens: 3000,
+      }),
+    };
+    const normalized = normalizePreset(raw);
+    expect(normalized?.temperature).toBe(0.6);
+    expect(normalized?.topP).toBe(0.85);
+    expect(normalized?.maxOutputTokens).toBe(3000);
+  });
 });
 
 describe('listPresets', () => {
+  it('fetches /v1/presets and parses Heylook native { presets: [...], total: N } responses', async () => {
+    const payload = JSON.stringify({
+      presets: [
+        { id: 'p1', name: 'Preset One', system_prompt: 'Prompt 1', params: { temperature: 0.5 } },
+        { id: 'p2', name: 'Preset Two', params: { system_prompt: 'Prompt 2' } },
+      ],
+      total: 2,
+    });
+    const { impl, urls } = answers(200, payload);
+
+    const presets = await listPresets(ORIGIN, { fetchImpl: impl });
+    expect(urls).toEqual([`${ORIGIN}/v1/presets`]);
+    expect(presets).toHaveLength(2);
+    expect(presets[0].id).toBe('p1');
+    expect(presets[0].systemPrompt).toBe('Prompt 1');
+    expect(presets[0].temperature).toBe(0.5);
+    expect(presets[1].id).toBe('p2');
+    expect(presets[1].systemPrompt).toBe('Prompt 2');
+  });
+
   it('fetches /v1/presets and parses { data: [...] } responses', async () => {
     const payload = JSON.stringify({
       data: [
@@ -201,6 +258,8 @@ describe('HeylookClient and buildRequest with sampler parameters', () => {
     expect(req.temperature).toBe(0.7);
     expect(req.top_p).toBe(0.9);
     expect(req.max_tokens).toBe(2048);
+    expect(req).not.toHaveProperty('preset');
+    expect(req).not.toHaveProperty('preset_id');
   });
 
   it('client.call attaches sampler options to chat completions body', async () => {
