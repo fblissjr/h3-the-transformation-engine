@@ -146,6 +146,7 @@ export async function compile(
     signal?: AbortSignal;
     temperature?: number;
     topP?: number;
+    promptOverrides?: Record<string, string>;
     /**
      * Called exactly once per call, on every path including the failing ones.
      *
@@ -197,7 +198,7 @@ export async function compile(
   let result;
   try {
     result = await client.call({
-      systemInstruction: buildPlannerSystemPrompt(ctx, input),
+      systemInstruction: buildPlannerSystemPrompt(ctx, input, options.promptOverrides),
       prompt: buildPlannerUserPrompt(input),
       task: 'planner',
       maxOutputTokens: PLANNER_MAX_OUTPUT_TOKENS,
@@ -318,6 +319,7 @@ export async function edit(
     signal?: AbortSignal;
     temperature?: number;
     topP?: number;
+    promptOverrides?: Record<string, string>;
   } = {},
 ): Promise<EditResult> {
   if (paths.length === 0) throw new PlanError('An edit needs at least one target path.');
@@ -334,7 +336,7 @@ export async function edit(
   });
 
   const result = await client.call({
-    systemInstruction: buildPatchSystemPrompt(doc.creativeMode, doc.direction),
+    systemInstruction: buildPatchSystemPrompt(doc.creativeMode, doc.direction, options.promptOverrides),
     prompt: buildPatchUserPrompt(doc, paths, instruction),
     task: 'patch',
     maxOutputTokens: PATCH_MAX_OUTPUT_TOKENS,

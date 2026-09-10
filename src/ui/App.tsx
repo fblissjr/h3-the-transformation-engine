@@ -21,6 +21,7 @@ import { VersionTree } from './VersionTree/VersionTree';
 import { CreativePanel } from './CreativePanel/CreativePanel';
 import { WildcardPanel } from './WildcardPanel/WildcardPanel';
 import { DebugConsole } from './DebugConsole/DebugConsole';
+import { PromptModal } from './PromptModal/PromptModal';
 import { FPS, MIN_DURATION_SECONDS, MODES } from '../core/ir/vocab';
 import { gridFramesBetween, secondsToFrames } from '../core/normalize/duration';
 import { modeRequirements } from '../core/normalize/mode';
@@ -44,6 +45,7 @@ export function App() {
   const e = useEngine();
   const [instruction, setInstruction] = useState('');
   const [tab, setTab] = useState<'problems' | 'history'>('problems');
+  const [isPromptModalOpen, setIsPromptModalOpen] = useState(false);
 
   const problemCount = e.view?.validation.diagnostics.length ?? 0;
 
@@ -55,6 +57,20 @@ export function App() {
           prompts as data &middot; MiniMax H3
         </span>
         <div className="flex-1" />
+        <button
+          type="button"
+          onClick={() => setIsPromptModalOpen(true)}
+          className="flex items-center gap-1.5 rounded border border-[var(--color-edge)] bg-white/5 px-2.5 py-1 text-xs font-medium hover:bg-white/10 transition-colors"
+          title="Customize System Prompts"
+        >
+          <span>Prompts</span>
+          {Object.keys(e.promptOverrides).length > 0 && (
+            <span
+              className="h-2 w-2 rounded-full bg-amber-400"
+              title={`${Object.keys(e.promptOverrides).length} custom prompt(s) active`}
+            />
+          )}
+        </button>
         <ProviderPanel
           provider={e.provider}
           geminiConfig={e.geminiConfig}
@@ -142,6 +158,56 @@ export function App() {
       <main className="grid min-h-0 flex-1 grid-cols-[320px_minmax(0,1fr)_minmax(0,1fr)]">
         {/* --- input ------------------------------------------------------ */}
         <aside className="min-h-0 space-y-4 overflow-y-auto border-r border-[var(--color-edge)] p-3">
+          {/* --- Idea Library Switcher --- */}
+          <div className="rounded border border-[var(--color-edge)] bg-black/20 p-2.5 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-muted)]">
+                Ideas ({e.documents.length})
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => void e.newIdea()}
+                  className="rounded bg-blue-600/80 hover:bg-blue-600 px-2 py-0.5 text-xs font-medium text-white transition-colors"
+                  title="Create new blank idea"
+                >
+                  + New
+                </button>
+                {e.documents.some((d) => d.id === e.docId) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm('Delete this saved idea and all its history?')) {
+                        void e.deleteIdea(e.docId);
+                      }
+                    }}
+                    className="rounded border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 px-1.5 py-0.5 text-xs text-red-300 transition-colors"
+                    title="Delete current idea"
+                  >
+                    Delete
+                  </button>
+                )}
+              </div>
+            </div>
+            <select
+              value={e.docId}
+              onChange={(ev) => void e.switchDocument(ev.target.value)}
+              className="w-full rounded border border-[var(--color-edge)] bg-black/40 px-2 py-1 text-xs text-gray-200 truncate"
+            >
+              {!e.documents.some((d) => d.id === e.docId) && (
+                <option value={e.docId}>
+                  Current: {e.idea ? e.idea.slice(0, 30) : 'New Idea'} (unsaved)
+                </option>
+              )}
+              {e.documents.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.title || d.idea?.slice(0, 35) || d.id}
+                  {d.doc?.mode ? ` [${d.doc.mode}]` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div>
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--color-muted)]">
               Idea
@@ -426,6 +492,15 @@ export function App() {
           </div>
         </section>
       </main>
+
+      <PromptModal
+        isOpen={isPromptModalOpen}
+        onClose={() => setIsPromptModalOpen(false)}
+        promptOverrides={e.promptOverrides}
+        onSaveOverride={e.savePromptOverride}
+        onResetOverride={e.resetPromptOverride}
+        onResetAll={e.resetAllPromptOverrides}
+      />
     </div>
   );
 }

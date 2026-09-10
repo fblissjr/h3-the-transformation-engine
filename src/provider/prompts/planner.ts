@@ -48,15 +48,39 @@ import { recommendedBeats } from '../../core/normalize/budgets';
 // Shared core
 // ---------------------------------------------------------------------------
 
-const CORE = `You expand a creative request into a concrete audiovisual scene plan for MiniMax H3.
+const CORE = `Convert the input into concise, precise audiovisual conditioning for MiniMax H3.
 
 You are writing PROSE. The sentences you write are what conditions the model. Everything structural around them -- shot numbers, cut timestamps, section headers, the alignment line -- is added afterwards by code. Never write any of it yourself.
 
 # How to write
 
+AUTHORITATIVE INPUT:
+Treat the user's input as binding:
+- Mode and duration;
+- Assigned picture roles;
+- Explicit visual, action, camera, style, and audio requirements;
+- Exact dialogue, lyrics, and visible text;
+- Explicit prohibitions.
+
+Preserve supplied dialogue, lyrics, and visible text verbatim. Follow the user's explicit instructions for subject actions, emotional states, appearance, and wardrobe as foundational ground truth: preserve every specified detail. Infer and expand on top of what was asked for rather than replacing or dropping user specifics.
+
+ECONOMY:
+- Prefer short, dense visual phrases over literary exposition.
+- Every clause must specify something visibly renderable or audibly renderable.
+- Do not describe off-screen context, internal states, emotional backstories, intentions, or things that cannot be heard or seen.
 Describe what is visible and audible. Not what it means, not how the viewer should feel, not what the director intends. "Her shoulders drop and she looks at the floor", never "she is devastated".
 
-Prefer a few legible, causal actions over many simultaneous ones. Keep identity, wardrobe, handedness, props, geography, lighting and object state consistent from beat to beat -- if a character is holding something in one beat, they are still holding it in the next unless you say they put it down.
+ACTION AND PHYSICAL FEASIBILITY:
+- Specify clear, physically plausible actions with concrete subjects, verbs, and trajectories.
+- Avoid contradictory or physically impossible staging.
+Prefer a few legible, causal actions over many simultaneous ones.
+
+TRANSLATE SUBJECTIVE IMPRESSIONS:
+Translate subjective impressions into concrete, observable visual details. Never write "gorgeous", "handsome", "rugged", "creepy", or "intimidating" -- describe the specific physical traits that produce that impression: facial structure, gaze, skin texture, hairstyle, build, posture, expression, and the exact garments, cut, fabric weave, and condition of their wardrobe.
+
+SCENE CONTINUITY:
+- Track characters, clothing, props, lighting, environment, and relative screen positions shot to shot.
+Keep identity, wardrobe, handedness, props, geography, lighting and object state consistent from beat to beat -- if a character is holding something in one beat, they are still holding it in the next unless you say they put it down.
 
 # What the frame can show
 
@@ -83,7 +107,7 @@ Where the style clause goes differs by contract, and the active mode below says 
 
 Every later shot is rendered as "[Shot N] At MM:SS.mmm, <your first beat>", so that beat must open with the cut itself: one of ${ORDINARY_CUTS.map((c) => `"${c}"`).join(', ')}.
 
-Cut only to reveal genuinely new subject, space, state, viewpoint or time. If only the distance or angle changes, use camera motion inside one shot instead.
+Cut only to reveal genuinely new subject, space, state, viewpoint or time. If only the distance or angle changes, use camera motion inside one shot instead. In multi-shot scenes, specify the cut type and camera continuity.
 
 # Speech
 
@@ -115,6 +139,8 @@ A held facial state cannot survive the line that breaks it. If a closed mouth or
 
 \`style\` names the medium and finish. How it is rendered depends on the contract; the active mode below says which.
 
+Realism is the default. Do not default to cinematic, anime, fantasy, or stylized aesthetics unless requested. Maintain stylistic consistency across shots.
+
 If a Style direction section is provided below, follow it. That section states how far it reaches; do not extend it further than it asks. Otherwise, take the style from the request when the request states one; otherwise from the visible medium and finish of a supplied image; otherwise from the genre. Live action is one option among many and never the default -- do not reach for it because nothing else was specified. Name one medium, one motion treatment and one finish. Do not stack unrelated adjectives, and translate a named style into its concrete traits rather than leaning on the name.
 
 # On-screen text
@@ -122,6 +148,8 @@ If a Style direction section is provided below, follow it. That section states h
 Any sign, banner, label or subtitle that is actually visible goes in the prose inside English double quotation marks, spelled exactly as it appears, in its original language. List the same strings in the beat's \`visibleText\` field.
 
 # Audio
+
+Separate visual action from audio conditioning. Audio cues should be concrete and atmospheric or synchronous to action. Dialogue goes in speech fields, not mixed into visual descriptions.
 
 \`soundscape\` covers ambience, physical action sounds and non-verbal human sounds across the whole video, in ${SOUNDSCAPE_SENTENCE_RANGE[0]}-${SOUNDSCAPE_SENTENCE_RANGE[1]} sentences. Do not repeat dialogue, singing or diegetic music here -- those belong in the beats. Use "N/A" only if total silence was explicitly requested.
 
@@ -136,7 +164,7 @@ const MODE_BLOCKS: Record<string, string> = {
 
 The style clause opens Shot 1: the output reads "[Shot 1] <style>, <your first beat>". So the style is a clause, not a sentence, and the first beat starts lowercase and continues it -- "a medium-wide shot frames a baker opening the shutters".
 
-No reference media. Build the whole timeline from the request. You may add scene, character, action and sound detail that stays consistent with what was asked for.`,
+No reference media. Build the whole timeline from the request. Follow all explicit subject, wardrobe, and scene instructions as ground truth. In this mode, characters have no reference images or subject registry: establish who they are directly in the prose of their first appearance -- concrete age, build, facial traits, hair, and specific clothing -- and keep their appearance consistent across all later beats. You may add scene, character, action and sound detail that stays consistent with what was asked for.`,
 
   I2VA: `# Active mode: I2VA
 
@@ -144,7 +172,7 @@ The style clause opens Shot 1: the output reads "[Shot 1] <style>, <your first b
 
 <Picture 1> is the actual first frame at 0.00 seconds and belongs to Shot 1.
 
-Open Shot 1 from what is in that image -- subjects, composition, scene anchors -- then develop forward. Character identity, clothing, colours, key objects and spatial relationships carry through unchanged.
+Open Shot 1 from what is in that image -- subjects, composition, scene anchors -- then develop forward. Character identity, clothing, colours, key objects and spatial relationships carry through unchanged. Keep the referenced frames consistent with the generated beats.
 
 Shape: first-frame anchor, action onset, continuous development, result or reaction.`,
 
@@ -154,7 +182,7 @@ The style clause opens Shot 1: the output reads "[Shot 1] <style>, <your first b
 
 Picture 1 is the opening frame and Picture 2 is the ending frame.
 
-Do not describe the two images as two static states. Describe the PATH between them: how the subject moves, how poses change, how objects are handled, how composition and lighting evolve. The final beat must land exactly on Picture 2.
+Do not describe the two images as two static states. Describe the PATH between them: how the subject moves, how poses change, how objects are handled, how composition and lighting evolve. The final beat must land exactly on Picture 2. Keep the referenced frames consistent with the generated beats.
 
 Strongly prefer a single shot so the model can interpolate continuously. Use more only if the request explicitly asked for them.
 
@@ -166,7 +194,7 @@ The style clause opens Shot 1: the output reads "[Shot 1] <style>, <your first b
 
 <Picture 1> is the FINAL frame and belongs to the last shot. It is not where the video starts.
 
-Infer a plausible earlier state from the request and the image, then describe how characters, objects, camera and scene gradually converge on it. The last beat lands on the image exactly.
+Infer a plausible earlier state from the request and the image, then describe how characters, objects, camera and scene gradually converge on it. The last beat lands on the image exactly. Keep the referenced frames consistent with the generated beats.
 
 Shape: plausible preceding state, explicit causal transition, gradual convergence, last-frame landing.`,
 
@@ -379,8 +407,19 @@ function suppliedFacts(ctx: NormalizedContext, input: CompileInput): string {
   return `# Supplied facts\n\n${lines.join('\n')}`;
 }
 
-export function buildPlannerSystemPrompt(ctx: NormalizedContext, input: CompileInput): string {
-  const blocks = [CORE, MODE_BLOCKS[ctx.mode], workedExample(ctx.mode)];
+export { CORE as PLANNER_CORE_DEFAULT, MODE_BLOCKS as PLANNER_MODE_BLOCKS_DEFAULT };
+
+export function buildPlannerSystemPrompt(
+  ctx: NormalizedContext,
+  input: CompileInput,
+  overrides?: Record<string, string>,
+): string {
+  const rawCore = overrides?.['planner:core'];
+  const core = typeof rawCore === 'string' && rawCore.trim() !== '' ? rawCore : CORE;
+  const modeKey = `planner:mode:${ctx.mode}`;
+  const rawMode = overrides?.[modeKey];
+  const modeBlock = typeof rawMode === 'string' && rawMode.trim() !== '' ? rawMode : MODE_BLOCKS[ctx.mode];
+  const blocks = [core, modeBlock, workedExample(ctx.mode)];
 
   // The headings live here rather than inside the derivations: both prompts
   // splice the same pack text under a heading of their own, and a derivation

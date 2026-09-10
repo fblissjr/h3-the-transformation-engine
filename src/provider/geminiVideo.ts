@@ -20,10 +20,21 @@ export interface AnalyzeVideoParams {
   apiKey: string;
   file: File;
   config?: GeminiConfig;
+  promptOverride?: string;
   onProgress?: (status: string) => void;
   signal?: AbortSignal;
   aiClient?: GoogleGenAI;
 }
+
+export const VIDEO_ANALYSIS_DEFAULT =
+  'Analyze this reference video for a MiniMax H3 prompt compiler.\n' +
+  'Provide a concise, descriptive breakdown of:\n' +
+  '1. Visual setting, atmosphere, lighting, and color palette.\n' +
+  '2. Main characters/subjects: physical traits, clothing, and distinguishing features.\n' +
+  '3. Key actions, movements, and shot progression.\n' +
+  '4. Camera motions and framing.\n' +
+  '5. Any notable dialogue, voiceover, or diegetic sound events.\n' +
+  'Write purely descriptive sentences suitable for scene prompt conditioning.';
 
 function delay(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -125,14 +136,9 @@ export async function analyzeVideoWithGemini(
     trace('provider', 'provider.video.analyze', `Analyzing ${fileName} with ${model} (processing: ${processing})`);
 
     const prompt =
-      'Analyze this reference video for a MiniMax H3 prompt compiler.\n' +
-      'Provide a concise, descriptive breakdown of:\n' +
-      '1. Visual setting, atmosphere, lighting, and color palette.\n' +
-      '2. Main characters/subjects: physical traits, clothing, and distinguishing features.\n' +
-      '3. Key actions, movements, and shot progression.\n' +
-      '4. Camera motions and framing.\n' +
-      '5. Any notable dialogue, voiceover, or diegetic sound events.\n' +
-      'Write purely descriptive sentences suitable for scene prompt conditioning.';
+      typeof params.promptOverride === 'string' && params.promptOverride.trim() !== ''
+        ? params.promptOverride
+        : VIDEO_ANALYSIS_DEFAULT;
 
     let interaction: unknown;
     try {

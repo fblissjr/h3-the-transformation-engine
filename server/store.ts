@@ -11,8 +11,8 @@
  */
 
 import Database from 'better-sqlite3';
-import { existsSync, readFileSync, renameSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, renameSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { describeSchemaFailure } from '../src/core/ir/schema';
 import type { H3Document } from '../src/core/ir/types';
 import type { Task } from '../src/provider/types';
@@ -164,6 +164,10 @@ function tableNames(db: Db): string[] {
  * would accept orphan rows silently.
  */
 export function open(path: string): Opened {
+  const dir = dirname(path);
+  if (dir && dir !== '.' && !existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
+  }
   const probe = new Database(path);
   const found = (probe.pragma('user_version', { simple: true }) as number) ?? 0;
   const populated = tableNames(probe).length > 0;

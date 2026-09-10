@@ -35,7 +35,7 @@ import {
   type HeylookModel,
 } from '../src/provider/heylook';
 import { buildClient } from '../src/provider/build';
-import { extractJsonObject, jsonShapeTrailer, withShapeTrailer } from '../src/provider/shape';
+import { extractJsonObject, jsonShapeTrailer, stripSchemaNoise, withShapeTrailer } from '../src/provider/shape';
 import type { CallOptions } from '../src/provider/types';
 import { plannerJsonSchema } from '../src/core/ir/schema';
 import { buildPlannerSystemPrompt } from '../src/provider/prompts/planner';
@@ -94,7 +94,7 @@ describe('the schema reaches the model as prose, because it cannot reach it as a
     // there is only one copy. `beats` is a planner field, so its presence in
     // the sent prompt means the real schema travelled.
     const sent = String(build({ systemInstruction: builderOutput, schema }).system);
-    expect(sent).toContain(JSON.stringify(schema, null, 2));
+    expect(sent).toContain(JSON.stringify(stripSchemaNoise(schema), null, 2));
     expect(sent).toContain('"beats"');
   });
 

@@ -22,7 +22,7 @@ export interface ServerConfig {
 
 export function configFromEnv(env: Record<string, string | undefined> = process.env): ServerConfig {
   return {
-    databasePath: env.H3_DATABASE ?? 'h3.db',
+    databasePath: env.H3_DATABASE ?? 'data/h3.db',
     port: Number(env.H3_PORT ?? 8788),
     staticDir: env.H3_STATIC_DIR ?? 'dist',
   };

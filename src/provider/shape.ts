@@ -52,7 +52,25 @@ const MAX_FAILED_CANDIDATES = 20;
  * description of a nested shape is a second copy of the schema that drifts from
  * the first; the schema itself cannot drift from itself.
  */
+/**
+ * Strips noisy schema metadata that confuses local/open-source LLMs without
+ * altering the structural property definitions or types.
+ */
+export function stripSchemaNoise(val: unknown): unknown {
+  if (Array.isArray(val)) return val.map(stripSchemaNoise);
+  if (val && typeof val === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(val)) {
+      if (k === 'minimum' || k === 'maximum' || k === '$schema') continue;
+      out[k] = stripSchemaNoise(v);
+    }
+    return out;
+  }
+  return val;
+}
+
 export function jsonShapeTrailer(schema: Record<string, unknown>): string {
+  const cleanSchema = stripSchemaNoise(schema);
   return [
     '# Output format',
     '',
@@ -60,7 +78,7 @@ export function jsonShapeTrailer(schema: Record<string, unknown>): string {
     'no explanation, no markdown code fences. The object must validate against this',
     'JSON Schema:',
     '',
-    JSON.stringify(schema, null, 2),
+    JSON.stringify(cleanSchema, null, 2),
   ].join('\n');
 }
 

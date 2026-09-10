@@ -68,11 +68,22 @@ import {
   type WritableKeyMode,
 } from '../crypto/secureStore';
 import { buildTree, flattenTree, listVersions, recordVersion } from '../db/versions';
-import { getSetting, loadDocument, saveDocument, setSetting, type StoredVersion } from '../db/db';
+import {
+  deleteDocument,
+  getSetting,
+  listDocuments,
+  loadDocument,
+  saveDocument,
+  setSetting,
+  type StoredDocument,
+  type StoredVersion,
+} from '../db/db';
 import type { EraseScope } from '../db/wipe';
 import { trace } from '../debug';
 
-const DOC_ID = 'workspace';
+const DEFAULT_DOC_ID = 'workspace';
+const ACTIVE_DOC_SETTING = 'active-document-id';
+const PROMPTS_SETTING = 'prompts';
 
 /**
  * Which backend to use, and which local model.
@@ -234,6 +245,10 @@ export function useEngine() {
   const [durationFrames, setDurationFrames] = useState<number | null>(192);
   const [durationSeconds, setDurationSeconds] = useState(8);
   const [slots, setSlots] = useState<ReferenceSlot[]>([]);
+  const [docId, setDocId] = useState<string>(DEFAULT_DOC_ID);
+  const docIdRef = useRef<string>(DEFAULT_DOC_ID);
+  const [documents, setDocuments] = useState<StoredDocument[]>([]);
+  const [promptOverrides, setPromptOverrides] = useState<Record<string, string>>({});
   const [doc, setDoc] = useState<H3Document | null>(null);
   const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
   const [versions, setVersions] = useState<StoredVersion[]>([]);
@@ -295,6 +310,7 @@ export function useEngine() {
 
   // --- persistence -------------------------------------------------------
   useEffect(() => {
+    let unmounted = false;
     void (async () => {
       // A passphrase-mode secret cannot be read without the passphrase, so the
       // UI has to distinguish "no key yet" from "key present but locked".
@@ -385,36 +401,60 @@ export function useEngine() {
         setNotice((current) => (current ? `${current} ${policyNotice}` : policyNotice));
       }
 
-      const stored = await loadDocument(DOC_ID);
-      if (stored) {
-        const { record, schemaError } = stored;
-        setDoc(record.doc);
-        setHeadVersionId(record.headVersionId);
-        setSlots(record.doc.slots);
-        setDurationFrames(record.doc.durationFrames);
-        setDurationSeconds(record.doc.durationSeconds);
-        setModeOverride(record.doc.modeLocked ? record.doc.mode : null);
-        setCreativeState(restoreCreative(record.doc.creativeMode));
-        setDirectionState(record.doc.direction ?? '');
-        setAppliedPresetState(record.doc.preset ?? null);
-        if (record.doc.roll) {
-          setIdea(record.doc.roll.template);
-          setSeed(record.doc.roll.seed);
+      const docs = await listDocuments();
+      if (!unmounted) setDocuments(docs);
+
+      const activeId = await getSetting<string>(ACTIVE_DOC_SETTING, DEFAULT_DOC_ID);
+      const targetDoc = docs.find((d) => d.id === activeId) ?? docs[0];
+
+      if (targetDoc) {
+        const targetId = targetDoc.id;
+        docIdRef.current = targetId;
+        if (!unmounted) setDocId(targetId);
+
+        const stored = await loadDocument(targetId);
+        if (stored) {
+          const { record, schemaError } = stored;
+          docRef.current = record.doc;
+          headRef.current = record.headVersionId;
+          setDoc(record.doc);
+          setHeadVersionId(record.headVersionId);
+          setSlots(record.doc.slots);
+          setDurationFrames(record.doc.durationFrames);
+          setDurationSeconds(record.doc.durationSeconds);
+          setModeOverride(record.doc.modeLocked ? record.doc.mode : null);
+          setCreativeState(restoreCreative(record.doc.creativeMode));
+          setDirectionState(record.doc.direction ?? '');
+          setAppliedPresetState(record.doc.preset ?? null);
+          if (record.doc.roll) {
+            setIdea(record.doc.roll.template);
+            setSeed(record.doc.roll.seed);
+          } else {
+            setIdea(record.idea ?? '');
+            setSeed(null);
+          }
+          if (schemaError) {
+            const schemaNotice =
+              `The stored document does not match this build's schema (${schemaError}). ` +
+              'It has been opened anyway; check it before editing.';
+            trace('state', 'state.notice', schemaNotice, { notice: schemaNotice }, { level: 'warn' });
+            setNotice((current) => (current ? `${current} ${schemaNotice}` : schemaNotice));
+          }
         }
-        if (schemaError) {
-          const schemaNotice =
-            `The stored document does not match this build's schema (${schemaError}). ` +
-            'It has been opened anyway; check it before editing.';
-          // Appended, not assigned: the key notice a few lines above says the
-          // stored key is gone and has to be pasted again, which is not
-          // something to drop because a second thing also went wrong. Traced as
-          // a fragment for the reason the policy notice above is.
-          trace('state', 'state.notice', schemaNotice, { notice: schemaNotice }, { level: 'warn' });
-          setNotice((current) => (current ? `${current} ${schemaNotice}` : schemaNotice));
-        }
+        setVersions(await listVersions(targetId));
+      } else {
+        docIdRef.current = DEFAULT_DOC_ID;
+        if (!unmounted) setDocId(DEFAULT_DOC_ID);
       }
-      setVersions(await listVersions(DOC_ID));
+
+      const loadedPrompts = await getSetting<Record<string, string>>(PROMPTS_SETTING, {});
+      if (!unmounted && loadedPrompts && typeof loadedPrompts === 'object') {
+        setPromptOverrides(loadedPrompts);
+      }
     })();
+    return () => {
+      unmounted = true;
+    };
   }, []);
 
   /**
@@ -1061,10 +1101,11 @@ export function useEngine() {
         apiKey,
         file,
         config: geminiConfig,
+        promptOverride: promptOverrides['video:analysis'],
         onProgress,
       });
     },
-    [provider, apiKey, geminiConfig],
+    [provider, apiKey, geminiConfig, promptOverrides],
   );
 
   /** Why the generate button cannot fire, in this provider's terms. */
@@ -1107,14 +1148,24 @@ export function useEngine() {
    */
   const editQueue = useRef(createSerialQueue());
 
+  const refreshDocuments = useCallback(async () => {
+    try {
+      const docs = await listDocuments();
+      setDocuments(docs);
+    } catch {
+      // ignore
+    }
+  }, []);
+
   const commit = useCallback(
     async (
       next: H3Document,
       label: string,
       operations?: Parameters<typeof recordVersion>[0]['operations'],
     ) => {
+      const currentDocId = docIdRef.current;
       const version = await recordVersion({
-        documentId: DOC_ID,
+        documentId: currentDocId,
         // The ref rather than the render's value: two commits in one render
         // both named the same parent, which forked the history for an edit
         // nobody branched.
@@ -1124,7 +1175,7 @@ export function useEngine() {
         ...(operations ? { operations } : {}),
       });
       await saveDocument({
-        id: DOC_ID,
+        id: currentDocId,
         title: label,
         // The EXPANDED idea, which is what actually reached the planner. The
         // template and seed live in `doc.roll` when there were placeholders;
@@ -1142,7 +1193,8 @@ export function useEngine() {
       headRef.current = version.id;
       setDoc(next);
       setHeadVersionId(version.id);
-      setVersions(await listVersions(DOC_ID));
+      setVersions(await listVersions(currentDocId));
+      await refreshDocuments();
       trace('state', 'state.commit', `head is now ${version.id} "${label}"`, {
         versionId: version.id,
         parentId,
@@ -1150,7 +1202,7 @@ export function useEngine() {
         changedPaths: (operations ?? []).map((o) => o.path),
       });
     },
-    [],
+    [effectiveIdea, refreshDocuments],
   );
 
   /**
@@ -1203,8 +1255,9 @@ export function useEngine() {
     setNotice(null);
     try {
       const result = await compile(client, input, {
-        id: DOC_ID,
+        id: docIdRef.current,
         signal: controller.signal,
+        promptOverrides,
         // The pipeline knows the stage, the timing and the reply; this side
         // knows the model and the document. Fired on failing paths too --
         // "did thinking-on improve conformance" is a comparison of failure
@@ -1212,9 +1265,9 @@ export function useEngine() {
         onRun: (observation) => {
           void recordRun({
             ...observation,
-            id: `${DOC_ID}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            id: `${docIdRef.current}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
             createdAt: Date.now(),
-            documentId: DOC_ID,
+            documentId: docIdRef.current,
             // Sourced via client seam directly, eliminating provider branching
             model: client.modelId ?? 'unknown',
           });
@@ -1333,6 +1386,7 @@ export function useEngine() {
       try {
         const result = await edit(client, doc, selectedPaths, instruction, {
           signal: controller.signal,
+          promptOverrides,
         });
         if (result.patch.applied.length === 0) {
           fail(
@@ -1386,13 +1440,14 @@ export function useEngine() {
       ? rollSeeded(version.doc.roll.template, version.doc.roll.seed).text
       : effectiveIdea;
     await saveDocument({
-      id: DOC_ID,
+      id: docIdRef.current,
       title: version.label,
       idea: checkedOutIdea,
       updatedAt: Date.now(),
       doc: version.doc,
       headVersionId: version.id,
     });
+    await refreshDocuments();
     // Editing from here branches rather than overwriting: the next commit takes
     // this version as its parent.
     note(`Checked out "${version.label}". Editing from here will branch.`);
@@ -1422,6 +1477,112 @@ export function useEngine() {
     setDurationFrames(frames);
     if (frames != null) setDurationSeconds(framesToSeconds(frames));
   }, []);
+
+  const newIdea = useCallback(async () => {
+    const newId = `idea-${Date.now().toString(36)}`;
+    docIdRef.current = newId;
+    setDocId(newId);
+    docRef.current = null;
+    headRef.current = null;
+    setDoc(null);
+    setIdea('');
+    setVersions([]);
+    setHeadVersionId(null);
+    setSelectedPaths([]);
+    setSlots([]);
+    setModeOverride(null);
+    setCreativeState(null);
+    setDirectionState('');
+    setAppliedPresetState(null);
+    setSeed(null);
+    await setSetting(ACTIVE_DOC_SETTING, newId);
+    await refreshDocuments();
+    note('Created new idea workspace.');
+  }, [note, refreshDocuments]);
+
+  const switchDocument = useCallback(
+    async (id: string) => {
+      if (id === docIdRef.current && doc != null) return;
+      setBusy('Loading');
+      try {
+        const stored = await loadDocument(id);
+        if (stored) {
+          const { record, schemaError } = stored;
+          docIdRef.current = id;
+          setDocId(id);
+          headRef.current = record.headVersionId;
+          docRef.current = record.doc;
+          setDoc(record.doc);
+          setHeadVersionId(record.headVersionId);
+          setSlots(record.doc.slots);
+          setDurationFrames(record.doc.durationFrames);
+          setDurationSeconds(record.doc.durationSeconds);
+          setModeOverride(record.doc.modeLocked ? record.doc.mode : null);
+          setCreativeState(restoreCreative(record.doc.creativeMode));
+          setDirectionState(record.doc.direction ?? '');
+          setAppliedPresetState(record.doc.preset ?? null);
+          if (record.doc.roll) {
+            setIdea(record.doc.roll.template);
+            setSeed(record.doc.roll.seed);
+          } else {
+            setIdea(record.idea ?? '');
+            setSeed(null);
+          }
+          setVersions(await listVersions(id));
+          await setSetting(ACTIVE_DOC_SETTING, id);
+          if (schemaError) {
+            setNotice(`Document opened with schema warning: ${schemaError}`);
+          }
+        }
+      } finally {
+        setBusy(null);
+      }
+    },
+    [doc],
+  );
+
+  const deleteIdea = useCallback(
+    async (id: string) => {
+      await deleteDocument(id);
+      const updated = await listDocuments();
+      setDocuments(updated);
+      if (id === docIdRef.current) {
+        if (updated.length > 0) {
+          await switchDocument(updated[0].id);
+        } else {
+          await newIdea();
+        }
+      }
+    },
+    [switchDocument, newIdea],
+  );
+
+  const savePromptOverride = useCallback(
+    async (id: string, text: string) => {
+      const next = { ...promptOverrides, [id]: text };
+      setPromptOverrides(next);
+      await setSetting(PROMPTS_SETTING, next);
+      note('Prompt saved to database.');
+    },
+    [promptOverrides, note],
+  );
+
+  const resetPromptOverride = useCallback(
+    async (id: string) => {
+      const next = { ...promptOverrides };
+      delete next[id];
+      setPromptOverrides(next);
+      await setSetting(PROMPTS_SETTING, next);
+      note('Prompt reset to default.');
+    },
+    [promptOverrides, note],
+  );
+
+  const resetAllPromptOverrides = useCallback(async () => {
+    setPromptOverrides({});
+    await setSetting(PROMPTS_SETTING, {});
+    note('All prompts reset to defaults.');
+  }, [note]);
 
   const versionTree = useMemo(() => flattenTree(buildTree(versions)), [versions]);
   const ctx = useMemo(() => (doc ? contextFor(doc) : null), [doc]);
@@ -1523,6 +1684,16 @@ export function useEngine() {
     creativeAppliesToNextGeneration:
       doc != null &&
       !sameRecord(creative ?? EMPTY_RECORD, doc.creativeMode ?? EMPTY_RECORD),
+    docId,
+    documents,
+    refreshDocuments,
+    newIdea,
+    switchDocument,
+    deleteIdea,
+    promptOverrides,
+    savePromptOverride,
+    resetPromptOverride,
+    resetAllPromptOverrides,
   };
 }
 

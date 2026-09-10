@@ -77,10 +77,15 @@ function editableSection(doc: H3Document, paths: string[]): string {
  * mode-specific about a glitch mark is an affordance, and an edit is not adding
  * marks -- it is keeping the ones already in the prose intact.
  */
+export { CORE as PATCH_CORE_DEFAULT };
+
 export function buildPatchSystemPrompt(
   creativeMode?: CreativeModeRecord,
   direction?: string,
+  overrides?: Record<string, string>,
 ): string {
+  const rawCore = overrides?.['patch:core'];
+  const core = typeof rawCore === 'string' && rawCore.trim() !== '' ? rawCore : CORE;
   // Both derivations are asked for a preservation framing rather than the
   // planner's default. They previously came back framed for a planner -- "apply
   // it consistently", "place exactly these" -- under a wrapper telling the model
@@ -101,9 +106,9 @@ export function buildPatchSystemPrompt(
       )
     : null;
   const trimmedDirection = direction?.trim();
-  if (!directive && !glitch && !trimmedDirection) return CORE;
+  if (!directive && !glitch && !trimmedDirection) return core;
 
-  const blocks = [CORE];
+  const blocks = [core];
 
   if (directive) blocks.push(['# Active style', '', directive].join('\n'));
 

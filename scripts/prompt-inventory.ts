@@ -94,7 +94,10 @@ interface Rendering {
  */
 function videoPromptFromSource(): string {
   const src = readFileSync(join(ROOT, 'src/provider/geminiVideo.ts'), 'utf8');
-  const start = src.indexOf('const prompt =');
+  const anchor = src.indexOf('export const VIDEO_ANALYSIS_DEFAULT =') >= 0
+    ? 'export const VIDEO_ANALYSIS_DEFAULT ='
+    : 'const prompt =';
+  const start = src.indexOf(anchor);
   if (start < 0) throw new Error('geminiVideo.ts: the prompt literal is not where this expects it');
   const end = src.indexOf(';', src.indexOf('scene prompt conditioning', start));
   if (end < 0) throw new Error('geminiVideo.ts: could not find the end of the prompt literal');
