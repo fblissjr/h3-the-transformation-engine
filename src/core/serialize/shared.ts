@@ -4,7 +4,6 @@
 
 import type { Dialogue, H3Document, NormalizedContext, Shot, Speaker } from '../ir/types';
 import { ALIGNMENT_TEMPLATES } from '../ir/vocab';
-import { formatTimestamp } from '../normalize/duration';
 
 /**
  * Where a beat's dialogue is spliced into its prose.
@@ -78,15 +77,15 @@ export function renderAlignmentLine(doc: H3Document, ctx: NormalizedContext): st
 /**
  * A shot's opening marker.
  *
- * Shot 1 never carries a timestamp. Later shots open with their cut time; the
- * cut phrasing itself lives in the beat prose, because the guide asks for it as
+ * No shot carries a cut time. base 4.2 and ref 5.1 both state that a later
+ * shot opens with `At MM:SS.mmm,`; this departs from them by owner ruling,
+ * recorded in the contract as `shot-header-no-cut-time`. `cutAtMs` is still on
+ * the shot as the plan's pacing and is deliberately not read here. The cut
+ * phrasing itself lives in the beat prose, because the guide asks for it as
  * natural language inside the sentence rather than as a detached label.
  */
 export function renderShotHeader(shot: Shot): string {
-  if (shot.index === 1 || shot.cutAtMs == null) {
-    return `[Shot ${shot.index}]`;
-  }
-  return `[Shot ${shot.index}] At ${formatTimestamp(shot.cutAtMs)},`;
+  return `[Shot ${shot.index}]`;
 }
 
 /** Join beat prose within a shot, splicing dialogue and collapsing stray spacing. */

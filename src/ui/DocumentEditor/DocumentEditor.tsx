@@ -85,8 +85,9 @@ function Field({ path, label, value, rows = 2, selected, onSelect, onCommit }: F
  * than cosmetic: the field used to seed from the `?? 0` it displays, so on a
  * shot carrying a live `SHOT_MISSING_TIMESTAMP` the draft was already "0" with
  * nothing typed, and merely tabbing through the field committed a cut at zero
- * -- erasing the diagnostic, writing a bogus `[Shot 2] At 00:00.000`, and
- * leaving a document that validates clean with nothing to say what happened.
+ * -- erasing the diagnostic, planning a bogus cut at zero (which, while cut
+ * times still rendered, also wrote `[Shot 2] At 00:00.000`), and leaving a
+ * document that validates clean with nothing to say what happened.
  */
 export function cutDraft(value: number | null): string {
   return value == null ? '' : String(value);
@@ -123,6 +124,11 @@ interface CutFieldProps {
 
 /**
  * The cut time, committed on blur for the reason `Field` commits on blur.
+ *
+ * It paces the plan and is not written into the prompt -- shot headers carry
+ * no cut time, by the owner ruling recorded in the contract as
+ * `shot-header-no-cut-time` -- and the field says so, because an edit here
+ * changes the document and leaves the rendered text exactly as it was.
  *
  * It wrote on every keystroke, so a four-digit value left four versions in the
  * history -- measured in the running app rather than reasoned about: seven
@@ -173,6 +179,7 @@ function CutField({ value, onCommit }: CutFieldProps) {
           time -- the empty field beside it is the honest state. */}
       <span>{value == null ? 'no cut time yet' : `ms = ${formatTimestamp(value)}`}</span>
       {refused && <span className="text-[var(--color-warn)]">not in the document</span>}
+      <span className="opacity-70">(paces the plan; not written into the prompt)</span>
     </label>
   );
 }

@@ -18,10 +18,38 @@
  * the serializer is what has to agree with them; `test/serialize.test.ts`
  * asserts that direction, and if it fails the serializer is wrong.
  *
+ * With one deliberate exception, which is `withoutHeaderTimes` below: the
+ * serializer agrees with these after their header cut times are removed, not
+ * before. The texts themselves stay byte-exact, because the exception is a
+ * ruling about this build and not a correction to the vendor.
+ *
  * The documents these render from are in `test/fixtures/`, which is the right
  * home for them -- nothing in `src/` needs a parsed H3Document of a guide
  * example, only the text.
  */
+
+/**
+ * A vendor example as this build writes it: every `[Shot N] At MM:SS.mmm, x`
+ * becomes `[Shot N] X`.
+ *
+ * base 4.2 and ref 5.1 both state that a later shot opens with its cut time.
+ * This build writes none, by owner ruling (`shot-header-no-cut-time` in the
+ * contract), so neither the golden comparison nor the example the planner is
+ * shown can use these texts as they stand. The first letter after the time is
+ * capitalised because it now opens the sentence -- the fixture documents'
+ * prose says `The camera cuts to` for the same reason.
+ *
+ * One function for both readers. The planner being shown a timed header while
+ * the serializer writes none would teach the model the removed format by
+ * demonstration, and a second copy of this transform is a second thing to
+ * drift.
+ */
+export function withoutHeaderTimes(text: string): string {
+  return text.replace(
+    /(\[Shot \d+\]) At \d{2}:\d{2}\.\d{3}, (.)/g,
+    (_, header: string, first: string) => `${header} ${first.toUpperCase()}`,
+  );
+}
 
 export const t2vaBakerExpected = `integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium-wide shot frames a baker opening the shutters of a small street bakery before sunrise. The camera pushes in with small amplitude at slow speed as the middle-aged baker with a calm, slightly raspy voice (S1) places a fresh loaf on the wooden counter and says: <d>[English] First batch of the morning.</d> [Shot 2] At 00:05.000, the camera cuts to a close-up of steam rising from the sliced bread while the baker's final words carry over from the previous shot.
 

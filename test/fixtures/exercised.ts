@@ -99,7 +99,7 @@ export const crossCutBaker: H3Document = (() => {
   const second = doc.shots[1].beats[0];
   second.speakerId = 'sp-1';
   second.prose =
-    'the camera cuts to a close-up of the sliced loaf <scenetrans> as the baker (S1) finishes: <d/> ' +
+    'The camera cuts to a close-up of the sliced loaf <scenetrans> as the baker (S1) finishes: <d/> ' +
     'carrying over from the previous shot.';
   second.dialogue = {
     language: 'English',
@@ -120,7 +120,7 @@ export const cutoffBaker: H3Document = (() => {
   const shot = doc.shots[doc.shots.length - 1];
   const beat = shot.beats[shot.beats.length - 1];
   beat.speakerId = 'sp-1';
-  beat.prose = 'the camera cuts to a close-up of steam rising as the baker (S1) begins: <d/> <cutoff>';
+  beat.prose = 'The camera cuts to a close-up of steam rising as the baker (S1) begins: <d/> <cutoff>';
   beat.dialogue = {
     language: 'English',
     text: 'Tomorrow we start an hour earlier and',

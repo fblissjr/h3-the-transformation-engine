@@ -176,10 +176,22 @@ describe('applyPatch', () => {
 });
 
 describe('direct edits go through the same gates', () => {
+  // A prose leaf, because it renders. This edited cutAtMs until the owner ruling
+  // that took cut times out of shot headers, after which that edit changes the
+  // document and leaves the text as it was -- see the next test.
   it('re-renders and re-validates after a manual field change', () => {
+    const prose = 'The camera cuts to a close-up of the cooling rack.';
+    const result = editDirect(t2vaBaker, 'shots[1].beats[0].prose', prose);
+    expect(result.doc.shots[1].beats[0].prose).toBe(prose);
+    expect(result.rendered.text).toContain(`[Shot 2] ${prose}`);
+    expect(result.validation.ok).toBe(true);
+  });
+
+  it('takes a cut-time edit into the plan without printing it', () => {
     const result = editDirect(t2vaBaker, 'shots[1].cutAtMs', 3000);
     expect(result.doc.shots[1].cutAtMs).toBe(3000);
-    expect(result.rendered.text).toContain('[Shot 2] At 00:03.000,');
+    expect(result.rendered.text).toContain('[Shot 2] The camera cuts to');
+    expect(result.rendered.text).not.toContain('00:03.000');
     expect(result.validation.ok).toBe(true);
   });
 

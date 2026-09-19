@@ -2,8 +2,8 @@
  * Planner prompts.
  *
  * The governing idea: the prompt contains only what requires semantic or
- * creative judgment. Duration, label ordinals, shot numbering, timestamps,
- * alignment strings and section formatting are all computed and either supplied
+ * creative judgment. Duration, label ordinals, shot numbering, the latest legal
+ * cut, alignment strings and section formatting are all computed and either supplied
  * as facts or added afterwards, so the model is told the answers rather than
  * asked to derive them. A prompt that teaches arithmetic is a prompt that will
  * eventually get arithmetic wrong.
@@ -39,6 +39,7 @@ import {
   l2vaGlassExpected,
   ref2vaCoffeeShopExpected,
   t2vaBakerExpected,
+  withoutHeaderTimes,
 } from '../../core/ir/examples';
 import { glitchDirective, styleDirective } from '../../core/creative';
 import { DIALOGUE_PLACEHOLDER } from '../../core/serialize/shared';
@@ -50,7 +51,7 @@ import { recommendedBeats } from '../../core/normalize/budgets';
 
 const CORE = `Convert the input into concise, precise audiovisual conditioning for MiniMax H3.
 
-You are writing PROSE. The sentences you write are what conditions the model. Everything structural around them -- shot numbers, cut timestamps, section headers, the alignment line -- is added afterwards by code. Never write any of it yourself.
+You are writing PROSE. The sentences you write are what conditions the model. Everything structural around them -- shot numbers, section headers, the alignment line -- is added afterwards by code. Never write any of it yourself.
 
 # How to write
 
@@ -105,7 +106,9 @@ Amplitude is optional and only "${AMPLITUDE_PHRASE.small}" or "${AMPLITUDE_PHRAS
 
 Where the style clause goes differs by contract, and the active mode below says which shape applies. Write the first beat of Shot 1 to fit it.
 
-Every later shot is rendered as "[Shot N] At MM:SS.mmm, <your first beat>", so that beat must open with the cut itself: one of ${ORDINARY_CUTS.map((c) => `"${c}"`).join(', ')}.
+Every later shot is rendered as "[Shot N] <your first beat>", with no time in the header, so that beat must open with the cut itself, capitalised because it starts the sentence: one of ${ORDINARY_CUTS.map((c) => `"${c[0].toUpperCase()}${c.slice(1)}"`).join(', ')}.
+
+Do not write times into the prose. The one exception is a time the request itself asks for, to split action inside a shot: open the beat where the split falls with "At MM:SS.mmm,", never the first beat of a shot, and keep every such time in order and inside the duration.
 
 Cut only to reveal genuinely new subject, space, state, viewpoint or time. If only the distance or angle changes, use camera motion inside one shot instead. In multi-shot scenes, specify the cut type and camera continuity.
 
@@ -258,6 +261,13 @@ Aim for ${REF_DETAIL_WORD_RANGE[0]}-${REF_DETAIL_WORD_RANGE[1]} words across all
  * and fail the schema. Every sentence below says which side of the line the
  * example sits on.
  *
+ * Shown less their header cut times, through the same `withoutHeaderTimes` the
+ * golden tests use. That is the one departure from the vendor text, and it is
+ * the owner ruling recorded as `shot-header-no-cut-time`: the serializer writes
+ * no time after `[Shot N]`, and an example carrying `At 00:05.000,` would teach
+ * the removed format by demonstration, which a model follows more reliably than
+ * the sentence telling it not to.
+ *
  * The music distribution was measured before adopting the set, not after: three
  * of the five carry a real score and two are N/A. A set skewed to N/A would
  * have reinstated the lean reverted earlier by demonstration, which no rule in
@@ -278,9 +288,9 @@ function workedExample(mode: H3Mode): string {
     '',
     "Here is a finished prompt of this kind, written by MiniMax as this mode's worked example.",
     '',
-    'You do not write this. It is what code assembles from the plan you return, and every label, timestamp, section header and alignment line in it is added afterwards. Read it for what the sentences carry and how much of the clip they account for, then write beats that would assemble into something of this density. Do not copy its subject, its setting or its wording.',
+    'You do not write this. It is what code assembles from the plan you return, and every label, section header and alignment line in it is added afterwards. Read it for what the sentences carry and how much of the clip they account for, then write beats that would assemble into something of this density. Do not copy its subject, its setting or its wording.',
     '',
-    MODE_EXAMPLES[mode],
+    withoutHeaderTimes(MODE_EXAMPLES[mode]),
   ].join('\n');
 }
 
@@ -340,7 +350,7 @@ function suppliedFacts(ctx: NormalizedContext, input: CompileInput): string {
   const lines: string[] = [
     `Mode: ${ctx.mode}`,
     `Duration: ${ctx.durationText} seconds${ctx.durationFrames ? ` (${ctx.durationFrames} frames at 24fps)` : ''}`,
-    `Latest legal cut time: ${ctx.latestCutMs}ms. Every cut must be strictly before this and strictly after the previous cut.`,
+    `Latest legal cut time: ${ctx.latestCutMs}ms. Every cut must be strictly before this and strictly after the previous cut. Cut times pace the plan and are not written into the prompt.`,
     `Suggested shots: ${ctx.recommendedShots}. Suggested beats: about ${recommendedBeats(ctx.durationSeconds, input.suppliedDialogue?.length ?? 0)}.`,
     `Spoken-word budget for the whole clip, as a ceiling and not a target: ${ctx.spokenWordBudget} words. Short lines are not a shortfall -- a fast exchange is many turns and few words, and padding toward this number to fill it is the one way to spend it wrongly.`,
   ];

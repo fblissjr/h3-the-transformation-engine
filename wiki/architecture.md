@@ -160,9 +160,9 @@ $$\text{frames} = 17k + 5 \quad (k \ge 0)$$
   - `gridFramesUpTo(maxFrames)`: generates valid frame choices for the UI duration picker.
 
 ### 3.2 Cut Timestamps
-Timeline cut times (`cutAtMs`) represent the boundary transitions between consecutive shots:
+Timeline cut times (`cutAtMs`) represent the boundary transitions between consecutive shots. They pace the plan and are not written into the prompt: no shot header carries a cut time, by owner ruling (`shot-header-no-cut-time` in `reference/h3/contract.json`). The rules below keep the plan coherent:
 - **Shot 1**: Strictly carries `cutAtMs = null` (Shot 1 begins at the start of the video; assigning a timestamp triggers `SHOT_1_HAS_TIMESTAMP`).
-- **Shot 2+**: Must carry positive, strictly increasing millisecond integers formatted as `MM:SS.mmm` (e.g. `00:03.500`).
+- **Shot 2+**: Must carry positive, strictly increasing millisecond integers. The editor shows them as `MM:SS.mmm` (e.g. `00:03.500`).
 - **Upper Bound**: Cuts must occur strictly before the end of the video:
   $$\text{cutAtMs} \le \text{latestCutMs}(\text{durationSeconds}) = \max(0, \lfloor\text{durationSeconds} \times 1000\rfloor - 1)$$
   A cut at or past the final millisecond is rejected with `CUT_OUTSIDE_DURATION` because it would create a zero-length shot.

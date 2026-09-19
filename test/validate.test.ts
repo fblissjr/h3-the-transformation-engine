@@ -206,11 +206,26 @@ const CONTROLS: Control[] = [
     inspects: has.shots,
   },
   {
-    code: 'CUT_TIMESTAMP_IN_PROSE',
-    base: crossCutBaker,
+    code: 'SHOT_OPENS_WITH_TIME',
+    base: t2vaBaker,
     mutate: (d) =>
-      void (d.shots[1].beats[0].prose = `At 00:04.000, ${d.shots[1].beats[0].prose}`),
-    inspects: has.shots,
+      void (d.shots[1].beats[0].prose = 'At 00:05.000, the camera cuts to a close-up of steam.'),
+    inspects: has.laterShot,
+  },
+  {
+    code: 'PROSE_TIME_NOT_INCREASING',
+    base: t2vaBaker,
+    mutate: (d) => {
+      d.shots[0].beats[0].prose += ' At 00:03.000, the second shutter rattles up.';
+      d.shots[1].beats[0].prose += ' At 00:02.000, the steam thins.';
+    },
+    inspects: has.prose,
+  },
+  {
+    code: 'PROSE_TIME_OUTSIDE_DURATION',
+    base: t2vaBaker,
+    mutate: (d) => void (d.shots[1].beats[0].prose += ' At 00:09.000, the steam thins.'),
+    inspects: has.duration,
   },
   {
     code: 'SECTION_HEADER_IN_PROSE',
@@ -604,5 +619,54 @@ describe('a shot header the beat legitimately shows on screen', () => {
     beat.prose = `${beat.prose} A clapperboard reads [Shot 2] as the slate snaps shut.`;
     beat.visibleText = [...(beat.visibleText ?? []), '[Shot 2]'];
     expect(codes(doc)).toContain('SHOT_HEADER_IN_PROSE');
+  });
+});
+
+describe('a time that splits action inside a shot', () => {
+  /**
+   * The negative cases, for the reason the slate block above gives: control
+   * coverage proves these codes can fire, and nothing proves they stay quiet on
+   * legitimate output. Here that output is specific. The owner ruling that took
+   * cut times out of shot headers keeps exactly one use of a time -- splitting
+   * action inside a shot -- and the rule these replaced refused every time in
+   * prose, so the artifact they must stay quiet on is the one it fired on.
+   */
+  it('validates clean when it opens a later beat, in order and inside the clip', () => {
+    const doc = structuredClone(t2vaBaker);
+    // A second beat opening with a time is the split itself, not a timed cut.
+    doc.shots[0].beats[1].prose = `At 00:02.500, t${doc.shots[0].beats[1].prose.slice(1)}`;
+    doc.shots[1].beats[0].prose += ' At 00:06.500, the last of the steam thins.';
+    expect(codesFor(doc)).toEqual([]);
+  });
+
+  /**
+   * base 4.5 mandates on-screen text verbatim in quotes, so a timecode overlay
+   * reading `[00:01.000]` has to appear in the prose. The discriminator is the
+   * same characters bare, which is out of order after 06.500 and must fire --
+   * without it the clean half could pass because the pattern never matched.
+   */
+  it('ignores a quoted on-screen reading, though the same characters bare are refused', () => {
+    const overlay = (bare: boolean) => {
+      const doc = structuredClone(t2vaBaker);
+      const beat = doc.shots[1].beats[0];
+      beat.prose += bare
+        ? ' At 00:06.500, the steam thins. [00:01.000] The overlay blinks.'
+        : ' At 00:06.500, a camcorder overlay in the corner reads "[00:01.000]".';
+      if (!bare) beat.visibleText = ['[00:01.000]'];
+      return doc;
+    };
+    expect(codesFor(overlay(false))).toEqual([]);
+    expect(codesFor(overlay(true))).toContain('PROSE_TIME_NOT_INCREASING');
+  });
+
+  // Both halves in one beat: the exclusion is by position, so one quoted
+  // reading cannot excuse an identical bare time beside it.
+  it('still fires on a bare time beside an identical quoted one', () => {
+    const doc = structuredClone(t2vaBaker);
+    doc.shots[0].beats[0].prose += ' At 00:03.000, the second shutter rattles up.';
+    const beat = doc.shots[1].beats[0];
+    beat.prose += ' An overlay reads "[00:01.000]". [00:01.000] The steam thins.';
+    beat.visibleText = ['[00:01.000]'];
+    expect(codesFor(doc)).toContain('PROSE_TIME_NOT_INCREASING');
   });
 });

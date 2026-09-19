@@ -82,8 +82,10 @@ export const t2vaBaker: H3Document = {
       beats: [
         {
           id: 'b3',
+          // Capitalised where the guide has lowercase: with no cut time in front
+          // of it this opens the sentence (shot-header-no-cut-time).
           prose:
-            'the camera cuts to a close-up of steam rising from the sliced bread while the baker\'s final ' +
+            'The camera cuts to a close-up of steam rising from the sliced bread while the baker\'s final ' +
             'words carry over from the previous shot.',
           visibleText: [],
           citesSlots: [],

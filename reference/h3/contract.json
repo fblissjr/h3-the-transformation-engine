@@ -191,9 +191,10 @@
   },
   "shotHeader": {
     "first": "[Shot 1]",
-    "later": "[Shot {N}] At {MM:SS.mmm},",
+    "later": "[Shot {N}]",
+    "laterCarriesCutTime": false,
     "guide": "base 4.2",
-    "note": "The cut phrasing itself is prose inside the beat, not part of the header. The guide asks for it as natural language in the sentence."
+    "note": "The cut phrasing itself is prose inside the beat, not part of the header. The guide asks for it as natural language in the sentence. base 4.2 and ref 5.1 both STATE that a later header opens with `At MM:SS.mmm,`; this build writes none, by the owner ruling recorded as shot-header-no-cut-time, so the beat's cut phrase now opens the sentence directly after the header. The byte-pinned worked examples still carry the vendor's times, and the golden comparison reaches them through withoutHeaderTimes in src/core/ir/examples.ts, which removes those times and nothing else."
   },
   "vocabulary": {
     "modes": {
@@ -726,7 +727,7 @@
       "preamble": {
         "source": "core",
         "house": true,
-        "note": "The text before the first heading: the model's job in one sentence, then the statement of invariant 1 -- the sentences are what conditions H3, and every structural thing around them (shot numbers, cut timestamps, section headers, the alignment line) is added afterwards by code. Arguably the most load-bearing instruction in the prompt, and nothing downstream backs it up: assemble passes prose through verbatim, and a beat carrying a shot header renders two headers with two disagreeing cut times at zero diagnostics.",
+        "note": "The text before the first heading: the model's job in one sentence, then the statement of invariant 1 -- the sentences are what conditions H3, and every structural thing around them (shot numbers, section headers, the alignment line) is added afterwards by code, and cut times are written nowhere. Arguably the most load-bearing instruction in the prompt, and only partly backed up downstream: assemble passes prose through verbatim, and before SHOT_HEADER_IN_PROSE a beat carrying a shot header rendered the header twice at zero diagnostics.",
         "asserts": [],
         "noAnchor": "Owner ruling, 2026-09-06, on the F1 case in the prompt audit. It cannot be a block -- it has no heading, and test/contract.test.ts slices each block from its heading forward, so text before the first one is unreachable by construction rather than by omission. The mechanisms that would reach it were measured and all fail the test CLAUDE.md sets for a new assertion. A wording anchor is refuted by the same argument that gives # How to write its noAnchor, and a rewrite that says the same thing better turns it red. A presence floor survives that rewrite but stays green through a preamble gutted of its meaning and refilled to length, so it is a tripwire against outright deletion and not protection of the invariant. Rather than ship a green check that reads as more than it is, the text is claimed here and left unasserted."
       },
@@ -766,9 +767,9 @@
           "source": "core",
           "conditional": false,
           "guide": "base 4.2",
-          "note": "The cut vocabulary and the no-timestamp-on-Shot-1 rule are the guide's. 'Cut only to reveal genuinely new subject, space, state, viewpoint or time' restates base 4.2's preference; the beat structure around it is house.",
+          "note": "The cut vocabulary and the no-timestamp-on-Shot-1 rule are the guide's. That no later shot carries one either is the owner ruling recorded as shot-header-no-cut-time, and it is why the cut phrase is asked for capitalised: with no `At MM:SS.mmm,` in front of it, it opens the sentence. The one time the ruling keeps -- a time that splits action inside a shot -- is offered only when the request asks for one, never as a default. 'Cut only to reveal genuinely new subject, space, state, viewpoint or time' restates base 4.2's preference; the beat structure around it is house.",
           "asserts": [
-            "[Shot N] At MM:SS.mmm, <your first beat>"
+            "[Shot N] <your first beat>"
           ]
         },
         {
@@ -830,7 +831,7 @@
           "conditional": false,
           "quotesOutput": true,
           "guide": "base 5, ref 7",
-          "note": "MiniMax's worked example for the active mode, quoted whole. The prompt was rules with no instance of the artifact they describe, and both guides teach this format mostly by worked example -- four Cases in base 5, one complete example in ref 7. The vendor's five rather than a house-authored set because these are what H3 was trained near, which outranks grading conformant. One ships per call, since the mode selects it. The framing around it is load-bearing rather than decorative: the model returns a plan and this is the output, so an example presented without that distinction invites finished prompt text back and a schema failure. `quotesOutput` exempts this block from anchor uniqueness, and that flag is why it is a separate block rather than an appendix to the mode block -- a block quoting a real prompt contains the camera phrasing, the dialogue tags and the field labels that other blocks anchor on, so it would collide with them by construction and every future anchor would have to be chosen to avoid five worked examples. Its own anchors are still asserted present by the per-block check above.",
+          "note": "MiniMax's worked example for the active mode, quoted whole except for its header cut times, which withoutHeaderTimes removes under the owner ruling recorded as shot-header-no-cut-time: a model copies a demonstration more reliably than it follows a statement, so showing it `[Shot 2] At 00:05.000,` would teach the format the ruling removed. The prompt was rules with no instance of the artifact they describe, and both guides teach this format mostly by worked example -- four Cases in base 5, one complete example in ref 7. The vendor's five rather than a house-authored set because these are what H3 was trained near, which outranks grading conformant. One ships per call, since the mode selects it. The framing around it is load-bearing rather than decorative: the model returns a plan and this is the output, so an example presented without that distinction invites finished prompt text back and a schema failure. `quotesOutput` exempts this block from anchor uniqueness, and that flag is why it is a separate block rather than an appendix to the mode block -- a block quoting a real prompt contains the camera phrasing, the dialogue tags and the field labels that other blocks anchor on, so it would collide with them by construction and every future anchor would have to be chosen to avoid five worked examples. Its own anchors are still asserted present by the per-block check above.",
           "asserts": [
             "overall_soundscape:"
           ]
@@ -924,7 +925,7 @@
     {
       "id": "beats-carry-prose",
       "statement": "The planner writes the sentences; the serializer assembles structure around them and never expands an enum into a sentence.",
-      "enforcedBy": "On the code side, the absence of any enum-to-prose path in src/core/serialize. In the validator, SHOT_HEADER_IN_PROSE, CUT_TIMESTAMP_IN_PROSE, SECTION_HEADER_IN_PROSE, and ALIGNMENT_LINE_IN_PROSE, which refuse beats whose prose carries structural items the serializer owns. On the instruction side, the planner preamble at prompts.planner.preamble, which tells the model not to write the structure in the first place; it is deliberately unanchored, and deleting it turns nothing red, so naming it here is a pointer for a reader rather than a control."
+      "enforcedBy": "On the code side, the absence of any enum-to-prose path in src/core/serialize. In the validator, SHOT_HEADER_IN_PROSE, SECTION_HEADER_IN_PROSE, and ALIGNMENT_LINE_IN_PROSE, which refuse beats whose prose carries structural items the serializer owns, and SHOT_OPENS_WITH_TIME, which refuses the header cut time the owner ruling removed coming back in through the prose. On the instruction side, the planner preamble at prompts.planner.preamble, which tells the model not to write the structure in the first place; it is deliberately unanchored, and deleting it turns nothing red, so naming it here is a pointer for a reader rather than a control."
     },
     {
       "id": "prompt-is-derived",
@@ -971,13 +972,16 @@
     "note": "Every code the validator can emit, with what makes it legitimate. Guide-derived codes cite a section; house codes say so. test/validate.test.ts proves each one can fire; the conformance test proves this list matches the codes the rules actually emit. What no check reaches, stated because it has already been escaped through: these descriptions are prose about a condition, and nothing compares them to the condition. The bindings cover a code's existence and its provenance -- the set matches what the rules emit, and every reason cites a guide section or declares itself house -- so DIALOGUE_BAD_TERMINAL could describe ref 5.4's \"complete statements\" while the rule demanded a terminal on every line, and did, with the suite green. No check is offered for it and the reason is not that an instance is lacking; it is that the property is undecidable. Whether a sentence describes a boolean expression is not mechanically answerable, there is no allowlist here whose growth is the dangerous direction, and a proxy over the message text would fail on every legitimate rewording -- the brittleness this spec has already been bitten by twice. One narrow version was weighed and rejected, recorded here so the argument does not run again: assert that a description mentions the concept its branch tests -- that DIALOGUE_BAD_TERMINAL says \"complete\" where the code branches on incompleteness. It would have caught this exact instance, which is what makes it tempting. It loses because it is a wording proxy wearing an identifier costume: it passes only while someone happens to have chosen that word, so a description reading \"a finished utterance\" fails it while being perfectly correct, and the first legitimate rewrite turns it red for nothing. That is the same failure as the wording proxies this spec has already had to widen twice. The control that exists is a person reading the description beside the rule when either changes, and this note is where they are told to.",
     "codes": {
       "NO_SHOTS": "house: a document with no shots renders nothing",
-      "DURATION_NOT_POSITIVE": "house: duration drives every derived timestamp",
+      "DURATION_NOT_POSITIVE": "house: duration drives every derived value -- the alignment line's seconds, the latest legal cut, the budgets",
       "MODE_SLOT_MISMATCH": "house: base 1 describes what each mode is, not how many references it takes. The cardinalities the rule enforces -- exactly one first-frame image for I2VA, exactly two for FL2VA, no other media -- appear nowhere in either guide. Defensible policy, not contract.",
       "SHOT_INDEX_NOT_SEQUENTIAL": "base 4.2",
-      "SHOT_1_HAS_TIMESTAMP": "base 4.2: the first shot carries no timestamp",
-      "SHOT_MISSING_TIMESTAMP": "base 4.2",
-      "CUT_NOT_INCREASING": "base 4.2: strictly increasing cut times",
-      "CUT_OUTSIDE_DURATION": "base 4.2: cuts fall within the video duration",
+      "SHOT_1_HAS_TIMESTAMP": "base 4.2: the first shot carries no timestamp. Since the owner ruling recorded as shot-header-no-cut-time, cutAtMs is the plan's pacing and is not rendered, so this and the three codes after it check that the plan is coherent rather than that a printed time is legal",
+      "SHOT_MISSING_TIMESTAMP": "base 4.2, applied to the plan's cut times: a later shot the plan does not place has no pacing",
+      "CUT_NOT_INCREASING": "base 4.2: strictly increasing cut times, applied to the plan",
+      "CUT_OUTSIDE_DURATION": "base 4.2: cuts fall within the video duration, applied to the plan",
+      "SHOT_OPENS_WITH_TIME": "house, from the owner ruling recorded as shot-header-no-cut-time: a time at the start of a shot's first beat renders as the timed header the ruling removed -- `[Shot 2] At 00:05.000, the camera cuts to` -- because the serializer places that beat straight after the header. Provable from where the time sits, not a preference about wording: the ruling keeps a time only to split action inside a shot, and one that opens the shot splits nothing. A time inside a quoted visibleText entry is excluded for the reason SHOT_HEADER_IN_PROSE gives, and the base contract's style clause does not change the answer for Shot 1, which base 4.2 already keeps untimed.",
+      "PROSE_TIME_NOT_INCREASING": "base 4.2: strictly increasing times, applied to the only times the owner ruling leaves in the prompt -- the ones that split action inside a shot, read in playback order across the whole timeline. Quoted on-screen text is excluded; a clock in frame is not a timeline mark.",
+      "PROSE_TIME_OUTSIDE_DURATION": "base 4.2: times fall within the video duration, applied to the times that split action inside a shot. Same exclusion.",
       "SHOT_NO_BEATS": "house: a shot with no prose renders an empty header",
       "CAMERA_TYPE_INVALID": "base 4.3: the motion table",
       "FRAME_ROLE_ON_NON_IMAGE": "ref 2.2: only images are frame anchors",
@@ -1007,8 +1011,7 @@
       "REF_RETENTION_MISSING": "ref 4: one line per reference label",
       "REF_RETENTION_MARKER_WRONG_CLASS": "ref 4.1 and 4.2: visual and audio markers are different sets",
       "REF_SPEAKER_IN_RETENTION": "ref 5.4: do not write (Sx) in retention_analysis",
-      "SHOT_HEADER_IN_PROSE": "house, from invariant 2: the serializer writes [Shot N] and the cut time itself, so a beat whose prose carries a shot header renders the header twice with two timestamps that disagree. Provable from the document and its own derived values rather than a preference about wording; before this rule the whole thing validated at zero diagnostics. A match that is a quoted visibleText entry is excluded, and that exclusion is load-bearing rather than defensive: base 4.5 requires on-screen text to appear verbatim in quotes inside the prose, so a clapperboard reading \"[Shot 2]\" is legitimate output that the unexcluded pattern fires on. Measured on a fixture before the rule was written, which is why the control carries that beat as a negative case -- a rule tested only against the malformed document passes while being wrong in the way that removed seventeen rules here, and nothing in the suite requires that negative to exist.",
-      "CUT_TIMESTAMP_IN_PROSE": "house, from invariant 2: cut timestamps belong in cutAtMs and are rendered by the serializer, so leaking timestamps into beat prose duplicates cut markers.",
+      "SHOT_HEADER_IN_PROSE": "house, from invariant 2: the serializer writes [Shot N] itself, so a beat whose prose carries a shot header renders the header twice, and the second copy's number need not agree with the first. Provable from the document and its own derived values rather than a preference about wording; before this rule the whole thing validated at zero diagnostics. A match that is a quoted visibleText entry is excluded, and that exclusion is load-bearing rather than defensive: base 4.5 requires on-screen text to appear verbatim in quotes inside the prose, so a clapperboard reading \"[Shot 2]\" is legitimate output that the unexcluded pattern fires on. Measured on a fixture before the rule was written, which is why the control carries that beat as a negative case -- a rule tested only against the malformed document passes while being wrong in the way that removed seventeen rules here, and nothing in the suite requires that negative to exist.",
       "SECTION_HEADER_IN_PROSE": "house, from invariant 2: schema keys and section headers belong to the IR structure, so leaking them into beat prose pollutes the descriptive text.",
       "ALIGNMENT_LINE_IN_PROSE": "house, from invariant 2: reference alignment preamble belongs to metadata rather than beat prose."
     }
@@ -1085,6 +1088,16 @@
           "src/provider/shape.ts"
         ],
         "why": "The only text sent to a model that no prompt builder wrote, and the only place this spec does not describe the string the model receives. When schema enforcement is off -- a per-call choice now, not a property of the backend -- the client appends the serialized JSON Schema to the system prompt after buildPlannerSystemPrompt has returned, and parses the reply defensively. That applies to every provider: heylook always, since neither of its wires can constrain decoding, and Gemini whenever enforceSchema is false. It lands AFTER '# Supplied facts', which prompts.planner.blocks places last so the facts have the final word -- accepted because a format instruction is a different axis from the craft guidance that note is about, and because it must be the last thing read before the model emits. Invisible to test/contract.test.ts, which indexes into the builder's output rather than the sent string; asserted in test/heylook.test.ts instead, and the breakage confirming contract.test.ts stays green while that one goes red was run."
+      },
+      {
+        "id": "shot-header-no-cut-time",
+        "paths": [
+          "src/core/serialize/shared.ts",
+          "src/core/ir/examples.ts",
+          "src/provider/prompts/planner.ts",
+          "src/core/validate/rules/timeline.ts"
+        ],
+        "why": "Owner ruling, made 2026-09-18 and recorded here 2026-09-19: a later shot header carries no cut time. The engine writes `[Shot 2] The camera cuts to ...`, never `[Shot 2] At 00:05.000, the camera cuts to ...`. This departs from a rule both guides STATE, base 4.2 and ref 5.1, not from something they only show, so expect the guides to disagree with this build and the byte-pinned examples to carry times the serializer does not write. The owner's reasoning is that a fixed cut time is probably a cause of trouble on a model that is otherwise never told how long the clip is. The evidence is one same-seed pair, not blind: both renders cut twice in nearly the same places (5.0 s and 9.54 s with the times, 4.75 s and 9.5 s without), and the owner found nothing wrong with either and slightly preferred the timed one for a staging difference the prompt leaves open. So the ruling is safe on that evidence and its claimed upside is unshown. The case it should help, a prompt whose written times do not fit its length, has not been rendered. What the ruling keeps: a time that splits action inside one shot, which the planner writes only when the request asks for one and which the validator checks for order and duration, since base 4.2's two constraints on a time still govern the times that remain. What it does not touch: shots[].cutAtMs, kept as the plan's pacing and no longer rendered, and the FL2VA and L2VA alignment line, whose S.SS is a fixed base 2.1 template that pins a frame rather than timing a cut."
       }
     ]
   }

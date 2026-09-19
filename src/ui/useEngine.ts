@@ -1347,8 +1347,9 @@ export function useEngine() {
         } catch (cause) {
           // `editDirect` serializes, and the serializer throws rather than
           // renders on a value it cannot express -- `formatTimestamp` below zero
-          // was the reachable one. An escape here used to be an unhandled
-          // rejection, because the caller discarded the promise: no banner, no
+          // was the reachable one, until cut times stopped being rendered. An
+          // escape here used to be an unhandled rejection, because the caller
+          // discarded the promise: no banner, no
           // version, and a field that appeared to do nothing at all. The caller
           // now awaits the answer, and the shape gate stops that particular value
           // reaching the serializer; this stops the next one from being invisible.

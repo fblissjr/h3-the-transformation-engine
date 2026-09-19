@@ -83,7 +83,7 @@ export interface Dialogue {
 ```
 
 - **`Shot.index`**: 1-based sequential integer driving `[Shot N]` scaffolding.
-- **`Shot.cutAtMs`**: Millisecond timestamp for the transition boundary. Strictly `null` for Shot 1; strictly positive and increasing for Shot 2+.
+- **`Shot.cutAtMs`**: Millisecond timestamp for the transition boundary. Strictly `null` for Shot 1; strictly positive and increasing for Shot 2+. The plan's pacing only: it is not rendered into the prompt.
 - **`Shot.camera`**: Annotation (`type: CameraType`, optional `amplitude`, optional `speed`). Medium amplitude and normal speed are represented by omitting the fields.
 - **`Beat.prose`**: Authoritative text that conditions the model. Contains the `<d/>` placeholder if dialogue is present.
 - **`Dialogue.userSupplied`**: Protects user-typed lines from being modified by model-originated patches (`applyPatch`).
@@ -192,7 +192,7 @@ To protect structural integrity, only 19 specific leaf patterns may be modified 
 | 9 | `shots[].camera.type` | `CameraType` | One of the 20 documented camera movements |
 | 10 | `shots[].camera.amplitude` | `Amplitude` | Camera motion amplitude (`'small'` or `'large'`) |
 | 11 | `shots[].camera.speed` | `Speed` | Camera motion speed (`'slow'` or `'fast'`) |
-| 12 | `shots[].cutAtMs` | `number` | Cut boundary timestamp in milliseconds |
+| 12 | `shots[].cutAtMs` | `number` | Cut boundary timestamp in milliseconds (plan only, not rendered) |
 | 13 | `subjects[].traits` | `string` | Physical traits of a defined Ref2VA subject |
 | 14 | `subjects[].retention` | `VisualRetention` | Visual retention marker for subject |
 | 15 | `subjects[].retentionNote` | `string` | Explanatory note for subject retention |

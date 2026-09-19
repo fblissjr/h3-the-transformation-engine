@@ -46,8 +46,8 @@ export class Emitter {
   /**
    * Attribute everything written inside `body` to `path`.
    *
-   * Used for container nodes: a shot's span covers its header, its timestamp,
-   * and all of its beats, while each beat records its own narrower span inside.
+   * Used for container nodes: a shot's span covers its header and all of its
+   * beats, while each beat records its own narrower span inside.
    */
   block(path: string, body: () => void): this {
     const start = this.length;

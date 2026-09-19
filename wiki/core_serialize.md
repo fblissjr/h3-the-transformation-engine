@@ -113,9 +113,7 @@ export const ALIGNMENT_TEMPLATES: Record<H3Mode, string | null> = {
 - **`renderDialogueTag(d: Dialogue)`**: Renders `<d>[${d.language}] ${d.text}</d>`.
 - **`spliceDialogue(prose, dialogue)`**: Replaces `<d/>` with the rendered dialogue tag. If dialogue exists but prose lacks `<d/>`, prose is returned unmodified so the validator's `DIALOGUE_PLACEHOLDER_MISSING` diagnostic can report the defect.
 - **`speakerRef(speaker: Speaker, all: Speaker[]): string | null`**: Formats vocal source tags. Single speakers render as `(S1)`. Compound speakers render as `(S1,S2)` with member ordinals sorted numerically (`sort((a, b) => a - b)`).
-- **`renderShotHeader(shot: Shot): string`**:
-  - Shot 1: `"[Shot 1]"`
-  - Shot 2+: `"[Shot N] At MM:SS.mmm,"` (rendered via `formatTimestamp(shot.cutAtMs!)`).
+- **`renderShotHeader(shot: Shot): string`**: `"[Shot N]"` for every shot, with no cut time. Both vendor guides state `[Shot N] At MM:SS.mmm,` for later shots; this build departs from them by owner ruling (`shot-header-no-cut-time` in `reference/h3/contract.json`), so `shot.cutAtMs` is not read here. The beat that follows opens with the cut phrase, capitalised (`[Shot 2] The camera cuts to ...`).
 - **`trimStyleTail(style: string): string`**: Strips trailing punctuation (`/[.,;]+$/`) to prevent double punctuation when spliced inline into base prompts.
 
 ---
@@ -135,7 +133,7 @@ export interface SourceSpan {
 ### 5.1 Emitter Methods
 - **`write(text)`**: Appends pure scaffolding text (headers, commas, spaces). Creates deliberate "click gaps" not attributed to any AST node.
 - **`writeAt(path, text)`**: Appends text and records an attributed `SourceSpan`.
-- **`block(path, body)`**: Establishes container spans. For example, `shots[0]` encompasses its header, cut timestamp, and all enclosed beats, while each beat records its own narrower span inside.
+- **`block(path, body)`**: Establishes container spans. For example, `shots[0]` encompasses its header and all enclosed beats, while each beat records its own narrower span inside.
 - **`build()`**: Returns the final string and sorted spans (outermost first, then ordered by offset).
 
 ### 5.2 Span Lookup & Click-to-Fix Utilities

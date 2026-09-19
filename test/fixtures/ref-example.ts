@@ -184,8 +184,10 @@ export const ref2vaCoffeeShop: H3Document = {
       beats: [
         {
           id: 'r2',
+          // Capitalised where the guide has lowercase: with no cut time in front
+          // of it this opens the sentence (shot-header-no-cut-time).
           prose:
-            'the shot cuts to a close-up of <Subject 4> (S2), the young man in the dark-grey hoodie from ' +
+            'The shot cuts to a close-up of <Subject 4> (S2), the young man in the dark-grey hoodie from ' +
             'Shot 1, sitting beside <Subject 3> on the sofa and holding <Subject 2> securely in his arms. ' +
             '<Subject 4> (S2) says in a casual young male voice with a playful tone and an easy ' +
             'conversational pace, <d/> He closes his mouth into an apologetic smile and strokes the dog\'s ' +
@@ -213,7 +215,7 @@ export const ref2vaCoffeeShop: H3Document = {
         {
           id: 'r3',
           prose:
-            'the shot cuts to a close-up of <Subject 3> (S1), the blonde woman in the light-pink shirt from ' +
+            'The shot cuts to a close-up of <Subject 3> (S1), the blonde woman in the light-pink shirt from ' +
             'Shot 1. Her annoyance softens as she looks toward the Samoyed. <Subject 3> (S1) replies in the ' +
             'same clear youthful voice referenced from <Audio 1> with an amused cadence, <d/> She smiles and ' +
             'raises the cookie in a small toast-like gesture. A classic canned audience laugh begins ' +

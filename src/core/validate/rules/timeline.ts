@@ -6,6 +6,7 @@
  * is supposed to express it.
  */
 
+import type { H3Document } from '../../ir/types';
 import type { Diagnostic, Rule } from '../types';
 import { error } from '../types';
 import { CAMERA_TYPES, FRAME_ANCHOR_ROLES } from '../../ir/vocab';
@@ -44,7 +45,14 @@ export const shotIndices: Rule = (doc) => {
   return out;
 };
 
-/** Shot 1 carries no timestamp; every later shot must carry one. */
+/**
+ * Shot 1 carries no cut time; every later shot must carry one.
+ *
+ * `cutAtMs` is the plan's pacing and has not been rendered since the owner
+ * ruling recorded as `shot-header-no-cut-time`. This and `cutTimes` hold base
+ * 4.2's constraints on that plan, so a document whose own pacing contradicts
+ * itself is still refused even though no printed time is at stake.
+ */
 export const shotTimestamps: Rule = (doc) => {
   const out: Diagnostic[] = [];
   doc.shots.forEach((shot, i) => {
@@ -60,7 +68,7 @@ export const shotTimestamps: Rule = (doc) => {
   return out;
 };
 
-/** Cut times strictly increase and stay inside the video. */
+/** Planned cut times strictly increase and stay inside the video. */
 export const cutTimes: Rule = (doc, ctx) => {
   const out: Diagnostic[] = [];
   let previous = -1;
@@ -183,12 +191,12 @@ export const frameRolesOnImages: Rule = (doc) => {
 /**
  * A beat's prose must not carry a shot header.
  *
- * Invariant 2 makes the structure the serializer's: it writes `[Shot N]` and
- * the cut time itself. So a beat carrying one renders the header twice, with
- * two timestamps that disagree -- `[Shot 2] At 00:05.000, [Shot 2] At
- * 00:04.000, ...`. That is provable from the document and its own derived
- * values, which is what separates it from a preference about wording. Before
- * this rule the whole thing validated at zero diagnostics.
+ * Invariant 2 makes the structure the serializer's: it writes `[Shot N]`
+ * itself. So a beat carrying one renders the header twice -- `[Shot 2] [Shot
+ * 2] The camera cuts to ...` -- and nothing makes the second number agree with
+ * the first. That is provable from the document and its own derived values,
+ * which is what separates it from a preference about wording. Before this rule
+ * the whole thing validated at zero diagnostics.
  *
  * THE EXCLUSION IS LOAD-BEARING, NOT DEFENSIVE, and it is why the naive form of
  * this rule would have joined the seventeen removed for firing on legitimate
@@ -243,9 +251,8 @@ export const shotHeaderInProse: Rule = (doc) => {
         error(
           'SHOT_HEADER_IN_PROSE',
           `shots[${i}].beats[${j}].prose`,
-          `Beat prose writes ${offending[0]}. The serializer writes the shot header and its cut ` +
-            'time, so this renders twice with two timestamps that disagree. Describe the action ' +
-            'and let the structure be added around it.',
+          `Beat prose writes ${offending[0]}. The serializer writes the shot header, so this ` +
+            'renders it twice. Describe the action and let the structure be added around it.',
         ),
       );
     });
@@ -253,12 +260,39 @@ export const shotHeaderInProse: Rule = (doc) => {
   return out;
 };
 
-export const cutTimestampInProse: Rule = (doc) => {
-  const out: Diagnostic[] = [];
+/** One time written in beat prose, located. */
+interface ProseTime {
+  ms: number;
+  text: string;
+  path: string;
+  /** At the very start of a shot's first beat, where it times the cut. */
+  opensShot: boolean;
+}
+
+/**
+ * Every time written in beat prose, in playback order.
+ *
+ * No shot header carries a time -- the owner ruling recorded in the contract as
+ * `shot-header-no-cut-time` -- so the only time left in a prompt is one that
+ * splits action inside a shot. The two rules below read what this returns.
+ *
+ * Three written forms are read, and all three as times, because a time is a
+ * time whatever it is dressed in: the vendor's `At MM:SS.mmm`, a bracketed
+ * `[MM:SS.mmm]`, and a cue `MM:SS.mmm:`. They are the forms the rule this
+ * replaced already matched. That rule refused every time in prose outright,
+ * and the refusal went with the ruling, which makes a mid-shot time
+ * legitimate output.
+ *
+ * A time inside a quoted `visibleText` occurrence is skipped, by POSITION, for
+ * the reasons `shotHeaderInProse` gives: base 4.5 requires on-screen text
+ * verbatim in quotes, so a timecode overlay in frame reading "[00:04.000]" is
+ * mandated to appear and is not a timeline mark, and a string comparison would
+ * let one quoted reading excuse an identical bare time in the same beat.
+ */
+function proseTimes(doc: H3Document): ProseTime[] {
+  const out: ProseTime[] = [];
   doc.shots.forEach((shot, i) => {
     shot.beats.forEach((beat, j) => {
-      const matches = [...beat.prose.matchAll(/(?:\bAt\s+\d{2}:\d{2}\.\d{3}\b|\[\d{2}:\d{2}\.\d{3}\]|\b\d{2}:\d{2}\.\d{3}:)/g)];
-      if (matches.length === 0) return;
       const spans: [number, number][] = [];
       for (const entry of beat.visibleText ?? []) {
         const needle = `"${entry}"`;
@@ -266,22 +300,77 @@ export const cutTimestampInProse: Rule = (doc) => {
           spans.push([at, at + needle.length]);
         }
       }
-      const offending = matches
-        .filter((m) => !spans.some(([from, to]) => m.index >= from && m.index + m[0].length <= to))
-        .map((m) => m[0]);
-      if (offending.length === 0) return;
-      out.push(
-        error(
-          'CUT_TIMESTAMP_IN_PROSE',
-          `shots[${i}].beats[${j}].prose`,
-          `Beat prose writes cut timestamp "${offending[0]}". The serializer formats cut times deterministically; ` +
-            'timestamps must not appear in beat prose.',
-        ),
-      );
+      const lead = beat.prose.length - beat.prose.trimStart().length;
+      const pattern = /\bAt\s+\d{2}:\d{2}\.\d{3}\b|\[\d{2}:\d{2}\.\d{3}\]|\b\d{2}:\d{2}\.\d{3}:/g;
+      for (const m of beat.prose.matchAll(pattern)) {
+        if (spans.some(([from, to]) => m.index >= from && m.index + m[0].length <= to)) continue;
+        const [, mm, ss, mmm] = /(\d{2}):(\d{2})\.(\d{3})/.exec(m[0])!;
+        out.push({
+          ms: (Number(mm) * 60 + Number(ss)) * 1000 + Number(mmm),
+          text: m[0],
+          path: `shots[${i}].beats[${j}].prose`,
+          opensShot: j === 0 && m.index === lead,
+        });
+      }
     });
   });
   return out;
+}
+
+/**
+ * A time that opens a shot is the timed header the ruling removed.
+ *
+ * The serializer writes a shot's first beat straight after `[Shot N]`, so a
+ * beat opening `At 00:05.000, the camera cuts to` renders exactly the header
+ * `shot-header-no-cut-time` took out. And a time there splits nothing: it sits
+ * before all of the shot's action. Shot 1 fires too, which base 4.2 already
+ * requires, and the base contract's style clause between the header and the
+ * beat does not change that.
+ */
+export const shotOpensWithTime: Rule = (doc) =>
+  proseTimes(doc)
+    .filter((t) => t.opensShot)
+    .map((t) =>
+      error(
+        'SHOT_OPENS_WITH_TIME',
+        t.path,
+        `The shot opens with the time "${t.text}". Shot headers carry no cut time, so the shot should ` +
+          'open with the cut itself; a time belongs only where it splits action inside a shot.',
+      ),
+    );
+
+/** base 4.2's two constraints on a time, applied to the times the ruling leaves. */
+export const proseTimesOrdered: Rule = (doc, ctx) => {
+  const out: Diagnostic[] = [];
+  let previous = -1;
+  for (const t of proseTimes(doc)) {
+    if (t.ms <= previous) {
+      out.push(
+        error(
+          'PROSE_TIME_NOT_INCREASING',
+          t.path,
+          `"${t.text}" does not come after the time written before it (${formatMs(previous)}). Times in the ` +
+            'prompt must strictly increase in playback order.',
+        ),
+      );
+    }
+    if (t.ms > ctx.latestCutMs) {
+      out.push(
+        error(
+          'PROSE_TIME_OUTSIDE_DURATION',
+          t.path,
+          `"${t.text}" falls at or past the ${ctx.durationText}s end of the video.`,
+        ),
+      );
+    }
+    previous = t.ms;
+  }
+  return out;
 };
+
+function formatMs(ms: number): string {
+  return `${(ms / 1000).toFixed(3)}s`;
+}
 
 export const sectionHeaderInProse: Rule = (doc) => {
   const out: Diagnostic[] = [];
@@ -352,7 +441,8 @@ export const timelineRules: Rule[] = [
   cameraTypeValid,
   frameRolesOnImages,
   shotHeaderInProse,
-  cutTimestampInProse,
+  shotOpensWithTime,
+  proseTimesOrdered,
   sectionHeaderInProse,
   alignmentLineInProse,
 ];

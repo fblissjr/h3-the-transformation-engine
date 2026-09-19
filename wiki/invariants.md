@@ -11,7 +11,7 @@ The H3 Transformation Engine is governed by a small set of absolute engineering 
 From the repository specification (`CLAUDE.md`):
 
 ### Invariant 1: Beats Carry Prose; Enums Are Validated Annotations
-> **"The planner writes the actual sentences; the serializer only assembles structure around them (labels, timestamps, tags, section headers, ordering) and never expands an enum into sentences."**
+> **"The planner writes the actual sentences; the serializer only assembles structure around them (labels, tags, section headers, alignment lines, ordering) and never expands an enum into sentences."**
 
 #### Why this invariant exists:
 MiniMax H3 video generation models condition on the descriptive literary quality, syntactic continuity, and sensory phrasing of natural language. A canned clause bolted onto a sentence (e.g. mechanically appending `"The camera executes a slow Zoom In."` because `camera.type === 'Zoom In'`) creates the exact *"detached command stack"* that official vendor writing guides explicitly warn against.
@@ -19,7 +19,7 @@ MiniMax H3 video generation models condition on the descriptive literary quality
 #### How it is implemented:
 - In the Intermediate Representation (`src/core/ir/types.ts`), `Beat.prose` is the authoritative field that conditions the model.
 - Enum fields (such as `Shot.camera`, `Beat.dialogue`, `Shot.cutStyle`, and `Subject.retention`) are strictly **validated annotations**.
-- The serializer (`src/core/serialize/`) only injects structural framing: `[Shot N]`, timestamp prefixes `At MM:SS.mmm,`, alignment lines, and section headings. It never synthesizes prose from enums.
+- The serializer (`src/core/serialize/`) only injects structural framing: `[Shot N]`, alignment lines, and section headings. It writes no cut time after `[Shot N]`, by owner ruling (`shot-header-no-cut-time`). It never synthesizes prose from enums.
 - The validator (`src/core/validate/`) checks that the prose and annotations agree (for instance, ensuring that a beat attributing `(S1)` has a matching `speakerId` declared, or that on-screen text in `visibleText` appears verbatim in double quotes in `prose`).
 
 ---

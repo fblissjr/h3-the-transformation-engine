@@ -26,9 +26,14 @@ Every value in `vocab.ts` traces to a line in one of the two guides tracked in
 [reference/h3/](./reference/h3/). Play happens inside the format, never against
 it.
 
-Those two guides are the only authority for what a prompt should say. The
-engine's own limits — the frame grid, the duration range — are a different kind
-of fact and live in [reference/engine-limits.md](./reference/engine-limits.md),
+Those two guides are the only authority for what a prompt should say, with one
+deliberate exception: shot headers carry no cut time, against a rule base 4.2
+and ref 5.1 both state. That is an owner ruling, not a finding, and it is
+recorded in the contract as `shot-header-no-cut-time` with the evidence it rests
+on, so it reads as a decision rather than as drift.
+
+The engine's own limits — the frame grid, the duration range — are a different
+kind of fact and live in [reference/engine-limits.md](./reference/engine-limits.md),
 vendored with their provenance so both can be traced from a clean checkout.
 
 Anything this repo borrows is vendored into it. A reference to a file that only
@@ -46,7 +51,7 @@ the whole prompt
 ├── shots[].beats[].prose              what actually conditions the model
 ├── shots[].beats[].visibleText        on-screen strings
 ├── shots[].camera.*                   the annotation, not the sentence
-├── shots[].cutAtMs                    where the cut falls, not how it renders
+├── shots[].cutAtMs                    where the cut falls; paces the plan, never rendered
 ├── soundscape
 ├── music
 └── Ref2VA: subjects[].traits, retention[].note, summary
@@ -79,8 +84,10 @@ take the guarantee with it. Nothing can decide mechanically whether a new leaf i
 derived, so `test/patch.test.ts` pins the list entry for entry.
 
 One entry is a timestamp. `shots[].cutAtMs` is patchable, because where a cut
-falls is an editorial decision. What stays derived is its rendering. Aiming a
-transform at it can produce a worse edit, never a malformed prompt.
+falls is an editorial decision. It is no longer rendered at all -- shot headers
+carry no cut time, by the owner ruling above -- so it paces the plan and nothing
+else. Aiming a transform at it can produce a plan the validator refuses, never a
+malformed prompt.
 
 ## duration is the budget
 

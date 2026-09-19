@@ -266,7 +266,7 @@ export const PlannedShotSchema = z.object({
     .int()
     .min(0)
     .nullable()
-    .describe('Cut time in milliseconds. Must be null for the first shot.'),
+    .describe('Cut time in milliseconds, pacing the plan; it is not written into the prompt. Must be null for the first shot.'),
   cutStyle: cutStyleSchema.nullish(),
   camera: cameraSchema.nullish().describe('Annotation describing the camera work the prose expresses.'),
   beats: z.array(PlannedBeatSchema).min(1),

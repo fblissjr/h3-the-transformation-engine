@@ -24,9 +24,9 @@
 ## Core Invariants
 
 1. **Beats carry prose; enums are validated annotations.**  
-   The planner writes the actual descriptive sentences. The serializer only assembles structure around them (labels, timestamps, tags, section headers, alignment lines, ordering) and never expands an enum into a sentence. H3 conditions on descriptive quality; canned clauses produce the "detached command stack" vendor guides explicitly warn against.
+   The planner writes the actual descriptive sentences. The serializer only assembles structure around them (labels, tags, section headers, alignment lines, ordering) and never expands an enum into a sentence. H3 conditions on descriptive quality; canned clauses produce the "detached command stack" vendor guides explicitly warn against.
 2. **The prompt text is a pure function of the document.**  
-   `serialize(doc, ctx)` is total, pure, and deterministic. Hand-editing prompt text is prohibited because derived values (alignment lines, shot numbers, cut times, label ordinals) would fall out of sync. All mutations occur on the document AST via `applyPatch()` or direct editor actions.
+   `serialize(doc, ctx)` is total, pure, and deterministic. Hand-editing prompt text is prohibited because derived values (alignment lines, shot numbers, label ordinals) would fall out of sync. Shot headers carry no cut time: both vendor guides state one, and this build departs from them by owner ruling, recorded as `shot-header-no-cut-time` in `reference/h3/contract.json`. All mutations occur on the document AST via `applyPatch()` or direct editor actions.
 
 ---
 

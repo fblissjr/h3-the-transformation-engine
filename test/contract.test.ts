@@ -143,11 +143,10 @@ function leaves(node: unknown, path: string, out: [string, Node][] = []): [strin
 /** The placeholders a spec template may use, and what each one matches. */
 const PLACEHOLDERS: Record<string, string> = {
   '{N}': '\\d+',
-  '{MM:SS.mmm}': '\\d\\d:\\d\\d\\.\\d\\d\\d',
 };
 
 /**
- * Turn a template the spec states -- `[Shot {N}] At {MM:SS.mmm},` -- into the pattern
+ * Turn a template the spec states -- `[Shot {N}]` -- into the pattern
  * the serializer has to match, so the spec string is what the assertion reads.
  *
  * An unknown placeholder throws rather than being escaped into a literal that could
@@ -160,7 +159,7 @@ function templatePattern(template: string): RegExp {
   expect(unknown, `${template} uses a placeholder this helper cannot render`).toEqual([]);
 
   const body = template
-    .split(/(\{N\}|\{MM:SS\.mmm\})/)
+    .split(/(\{N\})/)
     .map((part) => PLACEHOLDERS[part] ?? part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
     .join('');
   return new RegExp(body);
@@ -401,6 +400,28 @@ describe('output shape matches the spec', () => {
     expect(contract.shotHeader.first).toBe('[Shot 1]');
     expect(rendered('T2VA')).toContain('[Shot 1]');
     expect(rendered('T2VA')).toMatch(templatePattern(contract.shotHeader.later));
+  });
+
+  /**
+   * `later` cannot carry this on its own. `[Shot {N}]` is a prefix of the timed
+   * header too, so the assertion above stays green against a serializer still
+   * writing `At 00:05.000,`. So the spec states the fact as a boolean and this
+   * compares it to what renders, on every fixture that has a later shot to
+   * render -- the single-shot ones would agree with either value.
+   */
+  it('writes a cut time after a later header exactly when the spec says', () => {
+    const timed = /\[Shot [2-9]\d*\]\s*At \d\d:\d\d\.\d\d\d/;
+    // The pattern must be able to match before its silence means anything, and
+    // the vendor's own example is the known instance.
+    expect(examples.t2vaBakerExpected).toMatch(timed);
+
+    const multiShot = (Object.keys(FIXTURES) as (keyof typeof FIXTURES)[]).filter(
+      (mode) => FIXTURES[mode].shots.length > 1,
+    );
+    expect(multiShot.length, 'no fixture renders a later shot header').toBeGreaterThan(0);
+    for (const mode of multiShot) {
+      expect(timed.test(rendered(mode)), mode).toBe(contract.shotHeader.laterCarriesCutTime);
+    }
   });
 });
 
@@ -1128,17 +1149,36 @@ describe('each mode block carries its own worked example', () => {
     ['Ref2VA', examples.ref2vaCoffeeShopExpected],
   ] as const;
 
-  for (const [mode, expected] of cases) {
+  // As this build writes them: the vendor text less its header cut times, the
+  // owner ruling recorded as shot-header-no-cut-time. The "no other" half
+  // compares the same form, or it would be looking for text no prompt carries.
+  for (const [mode, vendor] of cases) {
     it(`${mode} shows the guide's example for ${mode}, and no other`, () => {
       const modeInput = { ...input, mode: mode as typeof input.mode };
       const prompt = buildPlannerSystemPrompt(normalize(modeInput), modeInput);
-      expect(prompt, `${mode} prompt is missing its worked example`).toContain(expected);
+      expect(prompt, `${mode} prompt is missing its worked example`).toContain(
+        examples.withoutHeaderTimes(vendor),
+      );
       for (const [other, otherText] of cases) {
         if (other === mode) continue;
-        expect(prompt, `${mode} also carries ${other}'s example`).not.toContain(otherText);
+        expect(prompt, `${mode} also carries ${other}'s example`).not.toContain(
+          examples.withoutHeaderTimes(otherText),
+        );
       }
     });
   }
+
+  // A model copies a demonstration more reliably than it follows a rule, so the
+  // example must not show the format the ruling removed. The pattern is proved
+  // able to match on the vendor's own text before its silence is believed.
+  it('shows no timed shot header in any mode', () => {
+    const timed = /\[Shot \d+\] At \d\d:\d\d\.\d\d\d,/;
+    expect(examples.ref2vaCoffeeShopExpected).toMatch(timed);
+    for (const [mode] of cases) {
+      const modeInput = { ...input, mode: mode as typeof input.mode };
+      expect(buildPlannerSystemPrompt(normalize(modeInput), modeInput), mode).not.toMatch(timed);
+    }
+  });
 
   // Wording proxy, and marked as one. There is no rendered shape that separates
   // "this is the output" from "return this", so it reads the words -- but the

@@ -3,8 +3,8 @@
  *
  * Three columns: what goes in, the document, and what comes out. The rendered
  * prompt on the right is never editable -- it is a view of the document, and
- * everything derived from it (alignment line, shot numbers, cut timestamps,
- * label ordinals) recomputes on every change.
+ * everything derived from it (alignment line, shot numbers, label ordinals)
+ * recomputes on every change.
  */
 
 import { useState } from 'react';

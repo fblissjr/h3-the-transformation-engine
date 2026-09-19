@@ -3,12 +3,12 @@
  *
  * This is the saved artifact. The H3 prompt text is a pure function of it --
  * see src/core/serialize. Nothing else in the app may hand-edit prompt text,
- * because derived values (alignment lines, shot numbers, cut times, label
- * ordinals) would immediately fall out of sync.
+ * because derived values (alignment lines, shot numbers, label ordinals) would
+ * immediately fall out of sync.
  *
  * Design rule that governs the whole model: BEATS CARRY PROSE. The planner
  * writes the actual sentences; the serializer only assembles structure around
- * them -- labels, timestamps, tags, section headers, ordering. Enums such as
+ * them -- labels, tags, section headers, alignment lines, ordering. Enums such as
  * `camera` are validated ANNOTATIONS on that prose, never a source the
  * serializer expands into sentences. H3 conditions on descriptive quality, and
  * a canned clause bolted onto a sentence is exactly the "detached command
@@ -166,6 +166,9 @@ export interface Shot {
   /**
    * Cut time in milliseconds. Null for Shot 1, which carries no timestamp.
    * Later shots must be strictly increasing and inside the video duration.
+   *
+   * The plan's pacing, and not rendered: no shot header carries a cut time,
+   * by the owner ruling recorded in the contract as `shot-header-no-cut-time`.
    */
   cutAtMs: number | null;
   /**

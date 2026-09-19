@@ -4,6 +4,10 @@
  * Byte equality, deliberately. A "close enough" assertion here would let the
  * exact strings the format depends on drift silently, which is the one failure
  * this project exists to prevent.
+ *
+ * Against the examples less their header cut times, which this build does not
+ * write (owner ruling, `shot-header-no-cut-time` in the contract). Everything
+ * else in them is still compared byte for byte.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -11,6 +15,7 @@ import { serialize, spanAt, rangeOf } from '../src/core/serialize';
 import { speakerRef } from '../src/core/serialize/shared';
 import { contextFor } from '../src/core/normalize';
 import { validate } from '../src/core/validate';
+import { withoutHeaderTimes } from '../src/core/ir/examples';
 import {
   fl2vaUmbrella,
   fl2vaUmbrellaExpected,
@@ -24,20 +29,57 @@ import {
 import { ref2vaCoffeeShop, ref2vaCoffeeShopExpected } from './fixtures/ref-example';
 
 const cases = [
-  { name: 'T2VA (base guide case 1)', doc: t2vaBaker, expected: t2vaBakerExpected },
-  { name: 'I2VA (base guide case 2)', doc: i2vaTrain, expected: i2vaTrainExpected },
-  { name: 'FL2VA (base guide case 3)', doc: fl2vaUmbrella, expected: fl2vaUmbrellaExpected },
-  { name: 'L2VA (base guide case 4)', doc: l2vaGlass, expected: l2vaGlassExpected },
-  { name: 'Ref2VA (ref guide section 7)', doc: ref2vaCoffeeShop, expected: ref2vaCoffeeShopExpected },
-];
+  { name: 'T2VA (base guide case 1)', doc: t2vaBaker, vendor: t2vaBakerExpected },
+  { name: 'I2VA (base guide case 2)', doc: i2vaTrain, vendor: i2vaTrainExpected },
+  { name: 'FL2VA (base guide case 3)', doc: fl2vaUmbrella, vendor: fl2vaUmbrellaExpected },
+  { name: 'L2VA (base guide case 4)', doc: l2vaGlass, vendor: l2vaGlassExpected },
+  { name: 'Ref2VA (ref guide section 7)', doc: ref2vaCoffeeShop, vendor: ref2vaCoffeeShopExpected },
+].map((c) => ({ ...c, expected: withoutHeaderTimes(c.vendor) }));
 
-describe('serializer reproduces the official worked examples', () => {
+describe('serializer reproduces the official worked examples, less their header cut times', () => {
   for (const { name, doc, expected } of cases) {
     it(name, () => {
       const { text } = serialize(doc, contextFor(doc));
       expect(text).toBe(expected);
     });
   }
+
+  // The comparison above cannot see the ruling on its own: a serializer still
+  // writing the times, paired with a withoutHeaderTimes that did nothing, would
+  // agree with it perfectly. These two read each half directly.
+  it('writes the later header with no cut time, the cut phrase opening the sentence', () => {
+    const { text } = serialize(t2vaBaker, contextFor(t2vaBaker));
+    expect(text).toContain('[Shot 2] The camera cuts to a close-up of steam');
+  });
+
+  it('does not read cutAtMs into the prompt at all', () => {
+    const moved = structuredClone(t2vaBaker);
+    moved.shots[1].cutAtMs = 7250;
+    expect(serialize(moved, contextFor(moved)).text).toBe(serialize(t2vaBaker, contextFor(t2vaBaker)).text);
+  });
+});
+
+describe('withoutHeaderTimes', () => {
+  // Two copies of one pattern, because a /g regex carries lastIndex between
+  // .test() calls and would skip matches in the filter below.
+  const timed = /\[Shot \d+\] At \d{2}:\d{2}\.\d{3},/;
+  const everyTimed = new RegExp(timed.source, 'g');
+
+  it('removes every header cut time the vendor examples carry', () => {
+    // The baker's Shot 2 and the coffee shop's Shots 2 and 3. Counted, so a
+    // pattern that stopped matching reads as a failure, not as nothing to do.
+    expect(cases.flatMap((c) => c.vendor.match(everyTimed) ?? [])).toHaveLength(3);
+    for (const { expected } of cases) expect(expected).not.toMatch(timed);
+  });
+
+  it('changes nothing but the time and the letter after it', () => {
+    expect(withoutHeaderTimes(t2vaBakerExpected)).toBe(
+      t2vaBakerExpected.replace('[Shot 2] At 00:05.000, the camera', '[Shot 2] The camera'),
+    );
+    for (const { vendor } of cases.filter((c) => !timed.test(c.vendor))) {
+      expect(withoutHeaderTimes(vendor)).toBe(vendor);
+    }
+  });
 });
 
 describe('official examples validate clean', () => {

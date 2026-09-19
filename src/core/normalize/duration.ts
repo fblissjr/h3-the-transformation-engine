@@ -2,10 +2,10 @@
  * Duration arithmetic.
  *
  * All of this is exact and none of it belongs in a prompt. The alignment line
- * carries a two-decimal duration, cut times are `MM:SS.mmm`, and frames convert
- * at a fixed rate -- a model asked to do this will mostly get it right, which is
- * the worst possible reliability profile for a value that appears in an exact
- * string.
+ * carries a two-decimal duration, the editor shows cut times as `MM:SS.mmm`,
+ * and frames convert at a fixed rate -- a model asked to do this will mostly
+ * get it right, which is the worst possible reliability profile for a value
+ * that appears in an exact string.
  */
 
 import { FPS, FRAME_BLOCK, FRAME_OFFSET } from '../ir/vocab';
@@ -31,10 +31,13 @@ export function formatDuration(seconds: number): string {
 }
 
 /**
- * Cut time as it appears before a shot: `MM:SS.mmm`.
+ * A cut time in the guides' `MM:SS.mmm` form.
  *
  * Minutes are always two digits. The guide's own examples use `00:03.500` for a
  * three-and-a-half second cut, so short clips still carry the leading `00:`.
+ * Nothing renders it into a prompt any more -- shot headers carry no cut time,
+ * by the owner ruling recorded as `shot-header-no-cut-time` -- so its one
+ * caller is the editor, showing the plan's pacing in the vendor's notation.
  */
 export function formatTimestamp(ms: number): string {
   if (!Number.isFinite(ms) || ms < 0) {
