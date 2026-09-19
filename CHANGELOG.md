@@ -76,6 +76,8 @@ All notable changes to this project are documented here. Semantic versioning.
 
   Checked against an outside grader that fails any shot header opening with a time. The engine's T2VA, I2VA and FL2VA renders pass it, and the vendor's own timed T2VA example fails it on exactly that rule. The engine's Ref2VA render trips no header rule there; its only failures are reference labels the grader's donor graph does not wire.
 
+  The planner schema lowercases `cutStyle` before matching it. The prompt now asks for the cut phrase capitalised, and a model that copied it into that field would otherwise fail an exact-match enum. That would be reported as a schema failure, when the model had done what it was told. Only the planner output folds case; the stored document's enum is unchanged, and so is the JSON schema the model is shown.
+
   A saved `planner:core` override replaces the core text whole, so one saved before this change still tells the model that later shots render as `[Shot N] At MM:SS.mmm,` until it is reset. The worked example is not overridable and is shown in the new form either way.
 
 - **Both system prompt preambles are claimed in the contract, and deliberately carry no anchor.** Owner ruling, 2026-09-06, closing F1. The text before the first heading of each prompt — the model's job, and for the planner the statement of invariant 1 — was described by no spec entry and reachable by no test, because `test/contract.test.ts` slices each block from its heading forward and a preamble has none. It is now `prompts.planner.preamble` and `prompts.patch.preamble`, with the reason for leaving it unasserted written into `noAnchor`.

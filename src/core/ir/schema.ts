@@ -63,6 +63,22 @@ const dialogueSchema = z.object({
 
 const cutStyleSchema = z.enum([...ORDINARY_CUTS, ...SPECIAL_CUTS]);
 
+/**
+ * The planner's `cutStyle`, lowercased on the way in.
+ *
+ * The prompt asks for the cut phrase capitalised, because with no cut time in
+ * front of it the phrase opens the sentence -- the owner ruling recorded in the
+ * contract as `shot-header-no-cut-time`. A model that copies the phrase it was
+ * told to write into this field did the right thing, and the exact-match enum
+ * would refuse it as a schema failure, which reads as the model failing to hold
+ * the shape. Every vocabulary value is lowercase, so folding the whole string
+ * loses nothing. Planner output only: the stored document keeps the exact enum.
+ */
+const plannedCutStyleSchema = z.preprocess(
+  (v) => (typeof v === 'string' ? v.toLowerCase() : v),
+  cutStyleSchema,
+);
+
 // ---------------------------------------------------------------------------
 // Stored document
 // ---------------------------------------------------------------------------
@@ -267,7 +283,7 @@ export const PlannedShotSchema = z.object({
     .min(0)
     .nullable()
     .describe('Cut time in milliseconds, pacing the plan; it is not written into the prompt. Must be null for the first shot.'),
-  cutStyle: cutStyleSchema.nullish(),
+  cutStyle: plannedCutStyleSchema.nullish(),
   camera: cameraSchema.nullish().describe('Annotation describing the camera work the prose expresses.'),
   beats: z.array(PlannedBeatSchema).min(1),
 });

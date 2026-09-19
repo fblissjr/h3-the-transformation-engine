@@ -89,6 +89,22 @@ describe('assemble', () => {
     expect(doc.speakers[0].ordinal).toBe(1);
   });
 
+  /**
+   * The prompt asks for the cut phrase capitalised, because with no cut time in
+   * front of it the phrase opens the sentence (shot-header-no-cut-time). A model
+   * that copies that phrase into `cutStyle` did what it was told, and an
+   * exact-match enum would report it as a schema failure -- a model holding the
+   * shape, read as one that could not. The fold is the planner's alone; the
+   * stored document's enum stays exact.
+   */
+  it('accepts the cut phrase in the case the prompt writes it, and stores the vocabulary form', () => {
+    const copied = structuredClone(plan) as Record<string, unknown> & PlannerOutput;
+    (copied.shots[1] as Record<string, unknown>).cutStyle = 'The camera cuts to';
+    const parsed = PlannerOutputSchema.safeParse(copied);
+    expect(parsed.success, parsed.error?.message).toBe(true);
+    expect(assemble(parsed.data!, input, ctx, { id: 'x' }).shots[1].cutStyle).toBe('the camera cuts to');
+  });
+
   it('forces the first shot to carry no timestamp whatever the planner said', () => {
     const withStray = structuredClone(plan);
     withStray.shots[0].cutAtMs = 1234;
