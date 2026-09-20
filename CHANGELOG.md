@@ -6,6 +6,36 @@ All notable changes to this project are documented here. Semantic versioning.
 
 ### Added
 
+- **CLAUDE.md and README.md are checked for pointers that resolve.** Between
+  them they name three dozen files, that list is maintained by hand, and nothing
+  guarded it -- so a rename in `src/` silently invalidated a pointer in the file
+  whose job is to tell the next reader where to look. A dead pointer is
+  invisible until someone follows it, and each one raises the expected cost of
+  looking anything up until re-deriving a thing is cheaper than finding it,
+  which is how a repo with a wiki, a contract and a rule table rebuilds what it
+  already has.
+
+  Shorthand resolves on purpose: these documents write `vocab.ts` and
+  `validate/rules/speech.ts`, and demanding repo-relative form everywhere would
+  fire on prose doing its job. A reference passes if it names exactly one
+  tracked file by full path or unique suffix, and ambiguity is reported too,
+  since a shorthand matching two files points at neither.
+
+  **It went red on its first real run, on something a hand measurement had
+  called clean.** `CLAUDE.md` cites `internal/prompt-audit_2026-09-06.md`, and
+  `internal/` is gitignored. The hand pass used disk existence as its oracle and
+  saw a file; the check uses the tracked set and saw nothing. Same question, two
+  oracles, opposite answers -- and the tracked set is the right one, because the
+  pointer is followable by whoever wrote it and by nobody else, which is a
+  failure invisible to exactly the person who can follow it.
+
+  So the two are separated rather than folded together: resolving to nothing is
+  rot and fails, existing-but-untracked is pinned per document as an allowlist
+  that grants. The citation now says in line that the note is unshared.
+
+  Breakage run: renaming one cited test in CLAUDE.md turns it red with the file
+  and line.
+
 - **The punctuation scope has a comparator, which is the durable half of the
   fix.** Correcting prose leaves the next divergence undetectable; the claim
   needed to be executable. `userSupplied` is now flipped on one identical line
