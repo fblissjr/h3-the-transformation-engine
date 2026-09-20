@@ -131,4 +131,55 @@ export const cutoffBaker: H3Document = (() => {
   return doc;
 })();
 
-export const EXERCISED = [voiceoverBaker, visibleTextBaker, crossCutBaker, cutoffBaker];
+/**
+ * Base 4.4: two speakers saying one line together, as `(S1,S2)`.
+ *
+ * The compound id is the construct with the widest gap between how often the
+ * guides name it and how often anything here carried one. Base 4.4 states it
+ * ("When multiple already-numbered speakers speak or sing together, use a
+ * compound ID such as `(S1,S2)`") and prints it in a worked line; the contract
+ * binds the literal by quotation against that guide. No document in this
+ * repository had one, so `COMPOUND_SPEAKER_INVALID` had only ever been shown to
+ * fire, `speakerRef` had only ever rendered single ids, and the prose-reference
+ * rule had never been asked whether `(S1,S2)` satisfies S1's requirement. Three
+ * greens arriving from the construct being absent rather than from anything
+ * agreeing.
+ *
+ * That last one is why this is worth a fixture rather than an assertion: the
+ * compound renderer is the one this repo has already had two of, and the copy
+ * it deleted sorted ordinals as strings and would have written `(S10,S2)`. A
+ * document that never contains a compound cannot tell the surviving renderer
+ * from that one.
+ */
+export const compoundSpeakerBaker: H3Document = (() => {
+  const doc = bakerShell('t2va-compound-speaker');
+  doc.speakers = [
+    { id: 'sp-1', ordinal: 1, descriptor: 'the middle-aged baker with a calm, slightly raspy voice' },
+    { id: 'sp-2', ordinal: 2, descriptor: 'the young apprentice with a bright, quick voice' },
+    {
+      id: 'sp-both',
+      ordinal: 3,
+      descriptor: 'the baker and the apprentice together',
+      compoundOf: ['sp-1', 'sp-2'],
+    },
+  ];
+  const beat = doc.shots[0].beats[0];
+  beat.speakerId = 'sp-both';
+  beat.prose =
+    'a wide shot of a bakery before sunrise as the baker and the apprentice (S1,S2) call out together: <d/>';
+  beat.dialogue = {
+    language: 'English',
+    text: 'First batch of the morning!',
+    voiceover: false,
+    userSupplied: false,
+  };
+  return doc;
+})();
+
+export const EXERCISED = [
+  voiceoverBaker,
+  visibleTextBaker,
+  crossCutBaker,
+  cutoffBaker,
+  compoundSpeakerBaker,
+];

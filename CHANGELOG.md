@@ -4,7 +4,36 @@ All notable changes to this project are documented here. Semantic versioning.
 
 ## [Unreleased]
 
+### Added
+
+- **A conformant `(S1,S2)`, which no document here had ever contained.**
+  `COMPOUND_SPEAKER_INVALID` had only ever been shown to fire; `speakerRef` had
+  only ever rendered single ids; and the prose-reference rule had never been
+  asked whether `(S1,S2)` satisfies S1's requirement. Three greens arriving from
+  the construct being absent rather than from anything agreeing -- the same
+  shape as a check that resolves because an unrelated counter type happens to
+  carry the name.
+
+  It matters most for the renderer. This repo has already had two compound
+  renderers, and the one it deleted sorted ordinals as strings and would have
+  written `(S10,S2)`. A corpus with no compound in it cannot tell the surviving
+  renderer from that one.
+
+  `compoundSpeakerBaker` joins `exercised.ts`, the file that exists for exactly
+  this and already covers voiceover, on-screen text, cut-crossing and cutoff.
+
 ### Changed
+
+- **The compound control's green half asked the wrong question.** Its `inspects`
+  predicate was `has.speakers` while the rule inspects `compoundOf`, so the
+  guard that exists to stop a vacuous green was itself satisfied by a fixture
+  with no compound in it. Now `has.compoundSpeaker`, with the control re-based
+  on the new fixture so the violation is a real compound truncated to one member
+  rather than a one-member `compoundOf` invented on a plain document.
+
+  Breakage run: pointing the base back at the plain baker turns two assertions
+  red, including "COMPOUND_SPEAKER_INVALID's fixture has nothing its rule
+  inspects" -- so the tightened guard catches precisely the state it replaced.
 
 - **`REF_SPEAKER_IN_RETENTION` records the scope of the sentence it rests on.**
   Third rule in the validator built on a sentence from ref 5.4, and two of the

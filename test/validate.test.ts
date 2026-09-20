@@ -25,6 +25,7 @@ import { i2vaTrain, t2vaBaker } from './fixtures/guide-examples';
 import { ref2vaCoffeeShop } from './fixtures/ref-example';
 import {
   EXERCISED,
+  compoundSpeakerBaker,
   crossCutBaker,
   cutoffBaker,
   visibleTextBaker,
@@ -77,6 +78,11 @@ const has = {
   slots: (d: H3Document) => d.slots.length > 0,
   camera: (d: H3Document) => d.shots.some((s) => s.camera != null),
   speakers: (d: H3Document) => d.speakers.length > 0,
+  // Narrower than `speakers` on purpose. The compound rule inspects
+  // `compoundOf`, and pointing its green half at "has any speaker" let the
+  // control sit on a fixture with no compound in it at all -- a proxy used
+  // silently, which is the failure the green-half check exists to catch.
+  compoundSpeaker: (d: H3Document) => d.speakers.some((s) => (s.compoundOf?.length ?? 0) > 0),
   dialogue: (d: H3Document) => anyBeat(d, (b) => b.dialogue != null),
   prose: (d: H3Document) => anyBeat(d, (b) => b.prose.trim() !== ''),
   visibleText: (d: H3Document) => anyBeat(d, (b) => b.visibleText.length > 0),
@@ -145,9 +151,14 @@ const CONTROLS: Control[] = [
   { code: 'SPEAKER_NOT_INTRODUCED', base: t2vaBaker, mutate: (d) => void (d.speakers[0].descriptor = ''), inspects: has.speakers },
   {
     code: 'COMPOUND_SPEAKER_INVALID',
-    base: t2vaBaker,
-    mutate: (d) => void (d.speakers[0].compoundOf = ['sp-baker']),
-    inspects: has.speakers,
+    base: compoundSpeakerBaker,
+    // Truncating a real compound to one member is the violation the rule names,
+    // and it needs a real compound to truncate. The base used to be the plain
+    // baker with a one-member `compoundOf` invented on it, which went red for
+    // the right reason while proving nothing about a document that legitimately
+    // contains `(S1,S2)`.
+    mutate: (d) => void (d.speakers.find((s) => s.compoundOf)!.compoundOf = ['sp-1']),
+    inspects: has.compoundSpeaker,
   },
 
   // --- dialogue -----------------------------------------------------------
