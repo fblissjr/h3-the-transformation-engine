@@ -4,6 +4,58 @@ All notable changes to this project are documented here. Semantic versioning.
 
 ## [Unreleased]
 
+### Changed
+
+- **Two punctuation rules were citing ref 5.4 for the complement of ref 5.4's
+  own scope.** `DIALOGUE_BAD_TERMINAL` and `DIALOGUE_DECORATIVE_PUNCT` are
+  reclassified as house. The guide sentence -- "End complete statements,
+  questions, and exclamations with `.`, `?`, or `!` respectively before `</d>`"
+  -- sits inside a paragraph governing dialogue "from reference audio ...
+  directly reused, or ... reperformance". Our rules fire on lines the planner
+  invented, which is precisely the set that paragraph does not reach.
+
+  Three scopes, and only two are guide-bound. User-typed dialogue is base 4.4's
+  "preserve every original word and punctuation mark verbatim", and the rules
+  already exempt it -- correctly, but for base 4.4's reason rather than the one
+  recorded. Dialogue reused from a reference audio is ref 5.4's, and it asks for
+  exact words *and* standardized punctuation; the planner prompt asks only for
+  the words, so that half is under-applied and is now an Open work item rather
+  than a blind fix. A line the planner invents is named by neither guide.
+
+  The marks themselves stay cited: `.`, `?`, `!` and the allowed set are from
+  that sentence, which is where they come from. The vocabulary notes say which
+  half is the guide's.
+
+  Same shape as the 350-500 word range recorded in CLAUDE.md, and caught the
+  same way it would have to be: no test could see it, because the planner prompt
+  and the diagnostic's justification are two derivations of one reading of one
+  sentence and never meet.
+
+- **`WORDS_PER_SECOND` says what it rests on.** One anchor, one free parameter,
+  no measurement, and rates between roughly 2 and 2.8 in circulation elsewhere
+  with none of them measured either. The one observed datum -- a script too long
+  for its clip, truncated mid-line at the same word in every arm -- is an
+  existence proof for the failure the ceiling guards and says nothing about the
+  value.
+
+- **`cutoff-placement` records what it deliberately does not rule.** Whether a
+  truncated line may keep a terminal mark. The coherence argument for banning
+  one is written down so it stays an argument: neither guide reaches the case,
+  and the nearest outside rule is an open item whose stated mechanism its own
+  author withdrew.
+
+- **CLAIM in CLAUDE.md corrected.** `reference/h3/README.md` was described as
+  mapping each guide section to the code derived from it. It does not and never
+  did; it covers pinning, the padded-copy hazard, and how the spec's claims are
+  checked. The per-line tracing is `contract.json`'s `guide` citations.
+
+- **Open work carries why the cheap prompt A/B does not work.** Most same-seed
+  pairs are two takes rather than one take with a difference, so a reference
+  metric against the other arm measures the performance and not the prompt. The
+  entry now names what would answer the question instead, and says that
+  `shot-header-no-cut-time` rests on exactly the instrument this disqualifies --
+  which is why it is recorded as a decision and not a finding.
+
 ### Fixed
 
 - **A keyframe's `<Picture N>` is the guide's, not the connection order's.** The

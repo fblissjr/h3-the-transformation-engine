@@ -24,6 +24,20 @@ export const MS_PER_BEAT = 2_500;
  * own worked examples rather than guessed: the ref-guide's three-line, 18-word
  * exchange runs about eight seconds, and a budget that flagged the official
  * example would have been trained-to-ignore from day one.
+ *
+ * One anchor, one free parameter, and no measurement. The anchor fixes a rate
+ * form exactly and says nothing about the shape: a form with an intercept fits
+ * the same point and diverges from this one by up to 1.8x in the short-shot
+ * regime, where there is no data at all. Rates between roughly 2 and 2.8 are in
+ * circulation elsewhere and none of them is measured either, so do not cite
+ * this number as a finding or let a nearby constant inherit authority from it.
+ *
+ * What HAS been observed, once, on someone else's render rather than here: a
+ * clip whose script was too long for its length had its final narration line
+ * stop partway, at the same word in every arm of an unrelated comparison, while
+ * the sound kept its energy to the end. That is an existence proof for the
+ * failure this ceiling guards against and for nothing about its value -- it
+ * gives a direction, not a rate. n=1, one scene, not blind.
  */
 export const WORDS_PER_SECOND = 2.5;
 
