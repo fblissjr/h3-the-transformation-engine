@@ -36,6 +36,21 @@ All notable changes to this project are documented here. Semantic versioning.
   Breakage run: renaming one cited test in CLAUDE.md turns it red with the file
   and line.
 
+  *Appended, same release:* the extension list turned out to be the scoping
+  mechanism rather than a convenience, which was not understood when this
+  landed. An audit of what it silently skipped found seven file-shaped
+  citations, and they split along a line worth stating: `index.html` and
+  `bun.lock` are tracked here and were genuine false negatives, while
+  `models.toml` is another machine's server config, `generativelanguage.googleapis.com`
+  is a hostname, and `doc.roll`, `record.doc.shots.length` and
+  `interactions.delete` are code expressions shaped like dotted paths. Four of
+  the seven would become false positives the moment the grammar recognised "a
+  path" instead of a known extension. So the list is an allowlist that grants
+  coverage, now pinned and explained; the two real misses are closed, and
+  widening it further is a commitment to resolving foreign roots rather than a
+  tidy-up. The check was affordable by accident before this, and is affordable
+  on purpose now.
+
 - **The punctuation scope has a comparator, which is the durable half of the
   fix.** Correcting prose leaves the next divergence undetectable; the claim
   needed to be executable. `userSupplied` is now flipped on one identical line

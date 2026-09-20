@@ -82,7 +82,27 @@ describe('the wiki describes code that exists', () => {
  * checked a path existed while pointing at the wrong file.
  */
 describe('the governing documents point at files that exist', () => {
-  const REFERENCE = /`([A-Za-z0-9_./-]+\.(?:ts|tsx|mjs|js|json|md|py))`/g;
+  /**
+   * The extension list is the scoping mechanism, and it is load-bearing.
+   *
+   * It looks like an arbitrary convenience and is the reason this check is
+   * cheap. These documents cite file-shaped things from four different worlds:
+   * this repository, another machine's server config (`models.toml`), a
+   * hostname, and code expressions that look like dotted paths
+   * (`doc.roll`, `record.doc.shots.length`, `interactions.delete`). A resolver
+   * that recognised "a path" would report all of those as unresolved, and the
+   * only fix would be teaching it which root each one hangs from -- which is
+   * the expensive half, and the reason a repo-relative convention is what makes
+   * this style of check affordable elsewhere.
+   *
+   * So the list is an allowlist that grants coverage, pinned deliberately:
+   * every extension here belongs to a file this repository tracks. Widening it
+   * is not a tidy-up, it is a commitment to resolving foreign roots. `html` and
+   * `lock` were added after an audit found `index.html` and `bun.lock` cited
+   * and unchecked -- real false negatives the original list dropped silently,
+   * which is the same shape as the foreign roots it drops correctly.
+   */
+  const REFERENCE = /`([A-Za-z0-9_./-]+\.(?:ts|tsx|mjs|js|json|md|py|html|lock))`/g;
 
   /**
    * Cited files that exist here and are outside the repository, per document.
