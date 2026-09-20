@@ -6,6 +6,39 @@ All notable changes to this project are documented here. Semantic versioning.
 
 ### Added
 
+- **The keyframe table is now checked against something other than itself.**
+  `pictureOrdinalRoles` cited base 3.1, 3.2 and 3.3 in prose and nothing
+  executable connected it to them. Inverting the L2VA cell in the spec and the
+  constant together -- claiming Picture 1 is the *first* frame, which base 3.3
+  states in the opposite direction and goes out of its way to deny -- left the
+  whole suite green. Spec and code agreed with each other and neither agreed
+  with the vendor.
+
+  The oracle is the alignment template, which is a different derivation of the
+  same fact and is pinned byte-for-byte to the guide by `guide-fidelity`: 2.1's
+  line independently says which Picture sits at the opening and which at the
+  end. The check reads the table and asserts the template puts each bound
+  ordinal at the moment its role names. Both directions were run: L2VA inverted
+  to `first_frame` and I2VA inverted to `last_frame` each go red with the mode
+  and the disagreement named. `0.00` and `{S.SS}` are wording proxies for the
+  two moments and are named as proxies in the test.
+
+  The behaviour test beside it is deliberately left vacuous for one-picture
+  modes and now says why. `modeMatchesSlots` requires exactly one image for
+  I2VA and L2VA, so no valid document in either mode has a second picture for
+  the sort to move. Adding a decoy would buy a red at the price of asserting on
+  a document the validator rejects, against a property no valid document can
+  express. Two properties, two checks, and the comment points at the other one.
+
+- **A citation to a house entry that does not exist now fails.** The spec cites
+  its own `notInTheGuides` ids in prose and nothing resolved them; one shipped
+  dangling here for two commits and was caught by eye. The grammar is three
+  phrasings rather than a proximity scan, because proximity also flags
+  `full-reference` and `glitch-mark` out of ordinary prose. `music-default` is
+  pinned as a withdrawn exemption -- an allowlist that grants, which is the safe
+  direction to pin. Control run: renaming an item id turns it red and names the
+  path that cites it.
+
 - **The planner expands a name into a visual phrase.** A proper noun -- person,
   character, place, brand -- corresponds to nothing visible on its own, and base
   4.1 states that every detail should correspond to something visible or
@@ -35,10 +68,14 @@ All notable changes to this project are documented here. Semantic versioning.
   custom node emits in list order, so a standalone audio can precede a video,
   which is what this rule produces; stock core walks fixed per-kind sockets and
   cannot express an interleaved arrangement, so its `<Audio 1>` and ours can
-  name different assets. The list-order half was read from the custom node's own
-  ordering module; the stock-core half is that module's account of core rather
-  than core read here, and is recorded as attributed and unverified, with the
-  two upstream files named so it can be settled against a pinned commit.
+  name different assets. The stock-core ordering is read
+  first-hand at upstream commit `6338e4bd`: three sequential loops,
+  `ref_images`, then `ref_videos` with a soundtrack's audio entry appended
+  immediately before its own video entry, then `ref_audios`. Pinned, with line
+  numbers, and re-derivable by anyone. The per-kind counter half is not taken
+  from that source at all -- it is ref 2.5's own sentence, so this build follows
+  the guide rather than a consumer for it. The custom node's list-order
+  behaviour remains a recorded observation, since that tree is untracked here.
 
 ### Changed
 

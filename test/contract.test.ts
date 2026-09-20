@@ -384,10 +384,65 @@ describe('output shape matches the spec', () => {
        *
        * The slots are built in the order that breaks the binding if anything
        * can -- reversed -- because connection order is what `assignLabels`
-       * otherwise follows. A mode with one picture reverses to itself and
-       * cannot fail, which is correct: a single image takes ordinal 1 whatever
-       * its role.
+       * otherwise follows.
+       *
+       * **A mode with one bound picture reverses to itself and cannot fail, and
+       * that is the correct shape rather than a hole.** `modeMatchesSlots`
+       * requires exactly one image for I2VA and L2VA, so no valid document in
+       * either mode has a second picture for the sort to move; the ordinal is 1
+       * whatever the table says. Adding a decoy image would make this assertion
+       * bite, at the cost of asserting on a document the validator rejects and
+       * a property no valid document can express.
+       *
+       * So this test covers one property -- assignLabels respects the table --
+       * and covers it only where a valid document can distinguish the answer.
+       * The other property, that the table tells the truth about the guide, is
+       * a separate question and is not reachable from here: inverting the L2VA
+       * cell in the spec and the constant together leaves this green, because
+       * both sides then agree. That is what the template check above exists
+       * for, and the pair should be read together.
        */
+      /**
+       * The table's own cells, against an artifact that is not the table.
+       *
+       * The behaviour test below can only see a cell in a mode with two
+       * pictures, because with one picture the ordinal is forced whatever role
+       * the table names: `L2VA: ['last_frame']` and `L2VA: ['first_frame']`
+       * produce identical labels. Measured -- inverting that cell, which base
+       * 3.3 states in the opposite direction and goes out of its way to say so,
+       * left all 1136 tests green. The cell the guide inverts was the one cell
+       * nothing checked.
+       *
+       * The alignment template is the oracle because it is a different
+       * derivation of the same fact: 2.1's line, pinned byte-for-byte against
+       * the guide by the fidelity test, independently says which Picture sits
+       * at the opening and which at the end. I2VA puts Picture 1 at 0.00
+       * seconds, L2VA puts Picture 1 at the duration, FL2VA splits them.
+       *
+       * `0.00` and `{S.SS}` are proxies for "the opening moment" and "the
+       * ending moment", named here as proxies: a guide revision that reworded
+       * the template without changing the binding would fail this, and the
+       * right response then is to reread the line, not to loosen the check.
+       */
+      it('places each bound ordinal at the moment its role names', () => {
+        const roles = (spec as { ordinalRoles?: Record<string, string> | null }).ordinalRoles ?? null;
+        const template = spec.alignment;
+        if (roles === null || template == null) return;
+        for (const [ref, role] of Object.entries(roles)) {
+          const ordinal = ref.replace('Picture ', '');
+          const clause = template
+            .split(';')
+            .find((part) => new RegExp(`<?Picture ${ordinal}>?\\b`).test(part));
+          expect(clause, `${mode}: no clause names ${ref}`).toBeDefined();
+          const opens = clause!.includes('0.00');
+          const ends = clause!.includes('{S.SS}');
+          expect(
+            role === 'first_frame' ? opens && !ends : ends && !opens,
+            `${mode}: the template puts ${ref} at ${opens ? 'the opening' : ends ? 'the end' : 'neither moment'}, but the table calls it the ${role}`,
+          ).toBe(true);
+        }
+      });
+
       it('binds picture ordinals to the roles the guide names', () => {
         const roles = (spec as { ordinalRoles?: Record<string, string> | null }).ordinalRoles ?? null;
         if (roles === null) {
@@ -1363,5 +1418,62 @@ describe('the spec points at things that exist', () => {
     }
     // Not vacuous: every item contributed at least one path.
     expect(checked).toBeGreaterThanOrEqual(contract.notInTheGuides.items.length);
+  });
+
+  /**
+   * A cross-reference to an entry that is not there.
+   *
+   * The spec cites its own house entries by id in prose -- "recorded as X in
+   * notInTheGuides" -- and nothing resolved those. One was shipped dangling in
+   * this repo for two commits and found by eye; a neighbouring project shipped
+   * the same class pointing at a deleted script and nothing caught it at all.
+   * A citation that resolves to nothing reads exactly like one that resolves,
+   * which is what makes it worth a check rather than a habit.
+   *
+   * The grammar is narrow on purpose, and that is the proxy being named. A
+   * proximity scan -- any id-shaped token near the word notInTheGuides -- also
+   * flags `full-reference` and `glitch-mark` out of ordinary prose, so it would
+   * have to be loosened until it stopped catching anything. These three
+   * phrasings are what the spec actually writes; a fourth phrasing added later
+   * is invisible here, which is a fact about this check and not about the spec.
+   *
+   * WITHDRAWN is an exemption list, so pinning it is the safe direction: it
+   * grants an exception rather than restricting what is checked, and each entry
+   * is an id the spec deliberately names as gone.
+   */
+  it('resolves every house entry the spec cites by id', () => {
+    const ids = new Set(contract.notInTheGuides.items.map((i) => i.id));
+    const WITHDRAWN = new Set([
+      // The music lean was reverted; a separate test asserts this id is absent,
+      // and the prose naming it is what tells a reader it was withdrawn rather
+      // than quietly reworded.
+      'music-default',
+    ]);
+    const token = '`?([a-z0-9]+(?:-[a-z0-9]+){1,4})`?';
+    const patterns = [
+      new RegExp(`notInTheGuides as ${token}`, 'g'),
+      new RegExp(`${token}(?: entry)? in notInTheGuides`, 'g'),
+    ];
+
+    const cited: [string, string][] = [];
+    const walk = (node: unknown, path: string) => {
+      if (typeof node === 'string') {
+        for (const pattern of patterns) {
+          for (const m of node.matchAll(pattern)) cited.push([path, m[1]]);
+        }
+      } else if (Array.isArray(node)) {
+        node.forEach((v, i) => walk(v, `${path}[${i}]`));
+      } else if (typeof node === 'object' && node !== null) {
+        for (const [k, v] of Object.entries(node)) walk(v, path ? `${path}.${k}` : k);
+      }
+    };
+    walk(contract, '');
+
+    // Guards the walker, not the spec: a grammar that matched nothing would
+    // leave the assertion below vacuously green.
+    expect(cited.length, 'the citation grammar found nothing to resolve').toBeGreaterThan(2);
+
+    const dangling = cited.filter(([, id]) => !ids.has(id) && !WITHDRAWN.has(id));
+    expect(dangling.map(([path, id]) => `${path} cites ${id}, which is not an entry`)).toEqual([]);
   });
 });
