@@ -480,9 +480,24 @@ describe('dialogue punctuation scope', () => {
   });
 
   it('strips decorative punctuation from a fragment all the same', () => {
-    // Only the terminal-mark half is scoped to complete utterances. ref 5.4's
-    // decorative-punctuation clause is unconditional, and this is the assertion
-    // that keeps the narrowing on one branch.
+    // Only the terminal-mark half is scoped to complete utterances, so this is
+    // the assertion that keeps the narrowing on one branch.
+    //
+    // The reason used to read "ref 5.4's decorative-punctuation clause is
+    // unconditional". It is not: that clause sits inside the paragraph opening
+    // "When dialogue, narration, or lyrics from reference audio are directly
+    // reused...", so it governs words taken from a source and not words a
+    // planner invented. Both punctuation rules are house, recorded as
+    // dialogue-punctuation-scope. The behaviour here is unchanged and still
+    // wanted -- it is the house rule that is unconditional across complete and
+    // fragmentary lines alike -- but it is not the guide saying so.
+    //
+    // Not covered, deliberately, and the sharp edge is worth knowing: the
+    // planner prompt names "a line that trails off" as a fragment case, and the
+    // obvious rendering of one is an ellipsis, which `\.{2,}` rejects. The only
+    // legal form is bare unpunctuated text. That follows from the same prompt
+    // forbidding repeated marks, so the two agree, but a planner that does the
+    // right thing conceptually can still land on the wrong string.
     const doc = supplied((d) => {
       const dialogue = d.shots[0].beats[2].dialogue!;
       dialogue.userSupplied = false;
