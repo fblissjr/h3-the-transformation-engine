@@ -287,6 +287,7 @@ export function App() {
 
           <SlotManager
             slots={e.slots}
+            mode={e.mode}
             onChange={e.setSlots}
             canAnalyzeVideo={Boolean(e.apiKey && e.provider === 'gemini')}
             videoAnalysisDisabledReason={

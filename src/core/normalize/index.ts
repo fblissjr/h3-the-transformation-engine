@@ -59,7 +59,7 @@ export function normalize(input: CompileInput): NormalizedContext {
     latestCutMs: latestCutMs(seconds),
     recommendedShots: recommendedShots(seconds),
     spokenWordBudget: spokenWordBudget(seconds),
-    labels: assignLabels(input.slots),
+    labels: assignLabels(input.slots, mode),
   };
 }
 
@@ -85,6 +85,6 @@ export function contextFor(doc: {
     latestCutMs: latestCutMs(doc.durationSeconds),
     recommendedShots: recommendedShots(doc.durationSeconds),
     spokenWordBudget: spokenWordBudget(doc.durationSeconds),
-    labels: assignLabels(doc.slots),
+    labels: assignLabels(doc.slots, doc.mode),
   };
 }

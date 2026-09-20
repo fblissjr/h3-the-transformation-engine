@@ -247,6 +247,32 @@ export const FRAME_ANCHOR_ROLES: readonly SlotRole[] = [
   'storyboard',
 ];
 
+/**
+ * Which frame role each Picture ordinal is bound to, per mode.
+ *
+ * Index `i` is `<Picture i+1>`. `null` means the guides bind nothing and
+ * connection order decides.
+ *
+ * The base guide states the binding three times and does not say the same thing
+ * twice: 3.1 gives I2VA's Picture 1 to the first frame, 3.2 gives FL2VA
+ * "Picture 1 is the opening, and Picture 2 is the ending", and 3.3 gives L2VA's
+ * Picture 1 to the *final* frame -- "it does not inherently belong to Shot 1".
+ * So this is a table and not a rule like "first frames come first", which would
+ * be false of L2VA and would make any check built on it fire on every legitimate
+ * document in that mode.
+ *
+ * Ref2VA is null deliberately. ref 2.5 says an index "indicates only the label's
+ * order within its own category" and says nothing about what sets that order, so
+ * the house connection-order rule stands there and is recorded as such.
+ */
+export const PICTURE_ORDINAL_ROLES: Record<H3Mode, readonly SlotRole[] | null> = {
+  T2VA: null,
+  I2VA: ['first_frame'],
+  FL2VA: ['first_frame', 'last_frame'],
+  L2VA: ['last_frame'],
+  Ref2VA: null,
+};
+
 /** Roles that describe reusable visible content, folded into a Subject. */
 export const SUBJECT_CONTENT_ROLES: readonly SlotRole[] = [
   'identity',

@@ -4,6 +4,46 @@ All notable changes to this project are documented here. Semantic versioning.
 
 ## [Unreleased]
 
+### Fixed
+
+- **A keyframe's `<Picture N>` is the guide's, not the connection order's.** The
+  base guide binds an ordinal to a frame role three times -- 3.1 for I2VA, 3.2
+  for FL2VA ("Picture 1 is the opening, and Picture 2 is the ending"), 3.3 for
+  L2VA -- and `assignLabels` numbered pictures by slot position alone. Attaching
+  the last frame first therefore put `<Picture 1>` on it, while the FL2VA
+  alignment line, a fixed template, still said Picture 1 was the 0.00-second
+  frame. The two frames swapped in the rendered prompt and nothing reported it:
+  the mode check only asks that both roles are present. Reachable from the UI,
+  whose slot list reorders freely.
+
+  **The binding is a table and not a rule.** 3.2 and 3.3 disagree with each
+  other: FL2VA's Picture 1 is the opening, L2VA's is the ending. A check phrased
+  as "Picture 1 is the first frame" would fire on every legitimate L2VA
+  document, which is the failure mode seventeen removed rules already
+  demonstrated. So `PICTURE_ORDINAL_ROLES` is per mode, with `null` meaning the
+  guides bind nothing and connection order decides. Ref2VA is `null` on purpose:
+  ref 2.5 says an index indicates only the label's order within its own
+  category and says nothing about what sets that order.
+
+  The spec entry went in first and the contract test went red on FL2VA alone,
+  which is the right shape -- it is the only mode with two pictures, and the
+  slots are built reversed so connection order breaks the binding if anything
+  can. `assignLabels` now takes the mode, so a caller cannot silently get the
+  old numbering; `SlotManager` takes it as a prop rather than deriving a label
+  the compiled document would not use.
+
+  No diagnostic was added. Labels are derived and never stored, and `contextFor`
+  is the only path to them, so a validator rule reading `ctx.labels` would be
+  asserting against the output of the function that now guarantees it -- red
+  only under a hand-built context, which is a control that proves nothing.
+
+- **`wiki/core_serialize.md` called the word Picture a code symbol.** The tier-3
+  check resolved it only because `labels.ts` happened to carry `'Picture'` as a
+  key in a counter type; deleting that key in the fix above turned the check
+  red. It is prose about a token inside a template string, so it loses the
+  backticks. A green that came from somewhere other than the claim, found by
+  changing something else.
+
 ### Added
 
 - **`SHOT_HEADER_IN_PROSE`: a beat may not write the shot header the serializer owns.** Invariant 2 makes that structure the serializer's, so a beat carrying `[Shot 2]` renders the header twice with two cut times that disagree — and before this rule the whole document validated at zero diagnostics. That is provable from the document and its own derived values, which is what makes it a diagnostic rather than a preference.

@@ -42,13 +42,14 @@ import { describe, expect, it } from 'vitest';
 import contract from '../reference/h3/contract.json';
 import * as vocab from '../src/core/ir/vocab';
 import * as examples from '../src/core/ir/examples';
-import type { H3Mode } from '../src/core/ir/vocab';
+import type { H3Mode, SlotRole } from '../src/core/ir/vocab';
 import { serialize } from '../src/core/serialize';
 import { DIALOGUE_PLACEHOLDER } from '../src/core/serialize/shared';
 import { contextFor, normalize } from '../src/core/normalize';
+import { assignLabels } from '../src/core/normalize/labels';
 import { buildPlannerSystemPrompt } from '../src/provider/prompts/planner';
 import { buildPatchSystemPrompt } from '../src/provider/prompts/patch';
-import type { CompileInput } from '../src/core/ir/types';
+import type { CompileInput, ReferenceSlot } from '../src/core/ir/types';
 import type { CreativeModeRecord } from '../src/core/creative';
 import * as creative from '../src/core/creative';
 import {
@@ -370,6 +371,46 @@ describe('output shape matches the spec', () => {
         expect(spec.firstShotHasTimestamp).toBe(false);
         const first = text.indexOf('[Shot 1]');
         expect(text.slice(first, first + 20)).not.toMatch(/\[Shot 1\] At \d/);
+      });
+
+      /**
+       * The ordinal a keyframe gets is the guide's, not the user's.
+       *
+       * base 3.1, 3.2 and 3.3 each bind a Picture ordinal to a frame role, and
+       * they do not agree with each other: FL2VA's Picture 1 is the opening,
+       * L2VA's is the ending. So this reads the binding per mode out of the
+       * spec rather than encoding "first frames come first", which would be
+       * false of L2VA and would fire on every legitimate document in it.
+       *
+       * The slots are built in the order that breaks the binding if anything
+       * can -- reversed -- because connection order is what `assignLabels`
+       * otherwise follows. A mode with one picture reverses to itself and
+       * cannot fail, which is correct: a single image takes ordinal 1 whatever
+       * its role.
+       */
+      it('binds picture ordinals to the roles the guide names', () => {
+        const roles = (spec as { ordinalRoles?: Record<string, string> | null }).ordinalRoles ?? null;
+        if (roles === null) {
+          // A mode with no binding says so in a sentence, so that "absent"
+          // and "nobody wrote it down" are different states.
+          expect(typeof (spec as { ordinalRolesNote?: unknown }).ordinalRolesNote).toBe('string');
+          return;
+        }
+        const entries = Object.entries(roles);
+        const slots: ReferenceSlot[] = [...entries].reverse().map(([, role], i) => ({
+          id: `slot-${i}`,
+          order: i,
+          kind: 'image',
+          roles: [role as SlotRole],
+          description: '',
+        }));
+        const labels = assignLabels(slots, mode as H3Mode);
+        for (const [ref, role] of entries) {
+          const label = labels.find((l) => l.ref === `<${ref}>`);
+          expect(label, `${mode} assigns no ${ref}`).toBeDefined();
+          const slot = slots.find((s) => s.id === label!.slotId);
+          expect(slot!.roles, `${mode}: ${ref} landed on the wrong frame`).toContain(role);
+        }
       });
     });
   }

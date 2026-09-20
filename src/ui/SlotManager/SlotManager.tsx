@@ -18,6 +18,7 @@ import {
   SLOT_CEILINGS,
   SUBJECT_CONTENT_ROLES,
   VIDEO_STRUCTURE_ROLES,
+  type H3Mode,
   type MediaKind,
   type SlotRole,
 } from '../../core/ir/vocab';
@@ -38,6 +39,13 @@ function kindOf(file: File): MediaKind | null {
 
 interface Props {
   slots: ReferenceSlot[];
+  /**
+   * The labels a picture gets depend on it: base 3.1/3.2/3.3 bind an ordinal to
+   * a frame role. Passing the wrong mode here would show a label the compiled
+   * document does not use, which is the picker-disagrees-with-the-document bug
+   * this repo has already shipped once.
+   */
+  mode: H3Mode;
   onChange: (slots: ReferenceSlot[]) => void;
   canAnalyzeVideo?: boolean;
   videoAnalysisDisabledReason?: string;
@@ -49,12 +57,13 @@ interface Props {
 
 export function SlotManager({
   slots,
+  mode,
   onChange,
   canAnalyzeVideo,
   videoAnalysisDisabledReason,
   onAnalyzeVideo,
 }: Props) {
-  const labels = assignLabels(slots);
+  const labels = assignLabels(slots, mode);
   const counts = countByKind(slots);
   const fileMapRef = useRef<Map<string, File>>(new Map());
   const [analyzingStatus, setAnalyzingStatus] = useState<Record<string, string>>({});

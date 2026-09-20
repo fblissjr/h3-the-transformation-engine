@@ -70,7 +70,7 @@ const audioLine: RetentionEntry = {
 
 describe('a video whose soundtrack is used', () => {
   it('yields two standalone labels', () => {
-    const labels = assignLabels([SOURCE_VIDEO]);
+    const labels = assignLabels([SOURCE_VIDEO], 'Ref2VA');
     expect(labels.map((l) => l.ref)).toEqual(['<Video 1>', '<Audio 1>']);
     expect(labels.every((l) => l.standalone)).toBe(true);
   });
@@ -78,7 +78,7 @@ describe('a video whose soundtrack is used', () => {
   /** An ordinary reference video does not create an Audio label. Ref 2.5. */
   it('yields one when the soundtrack has no job', () => {
     const quiet = { ...SOURCE_VIDEO, roles: ['edit_source'] as ReferenceSlot['roles'] };
-    expect(assignLabels([quiet]).map((l) => l.ref)).toEqual(['<Video 1>']);
+    expect(assignLabels([quiet], 'Ref2VA').map((l) => l.ref)).toEqual(['<Video 1>']);
   });
 });
 

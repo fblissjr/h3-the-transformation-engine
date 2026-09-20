@@ -98,7 +98,7 @@ export const ALIGNMENT_TEMPLATES: Record<H3Mode, string | null> = {
 
 ### Critical Syntactic Differences:
 1. **Bracket Asymmetry between FL2VA and L2VA**:
-   - **FL2VA**: Uses bare `Picture 1 (from Shot 1)` and `Picture 2 (from Shot {N})` **without** angle brackets around `Picture` and **without** square brackets around `Shot`! An em dash (`—`, `U+2014`) follows the opening clause.
+   - **FL2VA**: Uses bare `Picture 1 (from Shot 1)` and `Picture 2 (from Shot {N})` **without** angle brackets around the word Picture and **without** square brackets around `Shot`! An em dash (`—`, `U+2014`) follows the opening clause.
    - **L2VA**: Uses bracketed `<Picture 1>` and bracketed `[Shot {N}]` with an em dash (`—`, `U+2014`).
    - **I2VA**: Uses bracketed `<Picture 1>` and bracketed `[Shot 1]` with no em dash (`For the target video, at 0.00 seconds...`).
 2. **Substitutions**:
