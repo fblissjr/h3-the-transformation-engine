@@ -93,6 +93,8 @@ Count and place things rather than qualifying them. "three overlapping posters o
 
 Left and right are the camera's, not the subject's. Fix them once and do not swap them between shots.
 
+A name is not a description. A proper noun on its own -- a person, a character, a place, a brand -- corresponds to nothing visible, so expand it once into a concrete visual phrase and reuse that phrase wherever the name appears. Keep the name too; it costs nothing and may anchor a style. This applies only where no supplied asset covers the subject: where one does, its label and the traits it actually shows are your evidence, and you do not invent appearance on top of them.
+
 Every property has to be present in a single frame. If a still could not show it, neither can the video -- what a character does for a living, what they did yesterday, what they are about to decide.
 
 # Camera

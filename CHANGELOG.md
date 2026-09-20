@@ -4,6 +4,42 @@ All notable changes to this project are documented here. Semantic versioning.
 
 ## [Unreleased]
 
+### Added
+
+- **The planner expands a name into a visual phrase.** A proper noun -- person,
+  character, place, brand -- corresponds to nothing visible on its own, and base
+  4.1 states that every detail should correspond to something visible or
+  audible, naming subject appearance among them. So the requirement is the
+  guide's; only the mechanism, expand once and reuse the phrase verbatim, is
+  house. The name is kept as well.
+
+  Scoped to subjects no supplied asset covers. That is not a truce with the
+  anti-inference rule in `# Reference assets`, it is the other side of it: where
+  an asset supplies the character you cite what it shows and invent nothing;
+  where nothing supplies them, something has to describe them or the model draws
+  someone plausible-adjacent.
+
+  The block it joins already records a rule dropped for firing on the guides'
+  own examples, so the same check was run: neither guide uses a bare proper noun
+  as a subject anywhere, and the single proper noun in either -- a dog breed --
+  is written exactly the way this asks, kept and expanded into traits. That
+  refutes nothing, which is all a fixture grep can do in this direction.
+
+- **`reference-label-ordinals` in the contract.** The house rule that connection
+  order drives ordinals wherever no guide binds one, which after the keyframe
+  fix means Picture in Ref2VA and Video and Audio everywhere. ref 2.5 is the
+  only sentence near the question and underdetermines it.
+
+  It carries a consumer note, because the fact is only true of one reader: the
+  two ComfyUI nodes that build H3 conditioning order references differently. The
+  custom node emits in list order, so a standalone audio can precede a video,
+  which is what this rule produces; stock core walks fixed per-kind sockets and
+  cannot express an interleaved arrangement, so its `<Audio 1>` and ours can
+  name different assets. The list-order half was read from the custom node's own
+  ordering module; the stock-core half is that module's account of core rather
+  than core read here, and is recorded as attributed and unverified, with the
+  two upstream files named so it can be settled against a pinned commit.
+
 ### Changed
 
 - **Two punctuation rules were citing ref 5.4 for the complement of ref 5.4's
