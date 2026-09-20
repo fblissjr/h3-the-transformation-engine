@@ -446,6 +446,37 @@ describe('dialogue punctuation scope', () => {
     expect(i2vaTrain.shots[0].beats[2].dialogue?.userSupplied).toBe(true);
   });
 
+  /**
+   * The scope, as one executable statement.
+   *
+   * This is the comparator the scope did not have. The claim -- these two codes
+   * fire on lines the planner wrote and not on words the user typed -- existed
+   * in four prose copies, and two of them disagreed with the other two for as
+   * long as anyone had written it down. Nothing compared them, because prose
+   * cannot be compared to prose.
+   *
+   * The assertions either side of this one each pin one state of one text, so
+   * between them they never say that `userSupplied` is what moved. Here the
+   * text is identical in both runs and the flag is the only difference, which
+   * is what makes this a statement about the scope rather than about two
+   * strings. Both codes, because the prose disagreement was specifically about
+   * whether the decorative clause was scoped like the terminal one.
+   */
+  it('fires on exactly the lines the planner wrote, with the flag as the only difference', () => {
+    const TEXT = 'I get off... at the next station!!!';
+    const withFlag = (userSupplied: boolean) =>
+      codesFor(
+        supplied((d) => {
+          const dialogue = d.shots[0].beats[2].dialogue!;
+          dialogue.userSupplied = userSupplied;
+          dialogue.text = TEXT;
+        }),
+      ).filter((c) => c.startsWith('DIALOGUE_'));
+
+    expect(withFlag(true)).toEqual([]);
+    expect(withFlag(false)).toContain('DIALOGUE_DECORATIVE_PUNCT');
+  });
+
   it('leaves decorative punctuation alone in a supplied line', () => {
     const doc = supplied((d) => void (d.shots[0].beats[2].dialogue!.text = 'I get off... at the next station!!!'));
     expect(codesFor(doc)).not.toContain('DIALOGUE_DECORATIVE_PUNCT');

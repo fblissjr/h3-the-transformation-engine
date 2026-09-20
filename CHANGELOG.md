@@ -4,6 +4,19 @@ All notable changes to this project are documented here. Semantic versioning.
 
 ## [Unreleased]
 
+### Added
+
+- **The punctuation scope has a comparator, which is the durable half of the
+  fix.** Correcting prose leaves the next divergence undetectable; the claim
+  needed to be executable. `userSupplied` is now flipped on one identical line
+  of text with both codes asserted either side, so the test says the flag is
+  what moved rather than pinning two strings in two states. The assertions
+  around it each covered one state of one text and between them never said
+  that.
+
+  Breakage run: deleting `if (d.userSupplied) return;` from
+  `dialoguePunctuation` turns it red, along with the two single-state cases.
+
 ### Changed
 
 - **The punctuation scope existed in four copies, two right and two wrong, and
@@ -175,6 +188,14 @@ All notable changes to this project are documented here. Semantic versioning.
   same way it would have to be: no test could see it, because the planner prompt
   and the diagnostic's justification are two derivations of one reading of one
   sentence and never meet.
+
+  *Corrected below, same release:* the last sentence is wrong and is left
+  standing because a dated record that slips its own conclusions is worse than
+  none. The copies did not share one reading. `speech.ts` carried the correct
+  paragraph scope throughout, so the artifacts disagreed rather than agreeing on
+  a mistake, and the two failures need different fixes -- a copied misreading is
+  repaired at its source, divergent copies have to be adjudicated first. The
+  scope now has an executable comparator.
 
 - **`WORDS_PER_SECOND` says what it rests on.** One anchor, one free parameter,
   no measurement, and rates between roughly 2 and 2.8 in circulation elsewhere
