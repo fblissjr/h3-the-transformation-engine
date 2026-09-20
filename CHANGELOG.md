@@ -4,6 +4,26 @@ All notable changes to this project are documented here. Semantic versioning.
 
 ## [Unreleased]
 
+### Changed
+
+- **`REF_SPEAKER_IN_RETENTION` records the scope of the sentence it rests on.**
+  Third rule in the validator built on a sentence from ref 5.4, and two of the
+  three were misscoped, so the scope is now written down rather than left to be
+  re-derived. The rule fires on every Ref2VA document, and that is correct: its
+  sentence sits in the "Assign `(Sx)` once according to the order of actual
+  vocal events" paragraph, which opens with no condition.
+
+  The structural evidence is in the guide's own prose, which is what makes it
+  checkable instead of interpretive. 5.4 alternates general rules with
+  conditional carve-outs: three paragraphs open with "When ...", and three open
+  with none. The paragraph also restates the BGM carve-out in its own last
+  sentence, which would be redundant if an earlier condition governed it.
+
+  Recorded with a correction, because the argument arrived overstated: it is not
+  the only unconditioned paragraph in the section, there are three, and the
+  alternation is the stronger reading precisely because it is a pattern rather
+  than an exception.
+
 ### Added
 
 - **The keyframe table is now checked against something other than itself.**
