@@ -174,6 +174,11 @@ export const CUTOFF_TAG = '<cutoff>';
  * Punctuation permitted inside <d>. Ref guide section 5.4: standardize to the
  * basic marks needed to express the sentence; strip tildes, emoji, bullets, and
  * decorative or repeated punctuation.
+ *
+ * The SET is that sentence's. The rule applying it to lines a planner wrote is
+ * house, because the sentence is scoped to dialogue reused from a reference
+ * audio -- see dialogue-punctuation-scope in the contract. Said here because
+ * this reasoning has existed in four places and two of them disagreed.
  */
 export const DIALOGUE_ALLOWED_PUNCTUATION = [',', '.', '?', '!', "'", '-'] as const;
 export const DIALOGUE_TERMINALS = ['.', '?', '!'] as const;

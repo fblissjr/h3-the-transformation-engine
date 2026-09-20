@@ -205,8 +205,13 @@ export interface Dialogue {
    * exclamation -- a chant, an interjection, a repeated lyric phrase, a line
    * that trails off.
    *
-   * ref 5.4 scopes its terminal-mark rule to "complete statements, questions,
-   * and exclamations", and this is how a document says the rule does not apply.
+   * The terminal-mark rule this exempts is house, not ref 5.4's: that sentence
+   * sits inside the paragraph scoped to dialogue reused from reference audio,
+   * so it does not reach a line a planner invented. What IS taken from it is
+   * the shape of the exemption -- it asks for a mark on "complete statements,
+   * questions, and exclamations", so incompleteness is the property that
+   * excuses one, and this is how a document declares it. See
+   * dialogue-punctuation-scope in the contract.
    * It is deliberately about completeness rather than about how the line is
    * delivered: a sung line can be a complete statement and should be
    * punctuated, and a spoken interjection is a fragment and should not be, so a

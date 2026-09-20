@@ -4,6 +4,29 @@ All notable changes to this project are documented here. Semantic versioning.
 
 ## [Unreleased]
 
+### Changed
+
+- **The punctuation scope existed in four copies, two right and two wrong, and
+  this morning's fix reached only the wrong pair that cited each other.**
+  Counting them changed the diagnosis. `dialoguePunctuation` in `speech.ts` has
+  carried the correct paragraph scope in its own comment the whole time --
+  "scoped in its own paragraph to dialogue reused from reference audio or
+  reperformed on request" -- and so has the punctuation control's describe
+  block. The diagnostic description asserted the complement; a control comment
+  asserted the clause was unconditional.
+
+  So the copies did not share one misreading, they disagreed, with nothing
+  comparing any of them. The contract note said the opposite and is corrected:
+  the transferable form is copy count, not depth. A copy bound to nothing
+  survives a fix applied to two copies bound to each other, and a reader who
+  checks the spec against the constant still sees agreement.
+
+  Two further copies now say which half is the guide's: the `fragment` field's
+  doc comment in `types.ts`, which cited ref 5.4 as the authority for a rule
+  that is house while correctly taking the exemption's shape from it, and
+  `DIALOGUE_ALLOWED_PUNCTUATION` in `vocab.ts`, where the set is the guide's and
+  the application is not.
+
 ### Added
 
 - **A conformant `(S1,S2)`, which no document here had ever contained.**
